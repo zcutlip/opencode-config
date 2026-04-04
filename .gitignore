@@ -1,0 +1,5 @@
+node_modules
+bun.lock
+skills/analyze-usage
+dcp.jsonc
+commands/analyze-usage.md
