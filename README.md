@@ -40,7 +40,7 @@ This repository contains the configuration, custom agents, commands, skills, and
 - **Permissions**: Bash, edit, and write operations default to `ask` for safety
 - **Compaction**: Auto-compaction with context pruning enabled
 - **File Watcher**: Ignores `node_modules`, `dist`, `build`, `.git`, and log files
-- **MCP**: Forgejo MCP server for Git forge integration
+- **MCP**: Forgejo MCP server for Codeberg integration
 - **Pre-commit**: Trailing whitespace, EOF fixer, JSON/YAML validation, and more
 
 ## Project Structure
