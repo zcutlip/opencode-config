@@ -57,7 +57,8 @@
             "model": "opencode/qwen3.6-plus-free",
             "permission": {
                 "edit": "deny",
-                "write": "deny"
+                "write": "deny",
+                "read": "deny"
             }
         },
         "build": {
