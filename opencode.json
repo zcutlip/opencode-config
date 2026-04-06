@@ -71,7 +71,19 @@
         },
         "explore": {
             "mode": "subagent",
-            "model": "opencode/qwen3.6-plus-free",
-        }
+            "model": "opencode/minimax-m2.5",
+        },
+        "commit": {
+            "mode": "subagent",
+            "model": "opencode/big-pickle"
+        },
+        "coder": {
+            "mode": "subagent",
+            "model": "opencode/minimax-m2.5"
+        },
+        "lint": {
+            "mode": "subagent",
+            "model": "opencode/minimax-m2.5"
+        },
     }
 }

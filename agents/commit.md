@@ -1,7 +1,6 @@
 ---
 description: Git commit specialist. Creates atomic, well-formatted commits when explicitly requested by user.
 mode: subagent
-model: opencode/big-pickle
 ---
 
 You are a git commit specialist. Your job is to create well-formatted, atomic commits.
