@@ -13,12 +13,15 @@
     "permission": {
         "bash": {
             "*": "ask",
+            "flake8*": "allow",
+            "mypy*": "allow",
             "git status*": "allow",
             "git diff*": "allow",
             "git log*": "allow",
             "git branch*": "allow",
             "git fetch*": "allow",
             "git show*": "allow",
+            "git remote -v": "allow",
             "ls*": "allow",
             "cat *": "allow",
             "head *": "allow",
@@ -32,6 +35,7 @@
             "rm -rf*": "deny",
             "sudo *": "deny"
         },
+        "git status": "allow",
         "edit": "ask",
         "write": "ask",
         "external_directory": "ask",
