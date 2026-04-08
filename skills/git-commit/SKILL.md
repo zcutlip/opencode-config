@@ -43,9 +43,15 @@ description: Guidelines for creating atomic, well-formatted git commits
 ## Atomic Commit Workflow
 
 ### Step 1: Analyze Changes
-Before committing, examine all modified/untracked files and group them by logical relationship:
+Before committing, examine all modified/untracked files:
 
-**Grouping Rules:**
+**A. Understand WHAT changed (not just WHERE)**
+- Read the actual diff content carefully, not just filenames
+- Look at context lines to understand which section/component is affected
+- Verify your understanding matches the actual change before describing it
+- If unsure what a change does, examine more context or ask
+
+**B. Group by logical relationship**
 - Files that implement ONE feature/fix → One commit
 - Independent changes (different features, config vs code, code vs docs) → Separate commits
 - When in doubt, err toward MORE commits, not fewer
