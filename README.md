@@ -29,6 +29,7 @@ This repository contains the configuration, custom agents, commands, skills, and
 
 | Skill | Description |
 |-------|-------------|
+| `codeberg-integration` | Interact with Codeberg (Forgejo/Gitea) repositories |
 | `git-commit` | Guidelines for creating atomic, well-formatted commits |
 
 ### Themes
