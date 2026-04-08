@@ -58,8 +58,9 @@
             "permission": {
                 "edit": "deny",
                 "write": "deny",
-                "read": "deny"
-            }
+                "read": "deny",
+                "question": "allow"
+            },
         },
         "build": {
             "mode": "primary",
