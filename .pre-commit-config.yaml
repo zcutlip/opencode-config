@@ -3,6 +3,7 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^package\.json$
       - id: end-of-file-fixer
       - id: check-json
         exclude: \.(jsonc)$|^opencode\.json$
