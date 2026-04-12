@@ -13,16 +13,16 @@
     "permission": {
         "bash": {
             "*": "ask",
-            "flake8*": "allow",
-            "mypy*": "allow",
-            "git status*": "allow",
-            "git diff*": "allow",
-            "git log*": "allow",
-            "git branch*": "allow",
-            "git fetch*": "allow",
-            "git show*": "allow",
+            "flake8 *": "allow",
+            "mypy *": "allow",
+            "git status *": "allow",
+            "git diff *": "allow",
+            "git log *": "allow",
+            "git branch *": "allow",
+            "git fetch *": "allow",
+            "git show *": "allow",
             "git remote -v": "allow",
-            "ls*": "allow",
+            "ls *": "allow",
             "cat *": "allow",
             "head *": "allow",
             "tail *": "allow",
@@ -32,9 +32,10 @@
             "echo *": "allow",
             "pwd": "allow",
             "whoami": "allow",
-            "rm -rf*": "deny",
+            "rm -rf *": "deny",
             "sudo *": "deny"
         },
+        "lsp": "allow",
         "git status": "allow",
         "edit": "ask",
         "write": "ask",
@@ -67,7 +68,7 @@
             "model": "opencode/kimi-k2.5",
             "permission": {
                 "task": "allow",
-                "edit": "deny"
+                "edit": "ask",
             }
         },
         "explore": {
@@ -80,7 +81,7 @@
         },
         "coder": {
             "mode": "subagent",
-            "model": "opencode/minimax-m2.5"
+            "model": "openrouter/minimax/minimax-m2.7"
         },
         "lint": {
             "mode": "subagent",
