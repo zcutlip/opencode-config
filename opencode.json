@@ -62,8 +62,12 @@
             "permission": {
                 "edit": "deny",
                 "write": "deny",
-                "read": "deny",
-                "question": "allow"
+                "question": "allow",
+                "read": {
+                    "*": "deny",
+                    "**/docs/**": "allow",
+                    "**/*.md": "allow"
+                },
             },
         },
         "build": {
