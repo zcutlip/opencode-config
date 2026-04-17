@@ -58,7 +58,7 @@
     "agent": {
         "plan": {
             "mode": "primary",
-            "model": "opencode/kimi-k2.5",
+            "model": "opencode-go/glm-5",
             "permission": {
                 "edit": "deny",
                 "write": "deny",
@@ -68,7 +68,7 @@
         },
         "build": {
             "mode": "primary",
-            "model": "opencode/kimi-k2.5",
+            "model": "opencode-go/kimi-k2.5",
             "permission": {
                 "task": "allow",
                 "edit": "ask",
@@ -76,15 +76,15 @@
         },
         "explore": {
             "mode": "subagent",
-            "model": "opencode/big-pickle",
+            "model": "opencode-go/mimo-v2-omni"
         },
         "commit": {
             "mode": "subagent",
-            "model": "opencode/big-pickle"
+            "model": "opencode-go/mimo-v2-omni"
         },
         "coder": {
             "mode": "subagent",
-            "model": "openrouter/minimax/minimax-m2.7",
+            "model": "opencode-go/mimo-v2-pro",
             "permission": {
                 "lsp": "allow"
             }
