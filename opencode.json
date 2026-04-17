@@ -81,7 +81,10 @@
         },
         "coder": {
             "mode": "subagent",
-            "model": "openrouter/minimax/minimax-m2.7"
+            "model": "openrouter/minimax/minimax-m2.7",
+            "permission": {
+                "lsp": "allow"
+            }
         },
         "lint": {
             "mode": "subagent",
