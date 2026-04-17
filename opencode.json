@@ -8,7 +8,13 @@
         "reserved": 10000
     },
     "watcher": {
-        "ignore": ["node_modules/**", "dist/**", "build/**", ".git/**", "*.log"]
+        "ignore": [
+            "node_modules/**",
+            "dist/**",
+            "build/**",
+            ".git/**",
+            "*.log"
+        ]
     },
     "permission": {
         "bash": {
