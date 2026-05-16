@@ -16,6 +16,7 @@
             "*.log"
         ]
     },
+    "lsp": true,
     "permission": {
         "bash": {
             "*": "ask",
@@ -51,7 +52,9 @@
     "plugin": [
         "@tarquinen/opencode-dcp@latest",
         "opencode-session-manager",
-        "opencode-auto-resume"],
+        "/Users/zach/Sync/Projects/src/opencode-docs-errata"
+      ],
+        // "opencode-auto-resume"],
     // "mcp": {
     //     "my-local-mcp-server": {
     //         "type": "local",
@@ -64,7 +67,7 @@
     "agent": {
         "plan": {
             "mode": "primary",
-            "model": "opencode-go/glm-5",
+            "model": "opencode/qwen3.6-plus-free",
             "permission": {
                 "edit": "deny",
                 "write": "deny",
@@ -78,7 +81,7 @@
         },
         "build": {
             "mode": "primary",
-            "model": "opencode-go/kimi-k2.5",
+            "model": "opencode/qwen3.6-plus-free",
             "permission": {
                 "task": "allow",
                 "edit": "ask",
@@ -86,22 +89,22 @@
         },
         "explore": {
             "mode": "subagent",
-            "model": "opencode-go/mimo-v2-omni"
+            "model": "opencode/qwen3.6-plus-free"
         },
         "commit": {
             "mode": "subagent",
-            "model": "opencode-go/mimo-v2-omni"
+            "model": "opencode/deepseek-v4-flash-free"
         },
         "coder": {
             "mode": "subagent",
-            "model": "opencode-go/mimo-v2-pro",
+            "model": "opencode/qwen3.6-plus-free",
             "permission": {
                 "lsp": "allow"
             }
         },
         "lint": {
             "mode": "subagent",
-            "model": "opencode/big-pickle"
+            "model": "opencode/deepseek-v4-flash-free"
         },
     }
 }
