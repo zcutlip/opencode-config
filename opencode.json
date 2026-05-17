@@ -43,9 +43,7 @@
             "sudo *": "deny"
         },
         "lsp": "allow",
-        "git status": "allow",
         "edit": "ask",
-        "write": "ask",
         "external_directory": "ask",
         "doom_loop": "ask"
     },
@@ -70,14 +68,13 @@
             "model": "opencode/qwen3.6-plus-free",
             "permission": {
                 "edit": "deny",
-                "write": "deny",
                 "question": "allow",
                 "read": {
                     "*": "deny",
                     "**/docs/**": "allow",
                     "**/*.md": "allow"
-                },
-            },
+                }
+            }
         },
         "build": {
             "mode": "primary",
@@ -105,6 +102,6 @@
         "lint": {
             "mode": "subagent",
             "model": "opencode/deepseek-v4-flash-free"
-        },
+        }
     }
 }
