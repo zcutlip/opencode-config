@@ -455,3 +455,17 @@ def test_known_failure():
 - Are xfail reasons documented?
 - Are slow tests marked?
 - Are integration tests marked?
+
+## Cross-Reference: Python-Specific Considerations
+
+For Python-specific audit guidance, see `python.md` which covers:
+
+- **Nondeterministic code testing** — When `isinstance()` assertions are appropriate vs. weak
+- **Parameterization opportunities** — When to recommend `@pytest.mark.parametrize`
+- **Global state and conftest.py patterns** — Converting module-level helpers to fixtures
+- **String transform testing** — Edge cases for case/conjugation transforms
+- **Snapshot testing without external deps** — Native pytest snapshot patterns
+- **CLI testing patterns** — argparse exit codes, capsys usage
+- **Type-only assertion assessment** — Decision tree for assertion strength
+
+Always check `python.md` before finalizing a Python/pytest audit report.

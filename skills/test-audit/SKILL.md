@@ -9,6 +9,8 @@ metadata:
   lsp-priority: true
 ---
 
+# Test Audit Skill
+
 ## What I Do
 
 I conduct comprehensive audits of test suites to identify quality issues and provide actionable recommendations. My approach prioritizes LSP tools for code comprehension to save tokens and time, with graceful fallback to file reading when needed.
@@ -31,6 +33,52 @@ I analyze test suites for:
 - Misleading test names
 - Edge case tests with minimal validation
 - Inconsistent assertion patterns
+
+## Context-Aware Analysis
+
+**Before flagging issues, understand the code under test.** Not all "weak" assertions are actually weak — context matters.
+
+### Consider the Nature of the Code
+
+| Code Type | Appropriate Assertions | Why |
+|-----------|----------------------|-----|
+| Random/nondeterministic generators | `isinstance()`, `len() > 0` | Output is unpredictable without seeding. These confirm the code didn't crash and returned the right type. |
+| Formatters/renderers | Structural checks (contains sections, headers) | Exact output varies with input. Structure is what matters. |
+| Deterministic functions | Exact value assertions | Output is predictable. Assert specific values. |
+| CLI wrappers | Exit codes, stdout/stderr content | The contract is the interface, not internal state. |
+
+**Rule:** Before flagging an assertion as "weak," ask: *Could a stronger assertion be written without changing the test setup?* If the code is nondeterministic and the test doesn't seed it, `isinstance()` may be the strongest assertion possible — and that's fine. The recommendation should be to seed the generator, not to assert more specifically.
+
+**Seed check:** Before classifying a test as "nondeterministic, so weak assertions are fine," check whether the test uses a seed, fixed input, or deterministic path. If the test seeds the generator (e.g., `seed=42`, `--seed hello`), the output is deterministic and the assertion should be held to a higher standard.
+
+### Check Project Constraints Before Recommending
+
+Before suggesting any external tool, library, or pattern change:
+
+1. **Check for dependency policies** — Does the project have a zero-dependency or minimal-dependency policy? Don't recommend `pytest-snapshot`, `hypothesis`, or similar if the project avoids external deps.
+2. **Check for design principles** — Does the project have explicit design constraints (e.g., "stdlib only", "no mocking", "real implementations only")? Respect these in recommendations.
+3. **Check existing patterns** — Does the project already have a pattern for the issue you're flagging? Don't recommend `conftest.py` if the project intentionally uses module-level helpers.
+
+**Rule:** Every recommendation must be implementable within the project's stated constraints. If the ideal solution requires violating a constraint, offer the best alternative that respects it.
+
+### Within-Tier Prioritization
+
+When multiple issues share a severity level, rank them by impact within that tier:
+
+- **Within Critical:** Tests with no assertions > Tests that always pass > Tests with exception swallowing
+- **Within Medium:** Tests checking only type > Tests checking only defaults > Tests with weak substring checks
+- **Within Minor:** Missing edge cases > Missing documentation > Naming inconsistencies
+
+Report format for within-tier ranking:
+```markdown
+### Medium Issues (Should Fix)
+
+1. **test_foo** — Only checks `isinstance()` (highest impact in this tier)
+2. **test_bar** — Only checks default value
+3. **test_baz** — Weak substring check (lowest impact in this tier)
+```
+
+This helps teams know which issues to tackle first within each severity level.
 
 ### Framework Support
 
@@ -101,6 +149,34 @@ If LSP is unavailable or returns errors:
 **Never fail the audit due to LSP issues.**
 
 ## Audit Workflow
+
+### Phase 0: Run Tests First (Primary Agent)
+
+**Before any static analysis, run the test suite to establish a baseline.**
+
+```bash
+# Run all tests and capture pass/fail rate
+pytest --tb=short -q
+
+# Or use the project's test runner if available
+```
+
+Record:
+- Total tests run
+- Pass/fail rate
+- Any failures (these are critical issues to investigate)
+- Test execution time
+
+**Cross-reference counts:** After running tests, compare the reported test count against your structural discovery counts. If they differ, re-examine the files in question — LSP discovery can miss module-level test functions or miscount nested classes.
+
+**Why this matters:**
+- Static analysis alone produces reports like "Pass rate: Unknown" which is unhelpful
+- A failing test is a higher-priority finding than any static analysis issue
+- Running tests reveals flaky tests, slow tests, and runtime-only issues
+
+**If tests cannot be run:**
+- Note explicitly why (missing dependencies, environment issues)
+- Continue with static analysis but flag "tests were not executed" in the report
 
 ### Phase 1: Discovery (Explore Agents - Structural Only)
 
@@ -312,201 +388,18 @@ This approach keeps individual agent contexts small while allowing comprehensive
 - Simple test suite
 - Quick audit needed
 
-## Explore Agent Prompt Examples
+## Framework-Specific Guidance
 
-### Layout Discovery Prompt
-
-Use this prompt for the initial layout discovery:
-
-```
-@explore: Discover test suite layout
-
-Find all test files in the project:
-- Use LSP: lsp.workspaceSymbol("test_*") to find test functions
-- Fallback: glob "**/test_*.py" if LSP unavailable
-
-Return:
-- List of all test files with full paths
-- Test directory structure
-- Total count of test files
-
-Do NOT:
-- Read any test files
-- Analyze test content
-- Count tests or assertions
-- Make any quality judgments
-```
-
-### Structural Discovery Prompt (Per File)
-
-Use this prompt for each test file (spawn in parallel):
-
-```
-@explore: Get structural information for tests/test_file.py
-
-Use LSP to get the test structure:
-- lsp.documentSymbol("tests/test_file.py")
-
-Return:
-- Test classes with line numbers
-- Test methods with line numbers
-- Fixture functions with line numbers
-- Function signatures (name, parameters, return type if available)
-
-Format as:
-```
-Class: TestClassName (line N)
-  Method: test_method_name (line N)
-  Method: test_another_method (line N)
-
-Fixture: fixture_name (line N)
-```
-
-Do NOT:
-- Read test bodies
-- Count assertions
-- Analyze test quality
-- Identify issues
-- Make recommendations
-- Explain how tests work
-```
-
-### What NOT to Ask Explore Agents
-
-**❌ WRONG - Asks for analysis:**
-```
-@explore: Analyze tests in test_file.py
-- Count assertions in each test
-- Identify tests with no assertions
-- Check for exception swallowing
-- Assess test quality
-```
-
-**✅ CORRECT - Asks for structure only:**
-```
-@explore: Get structural information for tests/test_file.py
-- List test classes and methods with line numbers
-- List fixture definitions with line numbers
-- Return function signatures only
-```
-
-**❌ WRONG - Asks for quality judgment:**
-```
-@explore: Find bad tests in test_file.py
-- Identify tests with no assertions
-- Find tests that only check is not None
-- Locate exception swallowing
-```
-
-**✅ CORRECT - Asks for location only:**
-```
-@explore: Find test functions in tests/test_file.py
-- Return list of all test functions with line numbers
-- Return function signatures
-```
-
-### Redirect When Explore Agent Oversteps
-
-If an explore agent starts providing analysis or quality judgments, use this redirect:
-
-> "You're providing analysis, which is outside your scope. Explore agents should only provide structural information (file paths, line numbers, function signatures). Please return only the structural data and let the primary agent perform the analysis."
-
-Then restate the correct prompt asking for structural information only.
-
-## Framework-Specific Checks
-
-### pytest (Python)
-
-**Test Discovery:**
-- Pattern: `test_*.py` files
-- Functions: `def test_*`
-- Classes: `class Test*`
-
-**Assertion Patterns:**
-- `assert` statements
-- `pytest.raises()` context managers
-- `pytest.warns()` context managers
-
-**Exception Handling:**
-- Try/except without pytest.raises = suspicious
-- Catching Exception/BaseException = suspicious
-- SystemExit swallowing = suspicious (verify argparse exits)
-
-**Fixture Patterns:**
-- `@pytest.fixture` decorators
-- `conftest.py` files
-- `pytest.ini` or `pyproject.toml` [tool.pytest]
-
-### unittest (Python) - Planned
-
-**Test Discovery:**
-- Pattern: `test_*.py` files
-- Classes: `unittest.TestCase` subclasses
-- Methods: `def test_*`
-
-**Assertion Patterns:**
-- `self.assert*()` methods
-- `self.assertRaises()` context managers
-
-**Exception Handling:**
-- Try/except without assertRaises = suspicious
-
-### Jest (JavaScript) - Planned
-
-**Test Discovery:**
-- Pattern: `*.test.js`, `*.spec.js` files
-- Functions: `test()`, `it()`
-- Suites: `describe()`
-
-**Assertion Patterns:**
-- `expect()` matchers
-- `.toThrow()` for exceptions
+See `frameworks/pytest.md` for detailed pytest methodology, assertion patterns, exception handling, and fixture analysis.
+See `frameworks/python.md` for Python-specific considerations including nondeterministic code testing, parameterization, and global state patterns.
 
 ## Checklist Reference
 
-### Assertions Checklist
-
-**Critical:**
-- [ ] Test has NO assertions
-- [ ] Test only checks `is not None` without further validation
-- [ ] Test only checks `len() > 0` without content validation
-
-**Medium:**
-- [ ] Test only checks default values (e.g., `assert x == 0`)
-- [ ] Test only checks file existence (`assert os.path.exists()`)
-- [ ] Test only checks type (`assert isinstance(x, str)`)
-
-**Minor:**
-- [ ] Weak assertions (`or` conditions that make tests too permissive)
-- [ ] Assertions that could pass on wrong output
-- [ ] Misleading test names
-
-### Exception Handling Checklist
-
-**Critical:**
-- [ ] Bare `except:` clause
-- [ ] `except Exception:` without verification
-- [ ] Catching SystemExit without checking exit code
-
-**Medium:**
-- [ ] Try/except without pytest.raises/assertRaises
-- [ ] Exception caught but not re-raised or verified
-
-**Minor:**
-- [ ] Overly broad exception catching
-- [ ] No error message verification
-
-### Fixture Checklist
-
-**Medium:**
-- [ ] Hardcoded output directories
-- [ ] No cleanup mechanism
-- [ ] Fixture duplication (multiple similar fixtures)
-
-**Minor:**
-- [ ] No parameterization
-- [ ] Missing docstrings
-- [ ] No type hints
+Detailed checklists are available in the `checklists/` directory:
+- `checklists/assertions.md` — Assertion quality assessment with decision tree
+- `checklists/exceptions.md` — Exception handling patterns
+- `checklists/fixtures.md` — Fixture quality checks
+- `checklists/coverage.md` — Coverage gap analysis
 
 ## Report Template
 
@@ -516,31 +409,40 @@ Then restate the correct prompt asking for structural information only.
 ## Executive Summary
 
 - **Total tests:** N
-- **Pass rate:** X%
+- **Pass rate:** X% (N passed, M failed)
+- **Tests executed:** Yes/No (if No, explain why)
 - **Critical issues:** N
 - **Medium issues:** N
 - **Minor issues:** N
 - **Overall health:** Good/Fair/Poor
 
+## Context
+
+- **Project constraints:** [e.g., zero external dependencies, stdlib only, no mocking]
+- **Code characteristics:** [e.g., random text generator, deterministic formatter, CLI wrapper]
+- **Assertion assessment:** [e.g., "Weak assertions on random output are expected without seeding; recommendations focus on adding deterministic test paths"]
+
 ## Findings by Severity
 
 ### Critical Issues (Must Fix)
 
-1. **test_name** - Issue description
+1. **test_name** — Issue description
    - File: `path/to/test_file.py`
    - Line: N
-   - Recommendation: Specific fix
+   - Impact: Why this matters
+   - Recommendation: Specific fix with code example
 
 ### Medium Issues (Should Fix)
 
-1. **test_name** - Issue description
+1. **test_name** — Issue description *(highest impact in tier)*
    - File: `path/to/test_file.py`
    - Line: N
-   - Recommendation: Specific fix
+   - Impact: Why this matters
+   - Recommendation: Specific fix with code example
 
 ### Minor Issues (Nice to Fix)
 
-1. **test_name** - Issue description
+1. **test_name** — Issue description
    - File: `path/to/test_file.py`
    - Line: N
    - Recommendation: Specific fix
@@ -548,28 +450,26 @@ Then restate the correct prompt asking for structural information only.
 ## Recommendations
 
 ### High Priority
-1. Fix critical issues
-2. Improve exception handling
+1. [Specific, actionable items respecting project constraints]
 
 ### Medium Priority
-1. Refactor trivial tests
-2. Improve fixture quality
+1. [Specific, actionable items]
 
 ### Low Priority
-1. Add test documentation
-2. Improve test names
+1. [Specific, actionable items]
 
 ## Statistics
 
 ### Test Distribution
-- Unit tests: N
-- Integration tests: N
-- End-to-end tests: N
+| File | Tests | Classes |
+|------|-------|---------|
+| `test_file.py` | N | N |
+| **Total** | **N** | **N** |
 
 ### Assertion Quality
 - Tests with no assertions: N
-- Tests with weak assertions: N
-- Tests with strong assertions: N
+- Tests with weak assertions: N (list: test_a, test_b)
+- Tests with strong assertions: N (~X%)
 
 ### Exception Handling
 - Tests with try/except: N
@@ -580,31 +480,36 @@ Then restate the correct prompt asking for structural information only.
 - Total fixtures: N
 - Fixtures with cleanup: N
 - Fixtures parameterized: N
+- Parameterization opportunities: N
 
 ## Notes
 
 - Framework: pytest/unittest/jest
 - LSP available: Yes/No
 - Audit method: LSP-first / File-reading only
+- Tests executed: Yes/No
 ```
 
 ## Best Practices
 
 ### When Auditing
 
-1. **Always try LSP first** for structure discovery
-2. **Read files selectively** - only when content analysis needed
-3. **Be specific** in recommendations - provide code examples
-4. **Prioritize** issues by impact and severity
-5. **Context matters** - some "trivial" tests are intentional smoke tests
+1. **Always run tests first** — Establish baseline pass rate before static analysis
+2. **Understand the code under test** — Random generators need different assertion standards than deterministic functions
+3. **Check project constraints** — Don't recommend tools that violate dependency policies or design principles
+4. **Read files selectively** — Only when content analysis needed
+5. **Be specific** in recommendations — provide code examples
+6. **Prioritize** issues by impact and severity, including within-tier ranking
+7. **Context matters** — some "trivial" tests are intentional smoke tests
 
 ### When Reporting
 
 1. **Be constructive** - focus on improvements, not just problems
 2. **Provide examples** - show before/after code
 3. **Explain why** - help developers understand the issue
-4. **Suggest priorities** - help teams decide what to fix first
-5. **Note limitations** - if LSP unavailable, mention it
+4. **Suggest priorities** - help teams decide what to fix first, including within-tier ranking
+5. **Note limitations** - if LSP unavailable or tests couldn't be run, mention it
+6. **Respect constraints** - all recommendations must be implementable within project constraints
 
 ### Common Patterns
 
@@ -639,19 +544,3 @@ def test_user_authentication():
     except Exception:
         pass  # Swallows all exceptions
 ```
-
-## Limitations
-
-- Cannot execute tests (static analysis only)
-- May miss runtime-only issues
-- Framework-specific knowledge required for new frameworks
-- LSP availability affects performance and accuracy
-
-## Future Enhancements
-
-- Support for more frameworks (unittest, Jest, Mocha, etc.)
-- Test coverage analysis integration
-- Flaky test detection patterns
-- Performance test auditing
-- Security test auditing
-- Accessibility test auditing

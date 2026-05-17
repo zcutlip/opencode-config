@@ -146,3 +146,50 @@ For each test, check:
 - [ ] Multiple assertions validate different aspects
 - [ ] Exception tests verify exception type and message
 - [ ] Collection tests validate content, not just length
+
+## Context-Aware Assertion Assessment
+
+**Not all "weak" assertions are actually weak.** Before flagging an assertion as weak, consider the context.
+
+### When Type-Only Assertions Are Appropriate
+
+| Assertion | Context | Verdict |
+|-----------|---------|---------|
+| `isinstance(result, str)` | Nondeterministic output, no seed | Appropriate — confirms code didn't crash and returned correct type |
+| `len(result) > 0` | Random generator without seed | Appropriate — confirms output was produced |
+| `result is not None` | Function that may return None | Appropriate — confirms function returned something |
+| `isinstance(result, str)` | Deterministic function with known input | Weak — should assert specific value |
+| `len(result) > 0` | Deterministic function with known input | Weak — should assert specific length or content |
+
+### Decision Tree
+
+```
+Is the code under test nondeterministic?
+├── Yes → Is a seed or fixed input used in the test?
+│         ├── Yes → Assert specific values (deterministic output)
+│         └── No → Type/length assertions are appropriate
+│                  Recommendation: Add seeded test path
+└── No → Is the input known and fixed?
+         ├── Yes → Assert specific values
+         └── No → Structural assertions (contains sections, headers)
+```
+
+### Strengthening Assertions
+
+**For nondeterministic code:**
+1. Add a seed parameter to make output deterministic
+2. Assert specific values for the seeded output
+3. Keep the unseeded test for structural validation (type, non-empty)
+
+**For deterministic code:**
+1. Assert specific expected values
+2. Assert structural properties (sections, format, keywords)
+3. Use `pytest.raises` with `match` for error paths
+
+### Common Misclassifications
+
+❌ **Incorrect:** "test_generate only checks `isinstance(result, str)` — weak assertion"
+✅ **Correct:** "test_generate uses `isinstance(result, str)` which is appropriate for unseeded random output. Recommendation: add a seeded test path with specific assertions."
+
+❌ **Incorrect:** "test_format only checks `len(output) > 0` — trivial assertion"
+✅ **Correct:** "test_format uses `len(output) > 0` which confirms output was produced. For stronger validation, assert structural properties like section headers or keyword presence."
