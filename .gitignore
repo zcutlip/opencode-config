@@ -4,7 +4,8 @@ package-lock.json
 skills/analyze-usage
 dcp.jsonc
 commands/analyze-usage.md
-
+tui.json
+skills/opencode-errata
 
 #### Python Stuff ####
 # Byte-compiled / optimized / DLL files
