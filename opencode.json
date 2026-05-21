@@ -1,107 +1,105 @@
 {
-    "$schema": "https://opencode.ai/config.json",
-    "autoupdate": true,
-    // "small_model": "opencode/gpt-5-nano",
-    "compaction": {
-        "auto": true,
-        "prune": true,
-        "reserved": 10000
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": true,
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 10000
+  },
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      ".git/**",
+      "*.log"
+    ]
+  },
+  "lsp": true,
+  "permission": {
+    "bash": {
+      "*": "ask",
+      "flake8 *": "allow",
+      "mypy *": "allow",
+      "git status *": "allow",
+      "git diff *": "allow",
+      "git log *": "allow",
+      "git branch *": "allow",
+      "git fetch *": "allow",
+      "git show *": "allow",
+      "git remote -v": "allow",
+      "ls *": "allow",
+      "cat *": "allow",
+      "head *": "allow",
+      "tail *": "allow",
+      "grep *": "allow",
+      "find *": "allow",
+      "which *": "allow",
+      "echo *": "allow",
+      "pwd": "allow",
+      "whoami": "allow",
+      "rm -rf *": "deny",
+      "sudo *": "deny"
     },
-    "watcher": {
-        "ignore": [
-            "node_modules/**",
-            "dist/**",
-            "build/**",
-            ".git/**",
-            "*.log"
-        ]
-    },
-    "lsp": true,
-    "permission": {
-        "bash": {
-            "*": "ask",
-            "flake8 *": "allow",
-            "mypy *": "allow",
-            "git status *": "allow",
-            "git diff *": "allow",
-            "git log *": "allow",
-            "git branch *": "allow",
-            "git fetch *": "allow",
-            "git show *": "allow",
-            "git remote -v": "allow",
-            "ls *": "allow",
-            "cat *": "allow",
-            "head *": "allow",
-            "tail *": "allow",
-            "grep *": "allow",
-            "find *": "allow",
-            "which *": "allow",
-            "echo *": "allow",
-            "pwd": "allow",
-            "whoami": "allow",
-            "rm -rf *": "deny",
-            "sudo *": "deny"
-        },
-        "lsp": "allow",
-        "edit": "ask",
-        "external_directory": "ask",
-        "doom_loop": "ask"
-    },
-    "plugin": [
-        "@tarquinen/opencode-dcp@latest",
-        "opencode-session-manager",
-        "/Users/zach/Sync/Projects/src/opencode-docs-errata"
-      ],
-        // "opencode-auto-resume"],
-    // "mcp": {
-    //     "my-local-mcp-server": {
-    //         "type": "local",
-    //         "command": [
-    //             "forgejo-mcp"
-    //         ],
-    //         "enabled": true
-    //     }
-    // },
-    "agent": {
-        "plan": {
-            "mode": "primary",
-            "model": "opencode/qwen3.6-plus-free",
-            "permission": {
-                "edit": "deny",
-                "question": "allow",
-                "read": {
-                    "*": "deny",
-                    "**/docs/**": "allow",
-                    "**/*.md": "allow"
-                }
-            }
-        },
-        "build": {
-            "mode": "primary",
-            "model": "opencode/qwen3.6-plus-free",
-            "permission": {
-                "task": "allow",
-                "edit": "ask",
-            }
-        },
-        "explore": {
-            "mode": "subagent",
-            "model": "opencode/qwen3.6-plus-free"
-        },
-        "commit": {
-            "mode": "subagent",
-            "model": "opencode/deepseek-v4-flash-free"
-        },
-        "coder": {
-            "mode": "subagent",
-            "model": "opencode/qwen3.6-plus-free",
-            "permission": {
-                "lsp": "allow"
-            }
-        },
-        "lint": {
-            "mode": "subagent",
-            "model": "opencode/deepseek-v4-flash-free"
+    "lsp": "allow",
+    "edit": "ask",
+    "external_directory": "ask",
+    "doom_loop": "ask"
+  },
+  "plugin": [
+    "@tarquinen/opencode-dcp@latest",
+    "opencode-session-manager",
+    "opencode-froggy"
+  ],
+  "agent": {
+    "plan": {
+      "mode": "primary",
+      "model": "opencode/qwen3.6-plus-free",
+      "permission": {
+        "edit": "deny",
+        "question": "allow",
+        "read": {
+          "*": "deny",
+          "**/docs/**": "allow",
+          "**/*.md": "allow"
         }
+      },
+      "options": {}
+    },
+    "build": {
+      "mode": "primary",
+      "model": "opencode/qwen3.6-plus-free",
+      "permission": {
+        "task": "allow",
+        "edit": "ask"
+      },
+      "options": {}
+    },
+    "explore": {
+      "mode": "subagent",
+      "model": "opencode/deepseek-v4-flash-free",
+      "options": {},
+      "permission": {}
+    },
+    "commit": {
+      "mode": "subagent",
+      "model": "opencode/deepseek-v4-flash-free",
+      "options": {},
+      "permission": {}
+    },
+    "coder": {
+      "mode": "subagent",
+      "model": "opencode/qwen3.6-plus-free",
+      "permission": {
+        "lsp": "allow"
+      },
+      "options": {}
+    },
+    "lint": {
+      "mode": "subagent",
+      "model": "opencode/deepseek-v4-flash-free",
+      "options": {},
+      "permission": {}
     }
+  },
 }
