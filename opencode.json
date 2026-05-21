@@ -54,7 +54,7 @@
   "agent": {
     "plan": {
       "mode": "primary",
-      "model": "opencode/qwen3.6-plus-free",
+      "model": "opencode-go/glm-5.1",
       "permission": {
         "edit": "deny",
         "question": "allow",
@@ -68,7 +68,7 @@
     },
     "build": {
       "mode": "primary",
-      "model": "opencode/qwen3.6-plus-free",
+      "model": "opencode-go/deepseek-v4-pro",
       "permission": {
         "task": "allow",
         "edit": "ask"
@@ -78,8 +78,18 @@
     "explore": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
-      "options": {},
-      "permission": {}
+      "permission": {
+        "read": "allow",
+        "lsp": "allow",
+        "edit": "deny",
+        "bash": {
+          "ls *": "allow",
+          "cat *": "allow",
+          "grep *": "allow",
+          "find *": "allow"
+        }
+      },
+      "options": {}
     },
     "commit": {
       "mode": "subagent",
@@ -89,17 +99,26 @@
     },
     "coder": {
       "mode": "subagent",
-      "model": "opencode/qwen3.6-plus-free",
+      "model": "opencode/deepseek-v4-flash-free",
       "permission": {
-        "lsp": "allow"
+        "edit": "allow",
+        "lsp": "allow",
+        "read": "allow"
       },
       "options": {}
     },
     "lint": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
-      "options": {},
-      "permission": {}
+      "permission": {
+        "bash": {
+          "flake8 *": "allow",
+          "mypy *": "allow",
+          "ruff *": "allow",
+          "*-lint.sh": "allow"
+        }
+      },
+      "options": {}
     }
-  },
+  }
 }
