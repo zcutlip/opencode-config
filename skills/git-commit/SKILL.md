@@ -39,6 +39,7 @@ description: Guidelines for creating atomic, well-formatted git commits
 - Line length <= 79 characters
 - No attribution in commit messages
 - Concise descriptions (don't need to be comprehensive)
+- use the bash heredoc technique so the user can easily read the commit before approving
 
 ## Atomic Commit Workflow
 
