@@ -39,7 +39,10 @@
       "pwd": "allow",
       "whoami": "allow",
       "rm -rf *": "deny",
-      "sudo *": "deny"
+      "sudo *": "deny",
+      "**/opencode-docs-helper.sh *": "allow",
+      "**/opencode-docs-helper.sh": "allow"
+
     },
     "lsp": "allow",
     "edit": "ask",
@@ -95,7 +98,16 @@
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
       "options": {},
-      "permission": {}
+      "permission": {
+        "skill": {
+          "git-commit": "allow"
+        },
+        "bash": {
+          "git status *": "allow",
+          "git diff *": "allow",
+          "git log *": "allow"
+        }
+      }
     },
     "coder": {
       "mode": "subagent",
