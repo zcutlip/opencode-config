@@ -1,0 +1,111 @@
+{
+  // JSON schema for IDE autocompletion and validation
+  "$schema": "https://raw.githubusercontent.com/Opencode-DCP/opencode-dynamic-context-pruning/master/dcp.schema.json",
+
+  // ==========================================================================
+  // TURN PROTECTION
+  // ==========================================================================
+
+  "turnProtection": {
+    // Protect the most recent N turns from ANY compression.
+    // Prevents DCP from compressing content you're actively referencing.
+    "enabled": true,
+    "turns": 4
+  },
+
+  // ==========================================================================
+  // COMPRESSION
+  // ==========================================================================
+
+  "compress": {
+    // Compression mode: "range" (contiguous blocks) or "message" (individual msgs)
+    "mode": "range",
+
+    // Permission: "allow" (auto-compress), "ask" (prompt first), "deny" (off)
+    "permission": "allow",
+
+    // Show visual compression markers in chat (useful for debugging)
+    "showCompression": false,
+
+    // Keep a buffer of recent messages uncompressed for context continuity
+    "summaryBuffer": true,
+
+    // ── Context limit thresholds ──────────────────────────────────────────
+    // Compression triggers when total tokens exceed maxContextLimit.
+    // DCP won't compress below minContextLimit.
+    // Percentages are relative to each model's context window.
+    //
+    // These are fallbacks; per-model overrides in modelMaxLimits /
+    // modelMinLimits take priority for matched models.
+    "maxContextLimit": 100000,  // fallback: start nudging at 100k tokens
+    "minContextLimit": 50000,   // fallback: never compress below 50k tokens
+
+    // Per-model overrides (providerID/modelID → threshold)
+    "modelMaxLimits": {
+      // All models have 1M context windows.
+      // 80% = start nudging at ~800k tokens.
+      "opencode-go/glm-5.1":             "80%",
+      "opencode-go/deepseek-v4-flash":   "80%",
+      "opencode/deepseek-v4-flash-free": "80%",
+      "opencode-go/deepseek-v4-pro":     "80%"
+    },
+    "modelMinLimits": {
+      // 50% of 1M = 500k tokens floor.
+      // DCP stays silent below 500k, gently nudges 500k-800k,
+      // strongly nudges above 800k.
+      "opencode-go/glm-5.1":             "50%",
+      "opencode-go/deepseek-v4-flash":   "50%",
+      "opencode/deepseek-v4-flash-free": "50%",
+      "opencode-go/deepseek-v4-pro":     "50%"
+    },
+
+    // ── Nudge system ──────────────────────────────────────────────────────
+    // How often DCP reminds the model to compress (in turns/iterations)
+    "nudgeFrequency": 5,
+    // Turn count threshold that triggers a stronger nudge
+    "iterationNudgeThreshold": 15,
+    // Default nudge intensity: "soft" (suggestion) or "strong" (instruction)
+    "nudgeForce": "soft",
+
+    // ── Protection ────────────────────────────────────────────────────────
+    // Tools whose outputs are NEVER compressed
+    "protectedTools": [],
+    // Wrap text in <protect>...</protect> tags to mark it as uncompressible
+    // "protectTags": false,
+    // Never compress messages authored by the user (not the model)
+    "protectUserMessages": false
+  }
+
+  // ==========================================================================
+  // STRATEGIES (commented out — using defaults)
+  // ==========================================================================
+  //
+  // "strategies": {
+  //   // Automatically deduplicate repeated tool outputs
+  //   "deduplication": { "enabled": true, "protectedTools": [] },
+  //   // Automatically purge old tool error outputs from context
+  //   "purgeErrors": { "enabled": true, "turns": 4, "protectedTools": [] }
+  // }
+  //
+  // ==========================================================================
+  // OTHER OPTIONS (commented out — using defaults)
+  // ==========================================================================
+  //
+  // "manualMode": { "enabled": false, "automaticStrategies": true },
+  //   // If enabled: no auto-compression. Only /dcp compress manually.
+  //
+  // "protectedFilePatterns": [],
+  //   // Glob patterns for files whose content is never compressed.
+  //   // E.g.: ["*.md", "CONTRIBUTING*"]
+  //
+  // "experimental": { "allowSubAgents": false, "customPrompts": false },
+  //   // Enable compression in sub-agent sessions or custom prompt overrides.
+  //
+  // "commands": { "enabled": true, "protectedTools": ["task","skill",...] },
+  //   // /dcp slash commands. protectedTools = tools /dcp commands can't touch.
+  //
+  // "pruneNotification": "detailed",  // "off" | "minimal" | "detailed"
+  // "pruneNotificationType": "chat",  // "chat" | "toast"
+  // "autoUpdate": true,
+  // "enabled": true
+}
