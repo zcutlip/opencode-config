@@ -5,6 +5,8 @@ skills/analyze-usage
 commands/analyze-usage.md
 tui.json
 skills/opencode-errata
+skills/opencode-froggy-docs
+commands/froggy-docs.md
 
 #### Python Stuff ####
 # Byte-compiled / optimized / DLL files
