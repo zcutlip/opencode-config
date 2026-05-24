@@ -46,7 +46,7 @@
       // 80% = start nudging at ~800k tokens.
       "opencode-go/glm-5.1":             "80%",
       "opencode-go/deepseek-v4-flash":   "80%",
-      "opencode/deepseek-v4-flash-free": "80%",
+      "opencode/deepseek-v4-flash-free": "30%",
       "opencode-go/deepseek-v4-pro":     "80%"
     },
     "modelMinLimits": {
@@ -54,14 +54,20 @@
       // DCP stays silent below 500k, gently nudges 500k-800k,
       // strongly nudges above 800k.
       "opencode-go/glm-5.1":             "50%",
+      /*
+       * Deepseek flash has 1M context is known to suffer with large context:
+       * - Effective reliable attention: May degrade on instructions at position
+       *  300K+ or buried mid-prompt
+       * - Position bias: Strongest attention to start, end, and explicit
+       *   markers; weakest on "middle" procedural steps
+       */
       "opencode-go/deepseek-v4-flash":   "50%",
-      "opencode/deepseek-v4-flash-free": "50%",
+      "opencode/deepseek-v4-flash-free": "15%",
       "opencode-go/deepseek-v4-pro":     "50%"
     },
-
     // ── Nudge system ──────────────────────────────────────────────────────
     // How often DCP reminds the model to compress (in turns/iterations)
-    "nudgeFrequency": 5,
+    // "nudgeFrequency": 5,
     // Turn count threshold that triggers a stronger nudge
     "iterationNudgeThreshold": 15,
     // Default nudge intensity: "soft" (suggestion) or "strong" (instruction)
