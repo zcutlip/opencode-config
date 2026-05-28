@@ -57,7 +57,7 @@
   "agent": {
     "plan": {
       "mode": "primary",
-      "model": "opencode-go/glm-5.1",
+      "model": "opencode-go/glm-5",
       "permission": {
         "edit": "deny",
         "question": "allow",
