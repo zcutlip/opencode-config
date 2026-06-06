@@ -4,4 +4,11 @@ agent: commit
 subtask: true
 ---
 
-Use the git-commit skill to commit changes. If additional text is provided below, treat it as a scope hint for which files or directories to include — nothing more. Do not over-interpret it. If no scope hint is provided, commit all changes.
+Create a git commit. Use the git-commit skill to determine appropriate commit structure and message.
+
+If you encouter an error, stop immediately and report up. Failure is acceptable, and reporitng preferred.
+
+- If additional text is provided at the end, it determines scope: which files or directories to focus on.
+- If no additional end text: scope is project.
+
+### OPTIONAL SCOPE-DETERMINIG END TEXT MAY FOLLOW
