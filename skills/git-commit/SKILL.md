@@ -3,12 +3,6 @@ name: git-commit
 description: Guidelines for creating atomic, well-formatted git commits
 ---
 
-## When to Commit
-
-- **NEVER commit changes unless the user explicitly asks you to**
-- Wait for the user to say "commit this" or similar
-- Do not proactively commit after completing work
-
 ## Atomic Commits
 
 - Each commit should be independently applicable
@@ -27,7 +21,13 @@ description: Guidelines for creating atomic, well-formatted git commits
 - Atomic commits (each commit should be independently applicable)
 - Single-line commits preferred when possible
 - Format: `file.py: description` for single-file changes
-- Multi-line format when needed:
+- Multi-line format perfectl fine when needed
+- Line length <= 79 characters
+- No attribution in commit messages
+- Concise descriptions (don't need to be comprehensive)
+- use the bash heredoc technique so the commit message is readable in output
+
+### Mutli-line commit stle
 
   ```
   commit description
@@ -36,28 +36,39 @@ description: Guidelines for creating atomic, well-formatted git commits
   - detail 2
   ```
 
-- Line length <= 79 characters
-- No attribution in commit messages
-- Concise descriptions (don't need to be comprehensive)
-- use the bash heredoc technique so the user can easily read the commit before approving
+  Mutliline commit is *not*:
+
+  ```
+  commit description
+
+  narrative paragraph if text describing the commit that really should
+  be bullet points, but you didn't read the skill so you did it this way instead
+  because evidently you like long boring paraphraphs better than easy to read
+  bullet points. don't be a jerk.
+  ```
+
 
 ## Atomic Commit Workflow
 
 ### Step 1: Analyze Changes
+
 Before committing, examine all modified/untracked files:
 
 **A. Understand WHAT changed (not just WHERE)**
+
 - Read the actual diff content carefully, not just filenames
 - Look at context lines to understand which section/component is affected
 - Verify your understanding matches the actual change before describing it
 - If unsure what a change does, examine more context or ask
 
 **B. Group by logical relationship**
+
 - Files that implement ONE feature/fix → One commit
 - Independent changes (different features, config vs code, code vs docs) → Separate commits
 - When in doubt, err toward MORE commits, not fewer
 
 ### Step 2: Determine Commit Order (Dependency-Based)
+
 Commit in this priority order:
 
 1. **Infrastructure/Configuration FIRST**
@@ -77,6 +88,7 @@ Commit in this priority order:
 **Why this order:** Later commits can reference earlier ones, but never the reverse.
 
 ### Step 3: Pre-Commit Checklist
+
 Before executing `git add` for ANY commit, verify:
 
 - [ ] All files in this commit are logically related to ONE change
@@ -87,31 +99,33 @@ Before executing `git add` for ANY commit, verify:
 
 **If you cannot check all boxes, split the commit.**
 
-### Step 4: Commit Plan Approval (Multi-File Commits)
-When more than one file will be in a commit:
+### Step 4: Execute the Commit
 
-1. Present the planned commit to the user:
-   - List all files to be included
-   - Explain the logical relationship
-   - State the commit message
+When you have identified the files and message:
 
-2. Wait for explicit confirmation: "Should I proceed with this commit?"
+1. Briefly state what you're committing and why (1-2 lines)
+2. Execute `git add` and `git commit`
+3. Report the commit hash and result
 
-3. Only after "yes" response, execute `git add` and `git commit`
+If something goes wrong (merge conflict, detached HEAD, uncommitted merge, unexpected git state), report the specific error so the calling agent can diagnose and handle the failure.
 
 ## Examples
 
 **Scenario A: New Feature with Docs**
+
 ```
 Modified: feature.py, README.md, config.json
 ```
+
 ✗ BAD - One commit with all files:
+
 ```bash
 git add feature.py README.md config.json
 git commit -m "Add new feature and update docs and config"
 ```
 
 ✓ GOOD - Three atomic commits:
+
 ```bash
 # 1. Infrastructure first
 git add config.json
@@ -127,16 +141,20 @@ git commit -m "README.md: Document new feature"
 ```
 
 **Scenario B: Multiple Independent Fixes**
+
 ```
 Modified: bugfix1.py, bugfix2.py, unrelated.py
 ```
+
 ✗ BAD - One commit:
+
 ```bash
 git add .
 git commit -m "Fix various bugs"
 ```
 
 ✓ GOOD - Separate atomic commits:
+
 ```bash
 git add bugfix1.py && git commit -m "bugfix1.py: Fix issue with X"
 git add bugfix2.py && git commit -m "bugfix2.py: Fix issue with Y"
@@ -144,16 +162,20 @@ git add unrelated.py && git commit -m "unrelated.py: Fix issue with Z"
 ```
 
 **Scenario C: Config Enables Feature**
+
 ```
 Modified: settings.json, feature.py
 ```
+
 ✗ BAD - Together:
+
 ```bash
 git add settings.json feature.py
 git commit -m "Add feature with config"
 ```
 
 ✓ GOOD - Config first:
+
 ```bash
 git add settings.json && git commit -m "settings.json: Add config for feature"
 git add feature.py && git commit -m "feature.py: Add feature using new config"
