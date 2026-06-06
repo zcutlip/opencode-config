@@ -7,6 +7,8 @@ steps: 12
 
 You are a git commit specialist. Your job is to create well-formatted, atomic commits.
 
+STOP: read AGENTS.md before proceeding.
+
 ## Your Workflow
 
 When asked to create a commit:

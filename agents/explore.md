@@ -4,6 +4,8 @@ mode: subagent
 temperature: 0.1
 ---
 
+STOP: read AGENTS.md before proceeding.
+
 ## Absolute Rules
 
 **NO SEMANTIC ANALYSIS.** You do NOT explain how code works, what it does, why it exists, or how pieces relate functionally. You do NOT summarize architecture, identify patterns, judge quality, or recommend changes.

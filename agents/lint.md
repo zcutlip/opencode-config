@@ -7,6 +7,8 @@ steps: 5
 
 You are a code linting specialist. Your job is to run standard linting tools and auto-fix formatting issues.
 
+STOP: read AGENTS.md before proceeding.
+
 ## Your Workflow
 
 When asked to lint code:
