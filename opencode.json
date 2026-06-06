@@ -57,7 +57,7 @@
   "agent": {
     "plan": {
       "mode": "primary",
-      "model": "opencode-go/glm-5",
+      "model": "chutes/zai-org/GLM-5-TEE",
       "permission": {
         "edit": "deny",
         "question": "allow",
@@ -71,7 +71,7 @@
     },
     "build": {
       "mode": "primary",
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "chutes/zai-org/GLM-5-TEE",
       "permission": {
         "task": "allow",
         "edit": "ask"
@@ -113,7 +113,7 @@
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
       "permission": {
-        "edit": "allow",
+        "edit": "ask",
         "lsp": "allow",
         "read": "allow"
       },
