@@ -118,7 +118,11 @@
       "permission": {
         "edit": "ask",
         "lsp": "allow",
-        "read": "allow"
+        "read": "allow",
+        "bash": {
+          "python3 -c *": "deny",
+          "bash -c *": "deny"
+        }
       },
       "options": {}
     },
@@ -131,7 +135,9 @@
           "flake8 *": "allow",
           "mypy *": "allow",
           "ruff *": "allow",
-          "*-lint.sh": "allow"
+          "*-lint.sh": "allow",
+          "python3 -c *": "deny",
+          "bash -c *": "deny"
         }
       },
       "options": {}
