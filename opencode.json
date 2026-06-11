@@ -81,6 +81,7 @@
     "explore": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode/deepseek-v4-flash",
       "permission": {
         "read": "allow",
         "lsp": "allow",
@@ -97,6 +98,7 @@
     "commit": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode/deepseek-v4-flash",
       "options": {},
       "permission": {
         "skill": {
@@ -112,6 +114,7 @@
     "coder": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode/deepseek-v4-flash",
       "permission": {
         "edit": "ask",
         "lsp": "allow",
@@ -122,6 +125,7 @@
     "lint": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode/deepseek-v4-flash",
       "permission": {
         "bash": {
           "flake8 *": "allow",
