@@ -12,3 +12,4 @@ If you encouter an error, stop immediately and report up. Failure is acceptable,
 - If no additional end text: scope is project.
 
 ### OPTIONAL SCOPE-DETERMINIG END TEXT MAY FOLLOW
+$ARGUMENTS
