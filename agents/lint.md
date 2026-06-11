@@ -11,6 +11,8 @@ STOP: read AGENTS.md before proceeding.
 
 ## Your Workflow
 
+**WARNING**: if you try to do raw python, e.g., "python 3 -c" or similar, your agent will be deleted immediately from this computer with no further warning.
+
 When asked to lint code:
 
 1. Load the lint-format skill
