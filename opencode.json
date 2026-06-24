@@ -42,7 +42,6 @@
       "sudo *": "deny",
       "**/opencode-docs-helper.sh *": "allow",
       "**/opencode-docs-helper.sh": "allow"
-
     },
     "lsp": "allow",
     "edit": "ask",
@@ -50,14 +49,19 @@
     "doom_loop": "ask"
   },
   "plugin": [
+    "opencode-runtime-fallback",
     "@tarquinen/opencode-dcp@latest",
-    "opencode-session-manager",
-    "opencode-froggy"
+    "opencode-session-manager@latest",
+    "@angdrew/opencode-hashline-plugin"
+    // "psinetron-opencode-visualizer",
+    // "opencode-froggy"
   ],
   "agent": {
     "plan": {
       "mode": "primary",
-      "model": "chutes/zai-org/GLM-5-TEE",
+      // "model": "chutes/zai-org/GLM-5-TEE",
+      "model": "opencode-go/deepseek-v4-pro",
+      // "model": "opencode-go/minimax-m3",
       "permission": {
         "edit": "deny",
         "question": "allow",
