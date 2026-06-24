@@ -84,10 +84,12 @@ This helps teams know which issues to tackle first within each severity level.
 
 Currently supports:
 - **pytest** (Python) - primary framework
+- **Bun** (TypeScript/JavaScript) - primary framework
 - **unittest** (Python) - planned
 - **Jest** (JavaScript) - planned
+- **Vitest** (JavaScript/TypeScript) - planned
 
-Auto-detection based on project configuration files.
+Auto-detection based on project configuration files and import statements.
 
 ## When to Use Me
 
@@ -157,6 +159,9 @@ If LSP is unavailable or returns errors:
 ```bash
 # Run all tests and capture pass/fail rate
 pytest --tb=short -q
+
+# Or for Bun projects
+bun test
 
 # Or use the project's test runner if available
 ```
@@ -392,6 +397,8 @@ This approach keeps individual agent contexts small while allowing comprehensive
 
 See `frameworks/pytest.md` for detailed pytest methodology, assertion patterns, exception handling, and fixture analysis.
 See `frameworks/python.md` for Python-specific considerations including nondeterministic code testing, parameterization, and global state patterns.
+See `frameworks/bun.md` for Bun test runner methodology, subprocess testing patterns, and lifecycle hook usage.
+See `frameworks/typescript.md` for TypeScript-specific considerations including interface validation, type assertions, and JSON parsing patterns.
 
 ## Checklist Reference
 
@@ -484,7 +491,7 @@ Detailed checklists are available in the `checklists/` directory:
 
 ## Notes
 
-- Framework: pytest/unittest/jest
+- Framework: pytest / Bun / other (see framework-specific docs)
 - LSP available: Yes/No
 - Audit method: LSP-first / File-reading only
 - Tests executed: Yes/No
