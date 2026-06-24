@@ -3,7 +3,7 @@ bun.lock
 package-lock.json
 skills/analyze-usage
 commands/analyze-usage.md
-tui.json
+# tui.json
 skills/opencode-errata
 skills/opencode-froggy-docs
 commands/froggy-docs.md
