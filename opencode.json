@@ -75,7 +75,9 @@
     },
     "build": {
       "mode": "primary",
-      "model": "chutes/zai-org/GLM-5-TEE",
+      // "model": "chutes/zai-org/GLM-5-TEE",
+      "model": "opencode-go/deepseek-v4-pro",
+      // "model": "opencode-go/minimax-m3",
       "permission": {
         "task": "allow",
         "edit": "ask"
@@ -84,8 +86,11 @@
     },
     "explore": {
       "mode": "subagent",
-      "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode/deepseek-v4-flash",
+      // "model": "opencode/deepseek-v4-flash-free",
+      "model": "opencode-go/deepseek-v4-flash",
+      // "fallback_models": [
+      //   "opencode-go/deepseek-v4-flash"
+      // ],
       "permission": {
         "read": "allow",
         "lsp": "allow",
@@ -101,8 +106,11 @@
     },
     "commit": {
       "mode": "subagent",
-      "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode/deepseek-v4-flash",
+      // "model": "opencode/deepseek-v4-flash-free",
+      "model": "opencode-go/deepseek-v4-flash",
+      // "fallback_models": [
+      //   "opencode-go/deepseek-v4-flash"
+      // ],
       "options": {},
       "permission": {
         "skill": {
@@ -117,8 +125,11 @@
     },
     "coder": {
       "mode": "subagent",
-      "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode/deepseek-v4-flash",
+      // "model": "opencode/deepseek-v4-flash-free",
+      "model": "opencode-go/deepseek-v4-flash",
+      // "fallback_models": [
+      //   "opencode-go/deepseek-v4-flash"
+      // ],
       "permission": {
         "edit": "ask",
         "lsp": "allow",
@@ -132,8 +143,11 @@
     },
     "lint": {
       "mode": "subagent",
-      "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode/deepseek-v4-flash",
+      // "model": "opencode/deepseek-v4-flash-free",
+      "model": "opencode-go/deepseek-v4-flash",
+      // "fallback_models": [
+      //   "opencode-go/deepseek-v4-flash"
+      // ],
       "permission": {
         "bash": {
           "flake8 *": "allow",
