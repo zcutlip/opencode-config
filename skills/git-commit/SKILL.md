@@ -36,7 +36,7 @@ description: Guidelines for creating atomic, well-formatted git commits
   - detail 2
   ```
 
-  Mutliline commit is *not*:
+  Multiline commit is *not*:
 
   ```
   commit description
@@ -180,6 +180,25 @@ git commit -m "Add feature with config"
 git add settings.json && git commit -m "settings.json: Add config for feature"
 git add feature.py && git commit -m "feature.py: Add feature using new config"
 ```
+
+**Scenario D: Multi-line commit**
+
+✗ BAD - escaped newlines, hard to read during approval:
+
+```bash
+git add complex_changes.py
+git commit -m "complex_changes.py:\n\n- bullet 1\n- bullet 2"
+```
+
+✓ GOOD - Nicely formatted bash command, easy to read and understand:
+
+```bash
+git add complex_changes.py
+git commit -m "complex_changes.py:
+- bullet 1
+- bullet 2"
+```
+
 
 ## Common Mistakes to Avoid
 
