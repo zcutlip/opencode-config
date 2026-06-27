@@ -1,12 +1,18 @@
-node_modules
 bun.lock
 package-lock.json
-skills/analyze-usage
+node_modules
+
 commands/analyze-usage.md
-# tui.json
+commands/froggy-docs.md
+skills/analyze-usage
+skills/nono-sandbox
 skills/opencode-errata
 skills/opencode-froggy-docs
-commands/froggy-docs.md
+skills/opencode-skill-creator
+plugins/nono-sandbox*
+opencode-skill-creator-update-check.json
+
+# tui.json
 
 #### Python Stuff ####
 # Byte-compiled / optimized / DLL files
