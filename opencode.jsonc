@@ -52,15 +52,16 @@
     "opencode-runtime-fallback",
     "@tarquinen/opencode-dcp@latest",
     "opencode-session-manager@latest",
-    "@angdrew/opencode-hashline-plugin"
+    "@angdrew/opencode-hashline-plugin",
+    "opencode-skill-creator"
     // "psinetron-opencode-visualizer",
     // "opencode-froggy"
   ],
   "agent": {
     "plan": {
       "mode": "primary",
-      // "model": "chutes/zai-org/GLM-5-TEE",
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "chutes/moonshotai/Kimi-K2.5-TEE",
+      // "model": "opencode-go/deepseek-v4-pro",
       // "model": "opencode-go/minimax-m3",
       "permission": {
         "edit": "deny",
@@ -75,8 +76,8 @@
     },
     "build": {
       "mode": "primary",
-      // "model": "chutes/zai-org/GLM-5-TEE",
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "chutes/moonshotai/Kimi-K2.5-TEE",
+      // "model": "opencode-go/deepseek-v4-pro",
       // "model": "opencode-go/minimax-m3",
       "permission": {
         "task": "allow",
@@ -86,8 +87,8 @@
     },
     "explore": {
       "mode": "subagent",
-      // "model": "opencode/deepseek-v4-flash-free",
-      "model": "opencode-go/deepseek-v4-flash",
+      "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode-go/deepseek-v4-flash",
       // "fallback_models": [
       //   "opencode-go/deepseek-v4-flash"
       // ],
@@ -106,8 +107,8 @@
     },
     "commit": {
       "mode": "subagent",
-      // "model": "opencode/deepseek-v4-flash-free",
-      "model": "opencode-go/deepseek-v4-flash",
+      "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode-go/deepseek-v4-flash",
       // "fallback_models": [
       //   "opencode-go/deepseek-v4-flash"
       // ],
@@ -125,8 +126,8 @@
     },
     "coder": {
       "mode": "subagent",
-      // "model": "opencode/deepseek-v4-flash-free",
-      "model": "opencode-go/deepseek-v4-flash",
+      "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode-go/deepseek-v4-flash",
       // "fallback_models": [
       //   "opencode-go/deepseek-v4-flash"
       // ],
@@ -143,8 +144,8 @@
     },
     "lint": {
       "mode": "subagent",
-      // "model": "opencode/deepseek-v4-flash-free",
-      "model": "opencode-go/deepseek-v4-flash",
+      "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode-go/deepseek-v4-flash",
       // "fallback_models": [
       //   "opencode-go/deepseek-v4-flash"
       // ],
