@@ -1,5 +1,5 @@
 {
   "plugin": [
-    "@tarquinen/opencode-dcp@latest"
+    "@cortexkit/opencode-magic-context@latest"
   ]
 }

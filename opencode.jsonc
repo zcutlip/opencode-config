@@ -50,11 +50,14 @@
   },
   "plugin": [
     "opencode-runtime-fallback",
-    "@tarquinen/opencode-dcp@latest",
     "opencode-session-manager@latest",
     "@angdrew/opencode-hashline-plugin",
-    "opencode-skill-creator"
+    "opencode-skill-creator",
+    "@cortexkit/opencode-magic-context@latest",
+    "@dietrichgebert/ponytail",
+    "cc-safety-net",
     // "psinetron-opencode-visualizer",
+    // "@tarquinen/opencode-dcp@latest",
     // "opencode-froggy"
   ],
   "agent": {
