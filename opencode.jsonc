@@ -2,8 +2,8 @@
   "$schema": "https://opencode.ai/config.json",
   "autoupdate": true,
   "compaction": {
-    "auto": true,
-    "prune": true,
+    "auto": false,
+    "prune": false,
     "reserved": 10000
   },
   "watcher": {
