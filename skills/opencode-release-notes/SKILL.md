@@ -21,41 +21,34 @@ Use this skill when the user:
 
 ## Workflow
 
-1. **Run the helper script**
-   - Execute: `scripts/fetch-releases.py [--count N]`
-   - Never:
-      - `python3 ./scripts/...`
-      - `python3 -c`
-      - `bash -c`
+1. **Run the helper script** to get release data as JSON
+   - Execute: `scripts/fetch-releases.py [--count N]` for latest releases
+   - Or: `scripts/fetch-releases.py --tag vX.Y.Z` for a specific release
+   - Never: `python3 ./scripts/...`, `python3 -c`, or `bash -c`
+   - The script is executable with a proper shebang — run it directly
    - Default is 5 releases; use `--count` flag if user requests a different number
-   - The script is executable and has a proper shebang line
 
-2. **Display the output**
-   - Very lightly summarize the output without losing meaning. Just filter out some of the noise
-   - The script handles all API interaction, parsing, and formatting
+2. **Read the JSON output** — the script outputs the raw GitHub API response as pretty-printed JSON
+
+3. **Do a light summary** — condense the release notes for the user:
+   - Highlight new features and major bugfixes
+   - Condense/filter out noise from trivial or repetitive bugfixes
+   - Keep it concise — a few bullet points per release is plenty
+   - Don't lose the substance — just trim the fat
 
 ## Script Location
 
 The helper script is at: `scripts/fetch-releases.py`
 
-## Output Format
+## Script Output
 
-The script produces markdown with curated highlights:
+The script outputs the raw GitHub API response as pretty-printed JSON. Each release object contains:
+- `tag_name` — version tag (e.g. "v1.17.13")
+- `published_at` — ISO date string
+- `body` — full release notes markdown
+- Other metadata (URLs, author, etc.)
 
-```
-# OpenCode Release Highlights
-
-## vX.Y.Z (Month DD, YYYY)
-- Key highlight 1
-- Key highlight 2
-- Key highlight 3
-
----
-
-## vX.Y.Z (Month DD, YYYY)
-- Key highlight 1
-- Key highlight 2
-```
+Read the JSON, extract what you need, and present a light summary to the user.
 
 ## Error Handling
 
