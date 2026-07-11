@@ -6,6 +6,41 @@ Personal configuration for [OpenCode](https://opencode.ai) — an AI coding assi
 
 This repository contains the configuration, custom agents, commands, skills, and themes that power my OpenCode setup. It implements a structured multi-agent workflow with strict delegation rules and customized permissions.
 
+## Installation
+
+OpenCode reads its configuration from `~/.config/opencode`. This repo is designed to *be* that
+directory via a symlink — there is no build or copy step.
+
+**One command (recommended):**
+
+```sh
+./install.sh             # symlink + submodule init
+```
+
+**Manual steps:**
+
+1. **Clone** (hosted on Codeberg, not GitHub):
+   ```sh
+   git clone ssh://git@codeberg.org/zcutlip/opencode-config.git
+   cd opencode-config
+   ```
+
+2. **Initialize submodules** — the `humanizer` skill lives in a git submodule and will be
+   empty otherwise:
+   ```sh
+   git submodule update --init --recursive
+   ```
+
+3. **Symlink into place** — point OpenCode's config dir at this repo:
+   ```sh
+   ln -s "$(pwd)" ~/.config/opencode
+   ```
+   > If `~/.config/opencode` already exists as a real directory, move or remove it first
+   > (e.g. `mv ~/.config/opencode ~/.config/opencode.bak`).
+
+Restart OpenCode (or start a new session) and the agents, commands, skills, and themes load
+automatically.
+
 ## Architecture
 
 ### Agents
