@@ -90,9 +90,9 @@
     },
     "explore": {
       "mode": "subagent",
-      // "model": "opencode/deepseek-v4-flash-free",
+      "model": "opencode/deepseek-v4-flash-free",
       // "model": "opencode-go/deepseek-v4-flash",
-      "model": "opencode/deepseek-v4-flash",
+      // "model": "opencode/deepseek-v4-flash",
       // "fallback_models": [
       //   "opencode-go/deepseek-v4-flash"
       // ],
