@@ -163,6 +163,17 @@
         }
       },
       "options": {}
+    },
+    "task-rabbit": {
+      "model": "opencode/deepseek-v4-flash-free",
+      "permission": {
+        "bash": {
+          "python3 -c *": "deny",
+          "python3 *": "deny",
+          "bash -c *": "deny",
+          "bash *": "deny"
+        }
+      }
     }
   }
 }
