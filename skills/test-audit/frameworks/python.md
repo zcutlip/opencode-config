@@ -1,51 +1,6 @@
 # Python-Specific Test Audit Considerations
 
-## Nondeterministic Code Testing
-
-### The Problem
-
-Python code that uses `random`, `hashlib` with random seeds, or any nondeterministic source produces unpredictable output. Tests for such code often use "weak" assertions like `isinstance(result, str)` or `len(result) > 0` — not because the test author was lazy, but because stronger assertions are impossible without controlling the randomness.
-
-### Audit Guidance
-
-**Before flagging an assertion as "weak" on nondeterministic code:**
-
-1. Check if the code under test accepts a seed parameter
-2. Check if the test sets a seed (e.g., `random.seed(42)`, `--seed hello`)
-3. If no seed is used, the recommendation is to **add deterministic test paths**, not to assert more specifically
-
-### Recommended Pattern
-
-```python
-# BAD: Testing nondeterministic output without seed
-def test_generate_page():
-    result = generate()
-    assert isinstance(result, str)  # Can't assert more specifically
-    assert len(result) > 0          # Same limitation
-
-# GOOD: Seed the generator for deterministic testing
-def test_generate_page_deterministic():
-    result = generate(seed="test-seed")
-    assert result.startswith("# ")
-    assert "NAME" in result
-    assert len(result) > 100
-
-# GOOD: Verify structure regardless of randomness
-def test_generate_page_has_structure():
-    result = generate()
-    assert isinstance(result, str)
-    assert result.count("\n") > 5  # Has multiple lines
-    assert result.strip() != ""    # Not empty
-```
-
-### When `isinstance()` Is Actually Fine
-
-For nondeterministic code without seeding, these assertions are appropriate:
-- `isinstance(result, expected_type)` — Confirms the code didn't crash and returned the right type
-- `len(result) > 0` — Confirms output was produced
-- `result is not None` — Confirms the function returned something
-
-**The fix is not to assert more specifically. The fix is to seed the generator and then assert specifically.**
+> This file covers Python-specific **idioms and patterns**. The context-aware assertion assessment (including the nondeterministic-code decision tree) lives in `../checklists/assertions.md` — read that first.
 
 ## Parameterization Opportunities
 
@@ -279,6 +234,7 @@ def temp_output(tmp_path):
     return tmp_path / "output.md"
 ```
 
-## Type-Only Assertion Assessment
+## Cross-Reference
 
-See `../checklists/assertions.md` for the complete context-aware assertion assessment, including the decision tree for when type-only assertions are appropriate vs. weak.
+- `../checklists/assertions.md` — context-aware assertion assessment, including the nondeterministic-code decision tree and seed check
+- `pytest.md` — pytest discovery, markers, configuration, conftest hooks

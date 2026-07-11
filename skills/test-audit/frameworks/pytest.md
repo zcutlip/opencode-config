@@ -1,5 +1,7 @@
 # pytest Framework Methodology
 
+> This file covers pytest-specific **idioms and syntax**. The *what to look for* (assertion quality, exception handling, fixture quality, coverage) lives in `../checklists/` — apply those checklists using the patterns below.
+
 ## Test Discovery
 
 ### File Patterns
@@ -18,41 +20,9 @@
 
 ### Configuration Files
 - `pytest.ini` - Primary pytest configuration
-- `pyproject.toml` - Modern Python project config (section: `[tool.pytest]`)
+- `pyproject.toml` - Modern Python project config (section: `[tool.pytest.ini_options]`)
 - `setup.cfg` - Legacy config (section: `[tool:pytest]`)
 - `conftest.py` - Shared fixtures and hooks
-
-## LSP Discovery Strategy
-
-### Find Test Files
-```python
-# Try LSP workspace symbol search
-lsp.workspaceSymbol("test_*")
-
-# Fallback: glob pattern
-@explore glob "**/test_*.py"
-```
-
-### Get Test Structure
-```python
-# Try LSP document symbol
-lsp.documentSymbol("tests/test_example.py")
-
-# Returns:
-# - Test classes (class Test*)
-# - Test methods (def test_*)
-# - Helper functions (non-test functions)
-# - Fixture functions (@pytest.fixture)
-```
-
-### Get Test Metadata
-```python
-# Try LSP hover for docstrings
-lsp.hover(file_path, line, character)
-
-# Fallback: read file content
-@explore read file_path
-```
 
 ## Assertion Patterns
 
@@ -107,67 +77,7 @@ assert all(x > 0 for x in values)
 assert any(x is None for x in items)
 ```
 
-## Exception Handling Patterns
-
-### Good Patterns
-```python
-# Using pytest.raises
-def test_raises_exception():
-    with pytest.raises(ValueError) as exc_info:
-        raise ValueError("test")
-    assert str(exc_info.value) == "test"
-
-# Testing exception type only
-def test_raises_exception_type():
-    with pytest.raises(ValueError):
-        raise ValueError("test")
-
-# Testing no exception raised
-def test_no_exception():
-    function_that_should_not_raise()
-```
-
-### Bad Patterns
-```python
-# Bare except - swallows all exceptions
-def test_bad_bare_except():
-    try:
-        function_that_might_fail()
-    except:
-        pass  # BAD: swallows all exceptions
-
-# Catching Exception without verification
-def test_bad_catch_exception():
-    try:
-        function_that_might_fail()
-    except Exception:
-        pass  # BAD: swallows without verification
-
-# Catching SystemExit without checking exit code
-def test_bad_system_exit():
-    try:
-        main()
-    except SystemExit:
-        pass  # BAD: doesn't verify exit code
-```
-
-### Suspicious Patterns
-```python
-# Try/except without pytest.raises
-def test_suspicious_try_except():
-    try:
-        result = function_that_might_fail()
-    except ValueError:
-        result = default_value
-    assert result is not None  # Weak assertion
-
-# Overly broad exception catching
-def test_overly_broad():
-    try:
-        function_that_might_fail()
-    except (ValueError, TypeError, KeyError, AttributeError):
-        pass  # Too broad - hard to test properly
-```
+> For what makes these assertions *good* vs *weak* vs *vacuous*, see `../checklists/assertions.md` (includes the context-aware decision tree for nondeterministic code).
 
 ## Fixture Patterns
 
@@ -212,67 +122,7 @@ def test_with_parametrized_fixture(letter):
     assert len(letter) == 1
 ```
 
-## Common pytest Issues
-
-### Issue 1: Tests with No Assertions
-```python
-# BAD: No assertions
-def test_something():
-    result = calculate_something()
-    # No assertions - only checks it doesn't crash
-
-# GOOD: Has assertions
-def test_something():
-    result = calculate_something()
-    assert result is not None
-    assert result > 0
-```
-
-### Issue 2: Weak Assertions
-```python
-# BAD: Only checks not None
-def test_something():
-    result = calculate_something()
-    assert result is not None
-
-# GOOD: Validates actual value
-def test_something():
-    result = calculate_something()
-    assert result is not None
-    assert result == expected_value
-```
-
-### Issue 3: Trivial Tests
-```python
-# BAD: Only checks file existence
-def test_file_exists():
-    assert os.path.exists("file.txt")
-
-# GOOD: Validates file content
-def test_file_exists():
-    assert os.path.exists("file.txt")
-    with open("file.txt") as f:
-        content = f.read()
-    assert "expected content" in content
-```
-
-### Issue 4: Exception Swallowing
-```python
-# BAD: Swallows SystemExit from argparse
-def test_cli_version():
-    try:
-        main(["--version"])
-    except SystemExit:
-        pass  # Doesn't verify it was the expected exit
-
-# GOOD: Verifies exit code
-def test_cli_version(capsys):
-    with pytest.raises(SystemExit) as exc_info:
-        main(["--version"])
-    assert exc_info.value.code == 0
-    captured = capsys.readouterr()
-    assert "version" in captured.out.lower()
-```
+> For fixture quality checks (hardcoded paths, cleanup, duplication, parameterization), see `../checklists/fixtures.md`.
 
 ## pytest-Specific Quality Checks
 
@@ -451,7 +301,7 @@ def test_known_failure():
 
 ### Quality Checks
 - Are markers used appropriately?
-- Are skip reasons documented?
+- Are skip reasons documented? (A skip with no `reason=` is a Critical finding — see `../checklists/assertions.md`)
 - Are xfail reasons documented?
 - Are slow tests marked?
 - Are integration tests marked?
@@ -460,12 +310,10 @@ def test_known_failure():
 
 For Python-specific audit guidance, see `python.md` which covers:
 
-- **Nondeterministic code testing** — When `isinstance()` assertions are appropriate vs. weak
 - **Parameterization opportunities** — When to recommend `@pytest.mark.parametrize`
 - **Global state and conftest.py patterns** — Converting module-level helpers to fixtures
 - **String transform testing** — Edge cases for case/conjugation transforms
 - **Snapshot testing without external deps** — Native pytest snapshot patterns
 - **CLI testing patterns** — argparse exit codes, capsys usage
-- **Type-only assertion assessment** — Decision tree for assertion strength
 
 Always check `python.md` before finalizing a Python/pytest audit report.

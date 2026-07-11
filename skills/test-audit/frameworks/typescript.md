@@ -48,6 +48,9 @@ test("items array matches interface", async () => {
   expect(result.length).toBeGreaterThan(0);
 
   // Validate each item has required fields
+  // (The length assertion above guards this loop — without it, an empty
+  // array would make the loop body pass trivially. See ../checklists/assertions.md
+  // on vacuous loop assertions.)
   for (const item of result) {
     expect(item.name).toBeDefined();
     expect(typeof item.name).toBe("string");
@@ -439,10 +442,6 @@ For each TypeScript test, check:
 
 ## Cross-Reference: Framework-Specific Patterns
 
-For test runner-specific patterns (Bun, Jest, Vitest), see:
-
-- `bun.md` — Bun test runner specifics
-- `jest.md` — Jest patterns (when created)
-- `vitest.md` — Vitest patterns (when created)
+For test runner-specific patterns (Bun, Jest, Vitest), see `bun.md`. Bun's test API is Jest-compatible, so the patterns there apply to Jest and Vitest as well — note any framework-specific differences where relevant.
 
 Always check the appropriate framework documentation before finalizing a TypeScript test audit.

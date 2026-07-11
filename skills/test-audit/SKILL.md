@@ -1,30 +1,32 @@
 ---
 name: test-audit
-description: "Audit test suites for quality issues: missing assertions, exception swallowing, trivial tests, and fixture problems. LSP-first methodology with graceful fallback."
+description: "Audit test suites for quality issues: missing assertions, exception swallowing, trivial tests, and fixture problems. Supports pytest (Python) and Bun/Jest/Vitest (TypeScript/JavaScript)."
 license: MIT
 compatibility: opencode
 metadata:
   audience: developers
   workflow: testing
-  lsp-priority: true
 ---
 
 # Test Audit Skill
 
 ## What I Do
 
-I conduct comprehensive audits of test suites to identify quality issues and provide actionable recommendations. My approach prioritizes LSP tools for code comprehension to save tokens and time, with graceful fallback to file reading when needed.
+I audit test suites to identify quality issues and provide actionable recommendations. I read the test files, evaluate each test against the checklists in `checklists/`, and report findings by severity with specific fixes.
 
 ### Audit Scope
 
 I analyze test suites for:
 
 **Critical Issues:**
-- Tests with NO assertions
+- Tests with NO assertions (including `assert True` or commented-out asserts)
+- Tests that always pass regardless of correctness (vacuous loop assertions, mock tautology)
 - Exception handling that swallows errors without verification
+- Skipped or `xfail` tests without a documented reason
 - Tests that only check "doesn't crash" without validation
 
 **Medium Issues:**
+- Tests that only check `is not None` / `len() > 0` / type, without value validation (context-dependent — see Context-Aware Analysis)
 - Tests that only check default values or trivial conditions
 - Weak assertions that could pass on wrong output
 - Fixture quality problems (hardcoded values, no cleanup)
@@ -51,6 +53,8 @@ I analyze test suites for:
 
 **Seed check:** Before classifying a test as "nondeterministic, so weak assertions are fine," check whether the test uses a seed, fixed input, or deterministic path. If the test seeds the generator (e.g., `seed=42`, `--seed hello`), the output is deterministic and the assertion should be held to a higher standard.
 
+See `checklists/assertions.md` for the full decision tree and context-aware assessment.
+
 ### Check Project Constraints Before Recommending
 
 Before suggesting any external tool, library, or pattern change:
@@ -63,10 +67,10 @@ Before suggesting any external tool, library, or pattern change:
 
 ### Within-Tier Prioritization
 
-When multiple issues share a severity level, rank them by impact within that tier:
+When multiple issues share a severity level, rank them by impact within the tier:
 
 - **Within Critical:** Tests with no assertions > Tests that always pass > Tests with exception swallowing
-- **Within Medium:** Tests checking only type > Tests checking only defaults > Tests with weak substring checks
+- **Within Medium:** Tests checking only type > Tests checking only defaults > Tests checking only file existence
 - **Within Minor:** Missing edge cases > Missing documentation > Naming inconsistencies
 
 Report format for within-tier ranking:
@@ -75,19 +79,17 @@ Report format for within-tier ranking:
 
 1. **test_foo** — Only checks `isinstance()` (highest impact in this tier)
 2. **test_bar** — Only checks default value
-3. **test_baz** — Weak substring check (lowest impact in this tier)
+3. **test_baz** — Only checks file existence (lowest impact in this tier)
 ```
 
 This helps teams know which issues to tackle first within each severity level.
 
 ### Framework Support
 
-Currently supports:
-- **pytest** (Python) - primary framework
-- **Bun** (TypeScript/JavaScript) - primary framework
-- **unittest** (Python) - planned
-- **Jest** (JavaScript) - planned
-- **Vitest** (JavaScript/TypeScript) - planned
+- **pytest** (Python) — primary; see `frameworks/pytest.md` and `frameworks/python.md`
+- **Bun** (TypeScript/JavaScript) — primary; see `frameworks/bun.md` and `frameworks/typescript.md`
+- **Jest** and **Vitest** (JavaScript/TypeScript) — Bun's test API is Jest-compatible, so `frameworks/bun.md` and `frameworks/typescript.md` apply. Note any framework-specific differences where relevant.
+- **unittest** (Python) — covered via the Python checklists; uses `assertRaises`/`assertEqual` instead of `pytest.raises`/`assert`.
 
 Auto-detection based on project configuration files and import statements.
 
@@ -96,74 +98,49 @@ Auto-detection based on project configuration files and import statements.
 Use this skill when you need to:
 - Assess test suite quality before refactoring
 - Identify flaky or low-value tests
-- Review test coverage gaps
+- Review test coverage gaps (opt-in — see `checklists/coverage.md`)
 - Improve test maintainability
 - Prepare for code reviews or audits
 
-## LSP-First Methodology
+## Methodology
 
-### Why LSP First?
+### Read the tests, then judge.
 
-LSP tools provide structured code information without reading entire files:
-- `lsp.workspaceSymbol` - Find test files and test functions
-- `lsp.documentSymbol` - Get class/method hierarchy
-- `lsp.findReferences` - See what code tests reference
-- `lsp.goToDefinition` - Jump to tested code
-- `lsp.hover` - Get docstrings and type information
-- `lsp.goToImplementation`: Find implementations of interfaces/abstract methods
-- `lsp.incomingCalls`/`lsp.outgoingCalls`: Analyze call hierarchy
+Auditing test quality requires reading test bodies — assertions, exception handling, and fixture setup all live inside function bodies. The default workflow is:
 
-This saves tokens and time by avoiding unnecessary file reads.
+1. **Glob for test files** — `glob "**/test_*.py"` / `glob "**/*.test.ts"` etc.
+2. **Read each test file** — read the full file; assertion quality depends on context (imports, fixtures, helpers) that targeted reads risk missing.
+3. **Evaluate each test** against the checklists in `checklists/`.
+4. **Report findings** by severity with specific fixes.
 
-### Discovery Workflow
+### LSP as an optional accelerator
 
-**Step 1: Find test files (LSP-first)**
-```python
-# Try LSP first
-lsp.workspaceSymbol("test_*")  # or "*test*"
+LSP tools (`documentSymbol`, `findReferences`, `hover`) can help you navigate large suites, but they are **not required** and **not a substitute for reading test bodies**. Use them opportunistically:
 
-# Fallback to explore if LSP fails
-@explore glob "**/test_*.py"
-```
+- `lsp.documentSymbol` — get the class/method hierarchy of a large test file before reading it, so you know what's there.
+- `lsp.findReferences` — check whether a source function is referenced by any test (for coverage-gap analysis).
+- `lsp.hover` — pull docstrings/type info without opening a file.
 
-**Step 2: Get test structure (LSP-first)**
-```python
-# Try LSP first
-lsp.documentSymbol(file_path)  # Returns class/method hierarchy
+If LSP is unavailable, continue with file reads alone — the audit is not diminished. Note in the report whether LSP was used.
 
-# Fallback to explore if LSP fails
-@explore grep "^def test_" file_path
-```
+### Parallelizing file reads for large suites
 
-**Step 3: Analyze test content (explore)**
-```python
-# LSP can't read test bodies, use explore
-@explore read file_path  # Read full file for assertions, try/except
-```
-
-### Graceful LSP Failure
-
-If LSP is unavailable or returns errors:
-1. Log a warning: "LSP unavailable, falling back to file reading"
-2. Continue audit using `@explore` for all operations
-3. Note in report: "LSP not available - audit used file reading only"
-
-**Never fail the audit due to LSP issues.**
+For suites with many test files, read files in parallel (multiple Read calls in one message) to save wall-clock time. This is the only parallelization worth doing — the audit itself (judging each test) is sequential and done by you, not by subagents.
 
 ## Audit Workflow
 
-### Phase 0: Run Tests First (Primary Agent)
+### Phase 0: Run Tests First
 
 **Before any static analysis, run the test suite to establish a baseline.**
 
 ```bash
-# Run all tests and capture pass/fail rate
+# pytest
 pytest --tb=short -q
 
-# Or for Bun projects
+# Bun
 bun test
 
-# Or use the project's test runner if available
+# Or the project's own test runner
 ```
 
 Record:
@@ -172,7 +149,7 @@ Record:
 - Any failures (these are critical issues to investigate)
 - Test execution time
 
-**Cross-reference counts:** After running tests, compare the reported test count against your structural discovery counts. If they differ, re-examine the files in question — LSP discovery can miss module-level test functions or miscount nested classes.
+**Cross-reference counts:** Compare the runner's reported test count against the number of tests you discover by reading files. A mismatch usually means a test is collected but not run (e.g., skipped, or a class not matching the `Test*` pattern), or a discovery miss.
 
 **Why this matters:**
 - Static analysis alone produces reports like "Pass rate: Unknown" which is unhelpful
@@ -183,230 +160,40 @@ Record:
 - Note explicitly why (missing dependencies, environment issues)
 - Continue with static analysis but flag "tests were not executed" in the report
 
-### Phase 1: Discovery (Explore Agents - Structural Only)
+### Phase 1: Discovery
 
-**IMPORTANT:** Explore agents MUST only provide structural information. They should NOT perform any analysis, quality judgments, or semantic understanding.
+1. **Find test files** — glob for the framework's test file patterns (see the relevant `frameworks/*.md`).
+2. **Read each test file** in full. For large suites, read multiple files in parallel.
+3. **Read `conftest.py` / setup files** if they exist — fixtures and hooks live here.
 
-**Step 1: Discover test layout (single explore agent)**
-```
-@explore: Find all test files in the project
-- Use LSP: lsp.workspaceSymbol("test_*") to find test functions
-- Fallback: glob "**/test_*.py"
-- Return: List of test files with paths
-```
+### Phase 2: Analysis
 
-**Step 2: Parallel structural discovery (multiple explore agents)**
-```
-For EACH test file, spawn a separate @explore agent:
+For each test, evaluate against the checklists:
 
-@explore: Get structural information for tests/test_file.py
-- Use LSP: lsp.documentSymbol("tests/test_file.py")
-- Return:
-  * Test classes and their line numbers
-  * Test methods and their line numbers
-  * Fixture functions and their line numbers
-  * Function signatures only (no body content)
+1. **Assertions** (`checklists/assertions.md`) — count assertions, flag none/vacuous/weak/trivial, apply the context-aware decision tree.
+2. **Exception handling** (`checklists/exceptions.md`) — find `try/except` and bare `except:`, check for `pytest.raises`/`toThrow` with verification.
+3. **Fixtures** (`checklists/fixtures.md`) — hardcoded paths, missing cleanup, duplication, parameterization.
+4. **Coverage gaps** (`checklists/coverage.md`) — **opt-in only**; lead with coverage tooling when available.
 
-Do NOT:
-- Read test bodies
-- Count assertions
-- Analyze quality
-- Make recommendations
-```
+### Phase 3: Reporting
 
-**Step 3: Get test content (primary agent reads selectively)**
-```
-Primary agent reads test files ONLY when needed for analysis:
-- Read specific test functions (not entire files)
-- Focus on specific lines identified by explore agents
-- Use targeted reads to minimize context
-```
-
-### Phase 2: Analysis (Primary Agent - NOT Explore)
-
-**IMPORTANT:** Only the primary agent performs analysis. Explore agents are forbidden from semantic analysis.
-
-For each test:
-
-1. **Check assertions:**
-   - Primary agent reads test body (targeted read)
-   - Count assertions per test
-   - Identify tests with no assertions
-   - Flag weak assertions (is not None, len > 0 without content check)
-   - Check for default value checks only
-
-2. **Check exception handling:**
-   - Primary agent searches for try/except blocks
-   - Identify bare `except:` or `except Exception:`
-   - Check if exceptions are verified (pytest.raises, assertRaises)
-   - Flag swallowed exceptions without validation
-
-3. **Check test quality:**
-   - Primary agent analyzes test patterns
-   - Identify trivial tests (file existence, type checks only)
-   - Check for meaningful assertions vs. trivial conditions
-   - Verify test names match actual behavior
-
-4. **Check fixtures** (if conftest.py exists):
-   - Primary agent reads conftest.py
-   - Identify hardcoded values
-   - Check for cleanup mechanisms
-   - Look for fixture duplication
-   - Assess parameterization opportunities
-
-### Phase 3: Reporting (Primary Agent)
-
-Generate markdown report with:
-
-1. **Executive Summary**
-   - Total tests count
-   - Pass rate (if available)
-   - Critical issues count
-   - Overall health assessment
-
-2. **Findings by Severity**
-   - Critical (must fix)
-   - Medium (should fix)
-   - Minor (nice to fix)
-
-3. **Recommendations**
-   - Prioritized action items
-   - Specific code improvements
-   - Best practices suggestions
-
-4. **Statistics**
-   - Tests by category
-   - Assertion coverage
-   - Exception handling quality
-
-## Explore Agent Boundaries
-
-**Explore Agents MUST:**
-- Use LSP tools for structure discovery (workspaceSymbol, documentSymbol)
-- Return structural information only (file paths, line numbers, signatures)
-- Provide lists of functions, classes, test names
-- Report where code is located
-
-**Explore Agents MUST NOT:**
-- Read entire test files into context
-- Count assertions or analyze test content
-- Judge test quality or identify issues
-- Make recommendations
-- Explain how code works
-- Perform semantic analysis
-
-**If Explore Agent is Asked to Analyze:**
-Use this redirect:
-> "I only find and list code — I don\'t analyze test quality. The primary agent should perform the analysis. I can locate the test structure if you\'d like?"
-
-## Parallelization Strategy
-
-### Why Parallelize?
-
-Parallelizing explore agents provides several benefits:
-- **Faster discovery:** Multiple agents work simultaneously
-- **Smaller context:** Each agent handles a single file
-- **Cost effective:** Primary agent (expensive model) doesn't read entire files
-- **Focused scope:** Each explore agent has a clear, limited task
-
-### Discovery Phase Parallelization
-
-**Step 1: Layout Discovery (1 explore agent)**
-```
-@explore: Discover test suite layout
-- Find all test files
-- Identify test directories
-- Return list of files for parallel processing
-```
-
-**Step 2: Parallel Structural Discovery (N explore agents)**
-```
-For each test file, spawn a separate explore agent:
-
-Agent 1: @explore tests/unit/test_toc_parser.py
-Agent 2: @explore tests/unit/test_section_filter.py
-Agent 3: @explore tests/integration/test_crawl_workflow.py
-... and so on
-
-Each agent returns:
-- Test classes with line numbers
-- Test methods with line numbers
-- Function signatures
-- Fixture definitions
-- NO test body content
-```
-
-All explore agents run in parallel for maximum speed.
-
-### Analysis Phase (Primary Agent Only)
-
-The primary agent receives structural information from all explore agents, then:
-
-1. **Prioritize files:** Start with largest/most complex test files
-2. **Targeted reads:** Read only specific test functions (not entire files)
-3. **Analyze incrementally:** Process one test at a time
-4. **Build report:** Accumulate findings as you go
-
-### Example Workflow
-
-```
-# Primary agent orchestrates
-primary → @explore (layout discovery)
-  ↓
-primary receives list of 8 test files
-  ↓
-primary spawns 8 parallel explore agents
-  ↓
-primary receives structural data from all 8 agents
-  ↓
-primary analyzes each test (targeted reads)
-  ↓
-primary generates audit report
-```
-
-### Context Management
-
-**Explore agent context (small):**
-- Single file path
-- LSP documentSymbol result
-- Function signatures
-- Line numbers
-
-**Primary agent context (incremental):**
-- Structural summaries from explore agents
-- Targeted test function reads
-- Accumulated findings
-- Report generation
-
-This approach keeps individual agent contexts small while allowing comprehensive analysis.
-
-### When to Use Parallelization
-
-**Use parallelization when:**
-- More than 3 test files
-- Test files are large (> 500 lines)
-- Multiple test modules
-- Time is a concern
-
-**Skip parallelization when:**
-- 1-2 small test files
-- Simple test suite
-- Quick audit needed
+Generate a markdown report using the template below.
 
 ## Framework-Specific Guidance
 
-See `frameworks/pytest.md` for detailed pytest methodology, assertion patterns, exception handling, and fixture analysis.
-See `frameworks/python.md` for Python-specific considerations including nondeterministic code testing, parameterization, and global state patterns.
-See `frameworks/bun.md` for Bun test runner methodology, subprocess testing patterns, and lifecycle hook usage.
-See `frameworks/typescript.md` for TypeScript-specific considerations including interface validation, type assertions, and JSON parsing patterns.
+- `frameworks/pytest.md` — pytest discovery, markers, configuration, conftest hooks
+- `frameworks/python.md` — Python-specific: parameterization, global state, string transforms, snapshot testing, CLI testing
+- `frameworks/bun.md` — Bun test runner, subprocess testing, lifecycle hooks (also covers Jest/Vitest)
+- `frameworks/typescript.md` — TypeScript: interface validation, type assertions, JSON parsing, async patterns
 
 ## Checklist Reference
 
-Detailed checklists are available in the `checklists/` directory:
-- `checklists/assertions.md` — Assertion quality assessment with decision tree
+Examples in the checklists are illustrative and shown in Python/pytest; apply each concept in the project's language, using the `frameworks/*.md` files for idioms.
+
+- `checklists/assertions.md` — Assertion quality with context-aware decision tree
 - `checklists/exceptions.md` — Exception handling patterns
 - `checklists/fixtures.md` — Fixture quality checks
-- `checklists/coverage.md` — Coverage gap analysis
+- `checklists/coverage.md` — Coverage gap analysis (opt-in)
 
 ## Report Template
 
@@ -465,35 +252,10 @@ Detailed checklists are available in the `checklists/` directory:
 ### Low Priority
 1. [Specific, actionable items]
 
-## Statistics
-
-### Test Distribution
-| File | Tests | Classes |
-|------|-------|---------|
-| `test_file.py` | N | N |
-| **Total** | **N** | **N** |
-
-### Assertion Quality
-- Tests with no assertions: N
-- Tests with weak assertions: N (list: test_a, test_b)
-- Tests with strong assertions: N (~X%)
-
-### Exception Handling
-- Tests with try/except: N
-- Tests with proper exception testing: N
-- Tests with swallowed exceptions: N
-
-### Fixture Quality
-- Total fixtures: N
-- Fixtures with cleanup: N
-- Fixtures parameterized: N
-- Parameterization opportunities: N
-
 ## Notes
 
 - Framework: pytest / Bun / other (see framework-specific docs)
-- LSP available: Yes/No
-- Audit method: LSP-first / File-reading only
+- LSP used: Yes/No
 - Tests executed: Yes/No
 ```
 
@@ -504,7 +266,7 @@ Detailed checklists are available in the `checklists/` directory:
 1. **Always run tests first** — Establish baseline pass rate before static analysis
 2. **Understand the code under test** — Random generators need different assertion standards than deterministic functions
 3. **Check project constraints** — Don't recommend tools that violate dependency policies or design principles
-4. **Read files selectively** — Only when content analysis needed
+4. **Read full test files** — assertion quality depends on surrounding context (fixtures, helpers, imports)
 5. **Be specific** in recommendations — provide code examples
 6. **Prioritize** issues by impact and severity, including within-tier ranking
 7. **Context matters** — some "trivial" tests are intentional smoke tests
@@ -536,11 +298,19 @@ def test_user_authentication():
     # No assertions - only checks it doesn't crash
 ```
 
-**Bad test (trivial):**
+**Bad test (vacuous loop — passes on empty collection):**
 ```python
-def test_user_authentication():
-    user = authenticate("user", "pass")
-    assert user is not None  # Only checks not None
+def test_all_items_valid():
+    items = get_items()
+    for item in items:        # If items is empty, this passes trivially
+        assert item.valid
+```
+
+**Bad test (mock tautology — tests the mock, not the code):**
+```python
+def test_process():
+    mock = Mock(return_value=42)
+    assert mock() == 42   # Just confirms the mock returned what you configured
 ```
 
 **Bad test (exception swallowing):**

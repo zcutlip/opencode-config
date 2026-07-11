@@ -1,5 +1,7 @@
 # Fixture Quality Checklist
 
+> _Examples below are illustrative and shown in Python/pytest. The patterns are language-agnostic — apply each concept in the project's language, using `../frameworks/*.md` for language-specific idioms._
+
 ## Medium Issues
 
 ### Hardcoded Output Directories
@@ -167,7 +169,7 @@ class TestSomething(unittest.TestCase):
 ```
 
 ### Jest (JavaScript)
-```python
+```javascript
 // Good: beforeEach and afterEach
 beforeEach(() => {
   tempFile = createTempFile();

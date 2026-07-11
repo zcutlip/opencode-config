@@ -1,5 +1,7 @@
 # Assertions Quality Checklist
 
+> _Examples below are illustrative and shown in Python/pytest. The patterns are language-agnostic — apply each concept in the project's language, using `../frameworks/*.md` for language-specific idioms._
+
 ## Critical Issues
 
 ### Test with NO Assertions
@@ -13,29 +15,75 @@ def test_something():
 ```
 **Recommendation:** Add assertions to validate expected behavior
 
-### Test Only Checks `is not None`
-**Description:** Test only verifies value is not None without further validation
+### `assert True` / Commented-Out / Disabled Assertions
+**Description:** Test has assertion-shaped statements that are no-ops — `assert True`, `pass`, or assertions commented out. The test passes regardless of correctness.
 **Severity:** Critical
+**Example:**
+```python
+def test_something():
+    result = calculate_something()
+    # assert result == 42   # commented out
+    assert True             # no-op
+```
+**Recommendation:** Restore or replace with real assertions. A commented-out assert is usually a sign the test was disabled to make it pass — investigate why.
+
+### Vacuous Loop Assertions
+**Description:** A loop body asserts over a collection with no prior non-empty check. If the collection is empty, the loop body never runs and the test passes trivially — it cannot fail.
+**Severity:** Critical
+**Example:**
+```python
+def test_all_items_valid():
+    items = get_items()
+    for item in items:        # passes if items == []
+        assert item.valid
+```
+**Recommendation:** Add a length/count assertion *before* the loop so an unexpected empty result fails loudly:
+```python
+def test_all_items_valid():
+    items = get_items()
+    assert len(items) > 0     # guard against silent empty
+    for item in items:
+        assert item.valid
+```
+
+### Skipped / `xfail` Tests Without a Reason
+**Description:** Tests marked `@pytest.mark.skip`, `it.skip()`/`test.skip()`, or `@pytest.mark.xfail` with no `reason=` documented. These are dead tests that may hide rot — the code they cover can break silently because they never run.
+**Severity:** Critical
+**Example:**
+```python
+@pytest.mark.skip
+def test_thing():           # why is this skipped?
+    ...
+
+@pytest.mark.xfail
+def test_known_bug():        # what bug? where's the ticket?
+    ...
+```
+**Recommendation:** Require a `reason=` (and ideally a tracker link). Flag skips/xfails that have outlived their purpose — if the reason is stale, remove the marker and run the test.
+
+## Medium Issues
+
+### Test Only Checks `is not None`
+**Description:** Test only verifies value is not None without further validation. Context-dependent — see the decision tree below; this is appropriate for functions that may legitimately return None, but weak for deterministic code.
+**Severity:** Medium
 **Example:**
 ```python
 def test_something():
     result = calculate_something()
     assert result is not None  # Only checks not None
 ```
-**Recommendation:** Add assertions to validate actual value or properties
+**Recommendation:** Add assertions to validate actual value or properties (unless None-handling is the explicit contract)
 
 ### Test Only Checks `len() > 0`
-**Description:** Test only verifies collection is non-empty without content validation
-**Severity:** Critical
+**Description:** Test only verifies collection is non-empty without content validation. Context-dependent — appropriate for unseeded random generators, weak for deterministic code.
+**Severity:** Medium
 **Example:**
 ```python
 def test_something():
     items = get_items()
     assert len(items) > 0  # Only checks length
 ```
-**Recommendation:** Validate actual content of collection
-
-## Medium Issues
+**Recommendation:** Validate actual content of collection (unless output is nondeterministic and unseeded)
 
 ### Test Only Checks Default Values
 **Description:** Test only checks that value equals default (0, "", [], etc.)
@@ -60,7 +108,7 @@ def test_file_created():
 **Recommendation:** Validate file content or properties
 
 ### Test Only Checks Type
-**Description:** Test only verifies type without checking value
+**Description:** Test only verifies type without checking value. Context-dependent — appropriate for unseeded nondeterministic output, weak for deterministic code.
 **Severity:** Medium
 **Example:**
 ```python
@@ -68,7 +116,18 @@ def test_something():
     result = calculate_something()
     assert isinstance(result, str)  # Only checks type
 ```
-**Recommendation:** Validate actual value or properties
+**Recommendation:** Validate actual value or properties (unless output is nondeterministic and unseeded)
+
+### Mock Tautology ("Mock Theater")
+**Description:** The test asserts that a mock returned the value you configured it to return. It tests the mock, not the code under test — nothing real is verified.
+**Severity:** Medium
+**Example:**
+```python
+def test_process():
+    mock = Mock(return_value=42)
+    assert mock() == 42   # just confirms the mock returned what you set
+```
+**Recommendation:** Use the mock as a stand-in for a dependency, then assert on the *real* code's behavior (return value, side effects, or state change). If the test genuinely only checks wiring, make that intent explicit in the name.
 
 ## Minor Issues
 
@@ -135,10 +194,21 @@ def test_get_items():
     assert all("id" in item for item in items)
 ```
 
+### Guarded Loop (non-vacuous)
+```python
+def test_all_items_valid():
+    items = get_items()
+    assert len(items) > 0          # guard: empty result fails here
+    for item in items:
+        assert item.valid
+```
+
 ## Audit Checklist
 
 For each test, check:
-- [ ] Has at least one assertion
+- [ ] Has at least one real assertion (not `assert True` / commented-out)
+- [ ] Not skipped/xfail without a documented reason
+- [ ] Loop assertions are guarded against empty collections
 - [ ] Assertions validate actual behavior, not just existence
 - [ ] Assertions check meaningful values, not just defaults
 - [ ] Assertions are specific enough to fail on wrong output
@@ -146,6 +216,7 @@ For each test, check:
 - [ ] Multiple assertions validate different aspects
 - [ ] Exception tests verify exception type and message
 - [ ] Collection tests validate content, not just length
+- [ ] Mocks are stand-ins for dependencies, not the thing being asserted on
 
 ## Context-Aware Assertion Assessment
 

@@ -1,10 +1,12 @@
 # Bun Test Framework Methodology
 
+> This file covers Bun-specific **idioms and syntax**. The *what to look for* (assertion quality, exception handling, fixture quality, coverage) lives in `../checklists/` — apply those checklists using the patterns below.
+
 ## Overview
 
 Bun's built-in test runner (`bun:test`) provides a Jest-compatible testing API with native TypeScript support. It's fast, requires zero configuration for most projects, and includes built-in mocking, snapshot testing, and lifecycle hooks.
 
-**Note:** Bun's test API is Jest-compatible. Most patterns in this document also apply to Jest and Vitest. Framework-specific differences are noted where relevant.
+**Bun's test API is Jest-compatible.** Most patterns in this document also apply to **Jest** and **Vitest** — `test`/`it`/`describe`/`expect`, the matchers (`toBe`, `toEqual`, `toThrow`, …), and the lifecycle hooks (`beforeAll`/`afterAll`/`beforeEach`/`afterEach`) are the same. Note framework-specific differences where relevant (e.g. Bun's `Bun.spawn` subprocess API, `import.meta.dir`).
 
 ## Test Discovery
 
@@ -24,40 +26,6 @@ Bun's built-in test runner (`bun:test`) provides a Jest-compatible testing API w
 - `bunfig.toml` - Bun configuration (optional)
 - `package.json` - Test script configuration
 - No config required for basic usage
-
-## LSP Discovery Strategy
-
-### Find Test Files
-```typescript
-// Try LSP workspace symbol search
-lsp.workspaceSymbol("test_*")
-lsp.workspaceSymbol("*test*")
-
-// Fallback: glob pattern
-@explore glob "**/*.test.ts"
-@explore glob "**/*.test.js"
-```
-
-### Get Test Structure
-```typescript
-// Try LSP document symbol
-lsp.documentSymbol("tests/example.test.ts")
-
-// Returns:
-// - describe blocks
-// - test/it functions
-// - Helper functions
-// - Interface definitions
-```
-
-### Get Test Metadata
-```typescript
-// Try LSP hover for type information
-lsp.hover(file_path, line, character)
-
-// Fallback: read file content
-@explore read file_path
-```
 
 ## Assertion Patterns
 
@@ -144,6 +112,8 @@ test("rejects", async () => {
   await expect(Promise.reject(new Error("fail"))).rejects.toThrow("fail");
 });
 ```
+
+> For what makes these assertions *good* vs *weak* vs *vacuous*, see `../checklists/assertions.md` (includes the context-aware decision tree for nondeterministic code).
 
 ## Lifecycle Hooks
 
@@ -274,6 +244,29 @@ test("parses JSON output", async () => {
 });
 ```
 
+### JSON Parsing Error Handling
+
+When a script is expected to emit *invalid* JSON (e.g. on an error path), assert that parsing *does* throw — and verify the error path itself (exit code / stderr):
+
+```typescript
+test("emits invalid JSON on error path", async () => {
+  const proc = Bun.spawn(["bun", "run", scriptPath, "--invalid"], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const stdout = await new Response(proc.stdout).text();
+  const stderr = await new Response(proc.stderr).text();
+  const exitCode = await proc.exited;
+
+  expect(exitCode).toBe(1);                       // error path taken
+  expect(stderr).toContain("error");              // error reported
+  expect(() => JSON.parse(stdout)).toThrow();     // stdout is not valid JSON
+});
+```
+
+Conversely, when a script is expected to emit *valid* JSON, assert that parsing does not throw and then validate the parsed structure (see the example above).
+
 ### Path Resolution with import.meta
 
 ```typescript
@@ -285,115 +278,6 @@ const testDir = import.meta.dir;
 // Resolve relative paths
 const scriptPath = join(testDir, "..", "scripts", "example.ts");
 const fixturePath = join(testDir, "fixtures", "example.json");
-```
-
-## Common Bun Issues
-
-### Issue 1: Tests with No Assertions
-```typescript
-// BAD: No assertions
-test("something", async () => {
-  const result = await runScript();
-  // No assertions - only checks it doesn't crash
-});
-
-// GOOD: Has assertions
-test("something", async () => {
-  const result = await runScript();
-  expect(result).toBeDefined();
-  expect(result.status).toBe("success");
-});
-```
-
-### Issue 2: Weak Assertions on Subprocess Output
-```typescript
-// BAD: Only checks exit code
-test("script runs", async () => {
-  const proc = Bun.spawn(["bun", "run", scriptPath]);
-  const exitCode = await proc.exited;
-  expect(exitCode).toBe(0); // Doesn't verify output
-});
-
-// GOOD: Verifies output content
-test("script produces expected output", async () => {
-  const proc = Bun.spawn(["bun", "run", scriptPath]);
-  const stdout = await new Response(proc.stdout).text();
-  const exitCode = await proc.exited;
-
-  expect(exitCode).toBe(0);
-  expect(stdout).toContain("expected content");
-  expect(JSON.parse(stdout)).toHaveProperty("status", "success");
-});
-```
-
-### Issue 3: Exception Swallowing in Subprocess Tests
-```typescript
-// BAD: Doesn't check stderr or exit code
-test("script handles error", async () => {
-  const proc = Bun.spawn(["bun", "run", scriptPath, "--invalid"]);
-  const stdout = await new Response(proc.stdout).text();
-  // Doesn't verify error handling
-});
-
-// GOOD: Verifies error behavior
-test("script handles error", async () => {
-  const proc = Bun.spawn(["bun", "run", scriptPath, "--invalid"], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  const stdout = await new Response(proc.stdout).text();
-  const stderr = await new Response(proc.stderr).text();
-  const exitCode = await proc.exited;
-
-  expect(exitCode).toBe(1);
-  expect(stderr).toContain("error");
-});
-```
-
-### Issue 4: Missing Cleanup in Lifecycle Hooks
-```typescript
-// BAD: No cleanup
-describe("file operations", () => {
-  let tempDir: string;
-
-  beforeAll(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "test-"));
-    // No cleanup registered
-  });
-
-  // Tests create files but never clean up
-});
-
-// GOOD: Proper cleanup
-describe("file operations", () => {
-  let tempDir: string;
-
-  beforeAll(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "test-"));
-  });
-
-  afterAll(async () => {
-    await rm(tempDir, { recursive: true, force: true });
-  });
-});
-```
-
-### Issue 5: Type-Only Assertions Without Value Checks
-```typescript
-// BAD: Only checks type
-test("output structure", async () => {
-  const result = await runScript();
-  expect(typeof result.value).toBe("number"); // Doesn't check actual value
-});
-
-// GOOD: Checks type and value
-test("output structure", async () => {
-  const result = await runScript();
-  expect(typeof result.value).toBe("number");
-  expect(result.value).toBeGreaterThan(0);
-  expect(result.value).toBeLessThan(100);
-});
 ```
 
 ## Bun-Specific Quality Checks
@@ -505,14 +389,11 @@ root = "test"
 preload = ["./setup.ts"]
 ```
 
-## Cross-Reference: TypeScript-Specific Considerations
+## Cross-Reference
 
-For TypeScript-specific audit guidance, see `typescript.md` which covers:
-
-- **Interface/type testing** — Validating output matches TypeScript interfaces
-- **Type assertions** — When `as` is appropriate in tests
-- **Import patterns** — `import.meta.dir`, Node built-ins
-- **JSON parsing** — Type-safe JSON handling in tests
-- **Async patterns** — Promise handling with TypeScript types
+- `../checklists/assertions.md` — assertion quality, context-aware decision tree, vacuous-loop and mock-tautology patterns
+- `../checklists/exceptions.md` — exception handling (the `toThrow` patterns above, evaluated for quality)
+- `../checklists/fixtures.md` — fixture quality (cleanup, duplication, parameterization)
+- `typescript.md` — TypeScript-specific: interface validation, type assertions, JSON parsing, async patterns
 
 Always check `typescript.md` before finalizing a TypeScript/Bun audit report.

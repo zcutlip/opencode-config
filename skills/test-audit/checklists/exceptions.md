@@ -1,5 +1,7 @@
 # Exception Handling Quality Checklist
 
+> _Examples below are illustrative and shown in Python/pytest. The patterns are language-agnostic — apply each concept in the project's language, using `../frameworks/*.md` for language-specific idioms._
+
 ## Critical Issues
 
 ### Bare `except:` Clause
@@ -169,7 +171,7 @@ def test_raises_exception_with_message(self):
 ```
 
 ### Jest (JavaScript)
-```python
+```javascript
 // Good: Using toThrow
 test("raises exception", () => {
   expect(() => riskyOperation()).toThrow();
