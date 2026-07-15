@@ -1,3 +1,6 @@
+---
+description: OpenCode Docs helper. Looks up official documentation on OpenCode features plus unofficial gap documentation.
+---
 Execute the OpenCode Docs helper script at ~/.opencode-docs/opencode-docs-helper.sh
 
 Usage:
@@ -33,4 +36,4 @@ When showing what's new:
 Every request checks for the latest documentation from GitHub (takes ~0.4s).
 The helper script handles all functionality including on-demand updates.
 
-Execute: ~/.opencode-docs/opencode-docs-helper.sh "$ARGUMENTS"
+Execute: ~/.opencode-docs/opencode-docs-helper.sh $ARGUMENTS
