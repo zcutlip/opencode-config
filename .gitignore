@@ -11,6 +11,7 @@ skills/opencode-froggy-docs
 skills/opencode-skill-creator
 plugins/nono-sandbox*
 opencode-skill-creator-update-check.json
+/disabled-skills
 
 # tui.json
 
