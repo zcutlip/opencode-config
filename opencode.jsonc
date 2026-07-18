@@ -40,16 +40,16 @@
       "whoami": "allow",
       "rm -rf *": "deny",
       "sudo *": "deny",
-      "**/opencode-docs-helper.sh *": "allow",
-      "**/opencode-docs-helper.sh": "allow",
-      "**/fetch-releases.py": "allow",
-      "**/fetch-releases.py *": "allow"
+      "*/opencode-docs-helper.sh *": "allow",
+      "*/opencode-docs-helper.sh": "allow",
+      "*/fetch-releases.py": "allow",
+      "*/fetch-releases.py *": "allow"
     },
     "lsp": "allow",
     "edit": "ask",
     "external_directory": {
       "*": "ask",
-      "~/.config/opencode/skills/opencode-release-notes/**": "allow"
+      "~/.config/opencode/skills/opencode-release-notes/*": "allow"
     },
     "doom_loop": "ask"
   },
@@ -96,10 +96,10 @@
           "git worktree list *": "allow",
           "git stash list *": "allow",
           "git submodule status *": "allow",
-          "**/opencode-docs-helper.sh *": "allow",
-          "**/opencode-docs-helper.sh": "allow",
-          "**/fetch-releases.py": "allow",
-          "**/fetch-releases.py *": "allow",
+          "*/opencode-docs-helper.sh *": "allow",
+          "*/opencode-docs-helper.sh": "allow",
+          "*/fetch-releases.py": "allow",
+          "*/fetch-releases.py *": "allow",
           "*/skills/codeberg-integration/codeberg-helper.py *": "ask"
         },
         "read": "allow",
@@ -227,6 +227,7 @@
         "bash": {
           "*": "ask",
           "python3 -c *": "deny",
+          "python3 *": "deny",
           "bash -c *": "deny"
         }
       },
@@ -242,6 +243,7 @@
           "mypy *": "allow",
           "ruff *": "allow",
           "*-lint.sh": "allow",
+          "lint.sh": "allow",
           "python3 -c *": "deny",
           "bash -c *": "deny",
           "*/skills/lint-format/scripts/lint-format.sh *": "allow"
@@ -253,11 +255,10 @@
       "model": "opencode/deepseek-v4-flash-free",
       "permission": {
         "bash": {
-          "python3 -c *": "deny",
           "python3 *": "deny",
           "bash -c *": "deny",
           "bash *": "deny",
-          "**/fetch-releases.py *": "allow"
+          "*/fetch-releases.py *": "allow"
         }
       }
     }
