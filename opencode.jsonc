@@ -18,7 +18,7 @@
   "lsp": true,
   "permission": {
     "bash": {
-      "*": "ask",
+      "*": "deny",
       "flake8 *": "allow",
       "mypy *": "allow",
       "git status *": "allow",
@@ -41,11 +41,16 @@
       "rm -rf *": "deny",
       "sudo *": "deny",
       "**/opencode-docs-helper.sh *": "allow",
-      "**/opencode-docs-helper.sh": "allow"
+      "**/opencode-docs-helper.sh": "allow",
+      "**/fetch-releases.py": "allow",
+      "**/fetch-releases.py *": "allow"
     },
     "lsp": "allow",
     "edit": "ask",
-    "external_directory": "ask",
+    "external_directory": {
+      "*": "ask",
+      "~/.config/opencode/skills/opencode-release-notes/**": "allow"
+    },
     "doom_loop": "ask"
   },
   "plugin": [
@@ -63,13 +68,12 @@
   "agent": {
     "plan": {
       "mode": "primary",
-      "model": "chutes/moonshotai/Kimi-K2.5-TEE",
-      // "model": "opencode-go/deepseek-v4-pro",
-      // "model": "opencode-go/minimax-m3",
+      "model": "opencode-go/deepseek-v4-pro",
       "permission": {
         "edit": "deny",
         "bash": {
-          "*": "deny",
+          "*": "ask",
+          "ls *": "allow",
           "git status *": "allow",
           "git branch *": "allow",
           "git log *": "allow",
@@ -93,7 +97,10 @@
           "git stash list *": "allow",
           "git submodule status *": "allow",
           "**/opencode-docs-helper.sh *": "allow",
-          "**/opencode-docs-helper.sh": "allow"
+          "**/opencode-docs-helper.sh": "allow",
+          "**/fetch-releases.py": "allow",
+          "**/fetch-releases.py *": "allow",
+          "*/skills/codeberg-integration/codeberg-helper.py *": "ask"
         },
         "read": "allow",
         "grep": "allow",
@@ -112,9 +119,7 @@
     },
     "build": {
       "mode": "primary",
-      "model": "chutes/moonshotai/Kimi-K2.5-TEE",
-      // "model": "opencode-go/deepseek-v4-pro",
-      // "model": "opencode-go/minimax-m3",
+      "model": "opencode-go/deepseek-v4-pro",
       "permission": {
         "edit": "ask",
         "read": "allow",
@@ -126,7 +131,7 @@
         "todowrite": "allow",
         "lsp": "allow",
         "bash": {
-          "*": "deny",
+          "*": "ask",
           "git status *": "allow",
           "git branch *": "allow",
           "git log *": "allow",
@@ -162,11 +167,6 @@
     "explore": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode-go/deepseek-v4-flash",
-      // "model": "opencode/deepseek-v4-flash",
-      // "fallback_models": [
-      //   "opencode-go/deepseek-v4-flash"
-      // ],
       "permission": {
         "read": "allow",
         "lsp": "allow",
@@ -174,6 +174,7 @@
         "grep": "allow",
         "glob": "allow",
         "bash": {
+          "*": "ask",
           "git status *": "allow",
           "git diff *": "allow",
           "git log *": "allow",
@@ -203,16 +204,13 @@
     "commit": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode-go/deepseek-v4-flash",
-      // "fallback_models": [
-      //   "opencode-go/deepseek-v4-flash"
-      // ],
       "options": {},
       "permission": {
         "skill": {
           "git-commit": "allow"
         },
         "bash": {
+          "*": "ask",
           "git status *": "allow",
           "git diff *": "allow",
           "git log *": "allow"
@@ -222,15 +220,12 @@
     "coder": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode-go/deepseek-v4-flash",
-      // "fallback_models": [
-      //   "opencode-go/deepseek-v4-flash"
-      // ],
       "permission": {
         "edit": "ask",
         "lsp": "allow",
         "read": "allow",
         "bash": {
+          "*": "ask",
           "python3 -c *": "deny",
           "bash -c *": "deny"
         }
@@ -240,18 +235,16 @@
     "lint": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode-go/deepseek-v4-flash",
-      // "fallback_models": [
-      //   "opencode-go/deepseek-v4-flash"
-      // ],
       "permission": {
         "bash": {
+          "*": "ask",
           "flake8 *": "allow",
           "mypy *": "allow",
           "ruff *": "allow",
           "*-lint.sh": "allow",
           "python3 -c *": "deny",
-          "bash -c *": "deny"
+          "bash -c *": "deny",
+          "*/skills/lint-format/scripts/lint-format.sh *": "allow"
         }
       },
       "options": {}
@@ -263,7 +256,8 @@
           "python3 -c *": "deny",
           "python3 *": "deny",
           "bash -c *": "deny",
-          "bash *": "deny"
+          "bash *": "deny",
+          "**/fetch-releases.py *": "allow"
         }
       }
     }
