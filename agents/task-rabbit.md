@@ -5,7 +5,6 @@ temperature: 0
 steps: 10
 permission:
   edit: deny
-  bash: ask
   read: allow
   glob: allow
   grep: allow
