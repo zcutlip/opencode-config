@@ -42,13 +42,15 @@ The helper script is at: `scripts/fetch-releases.py`
 
 ## Script Output
 
-The script outputs the raw GitHub API response as pretty-printed JSON. Each release object contains:
+The script outputs trimmed release metadata as pretty-printed JSON. Each release object contains only the relevant fields:
 - `tag_name` — version tag (e.g. "v1.17.13")
+- `name` — release title
+- `prerelease` — boolean; `true` if this is a beta/RC, `false` for stable
+- `html_url` — link to the release page on GitHub
 - `published_at` — ISO date string
 - `body` — full release notes markdown
-- Other metadata (URLs, author, etc.)
 
-Read the JSON, extract what you need, and present a light summary to the user.
+Non-release tags (e.g. PR artifacts) are filtered out automatically. Read the JSON and present a light summary to the user.
 
 ## Error Handling
 
