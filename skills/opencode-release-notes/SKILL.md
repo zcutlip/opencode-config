@@ -30,11 +30,29 @@ Use this skill when the user:
 
 2. **Read the JSON output** — the script outputs the raw GitHub API response as pretty-printed JSON
 
-3. **Do a light summary** — condense the release notes for the user:
-   - Highlight new features and major bugfixes
-   - Condense/filter out noise from trivial or repetitive bugfixes
-   - Keep it concise — a few bullet points per release is plenty
-   - Don't lose the substance — just trim the fat
+3. **Produce a structured summary** — condense the release notes for the user using these rules:
+
+   **Output format** — one block per release:
+   ```
+   **vX.Y.Z** (YYYY-MM-DD) — one-sentence theme of this release
+   - New: feature or improvement
+   - Fixed: user-facing bugfix
+   - Changed: behavior change, config change, deprecation
+   ↳ (+N more fixes)  ← when there are more than fit comfortably
+   ```
+
+   **Trim rules:**
+   - **Keep**: user-facing features, behavior changes, breaking changes, config changes, security fixes, performance improvements with measurable impact
+   - **Skip**: CI/tooling tweaks, dependency bumps with no user impact, internal refactors that don't change behavior, typo fixes in comments/docs, test-only changes, "under the hood" / "Internal" sections that contain no material facts
+   - **When unsure, include it** — better slightly verbose than silently dropped
+
+   **Proportionality** — scale output to release density, not context window size:
+   | Release type | Bullet count |
+   |---|---|
+   | Tiny patch (3-4 listed items) | 2-4 bullets |
+   | Mid-size (5-10 listed items) | 4-8 bullets |
+   | Major (10+ listed items) | 8-15 bullets, use ↳ (+N) for grouped fixes |
+   | **Violate these limits** if the release is genuinely dense with user-facing changes | — |
 
 ## Script Location
 
