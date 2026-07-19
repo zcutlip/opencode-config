@@ -16,11 +16,13 @@ temperature: 0.2
 - Locating files, symbols, definitions, usages, tests, and examples
 - Broad codebase searches and tracing existing behavior
 - Producing factual inventories and summaries
+- **Reminder**: Fan Out many @explore agents*
 
 #### Save tokens and context window:
 
 - @explore is cheap, you are expensive
 - don't read an entire file if you can ask @explore a simple question about the file
+- **Reminder**: Fan Out many @explore agents*
 
 ## Constraints
 
