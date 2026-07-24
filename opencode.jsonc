@@ -54,21 +54,21 @@
     "doom_loop": "ask"
   },
   "plugin": [
-    "opencode-runtime-fallback",
+    // "opencode-runtime-fallback",
     "opencode-session-manager@latest",
-    "@angdrew/opencode-hashline-plugin",
+    // "@angdrew/opencode-hashline-plugin",
+    "opencode-codebase-index",
     "opencode-skill-creator",
     "@cortexkit/opencode-magic-context@latest",
     "@dietrichgebert/ponytail",
     "cc-safety-net",
-    // "psinetron-opencode-visualizer",
     // "@tarquinen/opencode-dcp@latest",
     // "opencode-froggy"
   ],
   "agent": {
     "plan": {
       "mode": "primary",
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "opencode-go/qwen3.7-plus",
       "permission": {
         "edit": "deny",
         "bash": {
@@ -119,7 +119,7 @@
     },
     "build": {
       "mode": "primary",
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "opencode-go/qwen3.7-plus",
       "permission": {
         "edit": "ask",
         "read": "allow",
