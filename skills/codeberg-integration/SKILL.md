@@ -62,92 +62,6 @@ scripts/codeberg-helper.py --raw <command> ...    # Output raw JSON (no pretty p
 scripts/codeberg-helper.py --dry-run <command> ... # Show what would be sent, don't execute
 ```
 
-### Read Operations
-
-| Operation | Endpoint |
-|-----------|----------|
-| Get repo info | `GET /repos/{owner}/{repo}` |
-| List PRs | `GET /repos/{owner}/{repo}/pulls?state=open&limit=10` |
-| Get single PR | `GET /repos/{owner}/{repo}/pulls/{index}` |
-| PR diff | `GET /repos/{owner}/{repo}/pulls/{index}.diff` |
-| PR comments | `GET /repos/{owner}/{repo}/issues/{index}/comments` |
-| PR reviews | `GET /repos/{owner}/{repo}/pulls/{index}/reviews` |
-| Review comments | `GET /repos/{owner}/{repo}/pulls/{index}/reviews/{id}/comments` |
-| PR files changed | `GET /repos/{owner}/{repo}/pulls/{index}/files` |
-| List issues | `GET /repos/{owner}/{repo}/issues?state=open&type=issues&limit=10` |
-| Get issue | `GET /repos/{owner}/{repo}/issues/{index}` |
-| Issue comments | `GET /repos/{owner}/{repo}/issues/{index}/comments` |
-| Issue timeline | `GET /repos/{owner}/{repo}/issues/{index}/timeline` |
-| List labels | `GET /repos/{owner}/{repo}/labels` |
-| List milestones | `GET /repos/{owner}/{repo}/milestones` |
-| Repo branches | `GET /repos/{owner}/{repo}/branches` |
-| File contents | `GET /repos/{owner}/{repo}/raw/{filepath}?ref={branch}` |
-| List releases | `GET /repos/{owner}/{repo}/releases` |
-| List repo topics | `GET /repos/{owner}/{repo}/topics` |
-| Search repos | `GET /repos/search?q={query}&limit=10` |
-| User repos | `GET /users/{username}/repos` |
-| Org repos | `GET /orgs/{org}/repos` |
-| Commit history | `GET /repos/{owner}/{repo}/commits?limit=10` |
-| Compare branches | `GET /repos/{owner}/{repo}/compare/{base}...{head}` |
-
-### Write Operations
-
-| Operation | Endpoint | Body |
-|-----------|----------|------|
-| Comment on issue/PR | `POST /repos/{owner}/{repo}/issues/{index}/comments` | `{"body":"..."}` |
-| Create issue | `POST /repos/{owner}/{repo}/issues` | `{"title":"...","body":"..."}` |
-| Edit issue | `PATCH /repos/{owner}/{repo}/issues/{index}` | `{"title":"...","body":"...","state":"open\|closed"}` |
-| Edit comment | `PATCH /repos/{owner}/{repo}/issues/comments/{id}` | `{"body":"..."}` |
-| Delete comment | `DELETE /repos/{owner}/{repo}/issues/comments/{id}` | -- |
-| Add labels to issue | `POST /repos/{owner}/{repo}/issues/{index}/labels` | `{"labels":[1, 2]}` |
-| | **Note:** Labels must be **integer IDs**, not names. Use `list-labels` to get IDs. | |
-| Remove label | `DELETE /repos/{owner}/{repo}/issues/{index}/labels/{id}` | -- |
-| Create label | `POST /repos/{owner}/{repo}/labels` | `{"name":"...","color":"#hex","description":"..."}` |
-| Assign issue | `POST /repos/{owner}/{repo}/issues/{index}/assignees` | `{"assignees":["username"]}` |
-| Submit PR review | `POST /repos/{owner}/{repo}/pulls/{index}/reviews` | `{"body":"...","event":"APPROVED\|REQUEST_CHANGES\|COMMENT"}` |
-| Create PR | `POST /repos/{owner}/{repo}/pulls` | `{"title":"...","body":"...","head":"branch","base":"main"}` |
-| Update PR | `PATCH /repos/{owner}/{repo}/pulls/{index}` | `{"title":"...","body":"..."}` |
-| Merge PR | `POST /repos/{owner}/{repo}/pulls/{index}/merge` | `{"Do":"merge\|rebase\|squash","merge_message_field":"..."}` |
-| Create release | `POST /repos/{owner}/{repo}/releases` | `{"tag_name":"v1.0","name":"...","body":"..."}` |
-| Create milestone | `POST /repos/{owner}/{repo}/milestones` | `{"title":"...","description":"..."}` |
-| Add topic | `PUT /repos/{owner}/{repo}/topics/{topic}` | -- |
-| Star repo | `PUT /user/starred/{owner}/{repo}` | -- |
-
-**Pagination:** Add `?page=1&limit=50` (max 50). Check `x-total-count` response header.
-
-> **Note:** The API endpoints listed above are **fully functional NOW**.
-> The helper script commands for these operations are what's planned for Phase 2.
-> You can use these endpoints directly with curl or other HTTP clients today.
-
-### JSON Payload Tips for curl
-
-When creating issues/comments with complex markdown content, avoid inline JSON escaping issues:
-
-**Don't do this:**
-```bash
-curl -X POST ... -d '{"title": "Issue", "body": "Line 1\nLine 2 with \"quotes\""}'
-```
-
-**Do this instead:**
-```bash
-# Write JSON to a file
-cat > /tmp/payload.json << 'EOF'
-{
-  "title": "Issue Title",
-  "body": "Line 1\nLine 2 with \"quotes\" and [links](http://example.com)"
-}
-EOF
-
-# Use the file
-curl -X POST \
-  -H "Authorization: token $CODEBERG_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d @/tmp/payload.json \
-  https://codeberg.org/api/v1/repos/{owner}/{repo}/issues
-```
-
-This approach avoids shell escaping nightmares with newlines, quotes, and special characters.
-
 ## Helper Script Usage
 
 The `codeberg-helper.py` script wraps common API operations, handling authentication and JSON output automatically. It reads the `CODEBERG_TOKEN` environment variable.
@@ -165,7 +79,9 @@ scripts/codeberg-helper.py  # From skills directory or project root
 | `--raw` | Output raw JSON (no pretty print) |
 | `--dry-run` | Show what would be sent, don't execute (useful for write operations) |
 
-### Available Commands (Phase 1 - Read Operations)
+### Available Commands
+
+#### Read Operations
 
 | Command | Description |
 |---------|-------------|
@@ -189,6 +105,19 @@ scripts/codeberg-helper.py  # From skills directory or project root
 | `list-releases <owner> <repo>` | List repository releases |
 
 **Note:** Some endpoints in the Read Operations table are documented for reference but not implemented as script commands: topics, search, user-repos, org-repos, and compare. Use the API endpoint directly for these operations.
+
+#### Write Operations
+
+| Command | Description |
+|---------|-------------|
+| `post-comment <owner> <repo> <index> "<body>"` | Post a comment on an issue or PR |
+| `create-issue <owner> <repo> "<title>" "<body>" [--labels 1,2,3]` | Create a new issue (labels optional) |
+| `close-issue <owner> <repo> <index>` | Close an issue or PR |
+| `reopen-issue <owner> <repo> <index>` | Reopen an issue or PR |
+| `add-labels <owner> <repo> <index> <id1,id2,...>` | Add labels to an issue or PR (use numeric IDs) |
+| `submit-review <owner> <repo> <index> <event> "<body>"` | Submit a PR review (event: APPROVED\|REQUEST_CHANGES\|COMMENT) |
+| `create-pr <owner> <repo> "<title>" "<body>" <head> <base>` | Create a new pull request |
+| `merge-pr <owner> <repo> <index> [--style merge\|rebase\|squash] [--yes]` | Merge a pull request (requires --yes flag) |
 
 ### Output Format
 
@@ -360,60 +289,6 @@ scripts/codeberg-helper.py list-milestones <owner> <repo>
 scripts/codeberg-helper.py get-repo <owner> <repo>
 ```
 
-### Post a comment on a PR/issue
-
-**Coming in Phase 2.** Use the API endpoint table above for reference:
-- `POST /repos/{owner}/{repo}/issues/{index}/comments`
-- Body: `{"body":"Your comment text here"}`
-- Use: `scripts/codeberg-helper.py post-comment <owner> <repo> <index> "<text>"` (Phase 2)
-
-### Create an issue
-
-**Coming in Phase 2.** Use the API endpoint table above for reference:
-- `POST /repos/{owner}/{repo}/issues`
-- Body: `{"title":"...","body":"...","labels":[...]}`
-- Use: `scripts/codeberg-helper.py create-issue <owner> <repo> "<title>" "<body>"` (Phase 2)
-
-### Close or reopen an issue/PR
-
-**Coming in Phase 2.** Use the API endpoint table above for reference:
-- `PATCH /repos/{owner}/{repo}/issues/{index}`
-- Body: `{"state":"closed"}` or `{"state":"open"}`
-- Use: `scripts/codeberg-helper.py close-issue` or `scripts/codeberg-helper.py reopen-issue` (Phase 2)
-
-### Submit a PR review
-
-**Coming in Phase 2.** Use the API endpoint table above for reference:
-- `POST /repos/{owner}/{repo}/pulls/{index}/reviews`
-- Body: `{"body":"...","event":"APPROVED|REQUEST_CHANGES|COMMENT"}`
-- Use: `scripts/codeberg-helper.py submit-review <owner> <repo> <index> <event> "<body>"` (Phase 2)
-
-Valid `event` values: `APPROVED`, `REQUEST_CHANGES`, `COMMENT`
-
-### Create a PR
-
-**Coming in Phase 2.** Use the API endpoint table above for reference:
-- `POST /repos/{owner}/{repo}/pulls`
-- Body: `{"title":"...","body":"...","head":"branch","base":"main"}`
-- Use: `scripts/codeberg-helper.py create-pr <owner> <repo> "<title>" "<body>" <head> <base>` (Phase 2)
-
-### Add labels to an issue/PR
-
-**Coming in Phase 2.** First list labels to get IDs:
-```bash
-scripts/codeberg-helper.py list-labels <owner> <repo>
-```
-Then use: `scripts/codeberg-helper.py add-labels <owner> <repo> <index> <label_id,...>` (Phase 2)
-
-### Merge a PR
-
-**Coming in Phase 2.** Use the API endpoint table above for reference:
-- `POST /repos/{owner}/{repo}/pulls/{index}/merge`
-- Body: `{"Do":"merge|rebase|squash","merge_message_field":"..."}`
-- Use: `scripts/codeberg-helper.py merge-pr <owner> <repo> <index> <style>` (Phase 2)
-
-Valid `Do` values: `merge`, `rebase`, `squash`
-
 ## Common Mistakes
 
 - **Assuming `#issuecomment-{id}` is always an issue comment** -- it can be a review event. Use `scripts/codeberg-helper.py find-comment` to find any comment by ID reliably
@@ -423,7 +298,7 @@ Valid `Do` values: `merge`, `rebase`, `squash`
 - Not handling pagination for repos with many comments (default limit is 30)
 - Using session cookies instead of API tokens (insecure, fragile, expires)
 - **Forgetting `CODEBERG_TOKEN` environment variable** -- the script requires this. Ensure it's exported before running commands
-- **Forgetting `--dry-run` for write operations** -- use this flag to preview what will be sent before executing (Phase 2)
+- **Forgetting `--dry-run` for write operations** -- use this flag to preview what will be sent before executing
 - Using positional arguments for optional parameters (e.g., `list-issues owner repo all`) instead of flags (e.g., `list-issues owner repo --state all`)
 
 ## Response Fields (Comment Object)
