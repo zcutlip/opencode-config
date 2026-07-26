@@ -2,9 +2,10 @@
 """
 Codeberg API CLI Helper
 
-A read-only CLI tool for interacting with the Codeberg Forgejo API.
+A CLI tool for interacting with the Codeberg Forgejo API.
 Provides commands for fetching PRs, issues, comments, files, and
-repository data.
+repository data, as well as write operations for creating issues,
+posting comments, and managing PRs.
 
 Usage:
     codeberg-helper.py <command> <arguments> [options]
@@ -23,9 +24,10 @@ import argparse
 import json
 import os
 import sys
-from typing import Any, Dict, List, Optional
-
-import requests
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any
 
 BASE_URL = "https://codeberg.org/api/v1"
 
@@ -61,20 +63,21 @@ def get_token() -> str:
     return token
 
 
-def make_headers() -> Dict[str, str]:
+def make_headers() -> dict[str, str]:
     """Create request headers with authentication."""
     return {"Authorization": f"token {get_token()}", "Accept": "application/json"}
 
 
-def handle_response(response: requests.Response) -> Any:
+def handle_response(response) -> Any:
     """Handle API response and raise appropriate errors."""
-    status = response.status_code
+    status = response.getcode()
+    body = response.read().decode("utf-8")
 
     if status == 200 or status == 201:
         try:
-            return response.json()
+            return json.loads(body)
         except json.JSONDecodeError:
-            return response.text
+            return body
 
     elif status == 401 or status == 403:
         raise CodebergError("Authentication failed", EXIT_AUTH_FAILED, "auth_failed")
@@ -87,10 +90,10 @@ def handle_response(response: requests.Response) -> Any:
 
     else:
         try:
-            error_data = response.json()
-            message = error_data.get("message", response.text)
+            error_data = json.loads(body)
+            message = error_data.get("message", body)
         except json.JSONDecodeError:
-            message = response.text
+            message = body
 
         raise CodebergError(
             f"API error (HTTP {status}): {message}", EXIT_NETWORK, "network_error"
@@ -123,16 +126,34 @@ def build_url(endpoint: str) -> str:
 
 
 def fetch_all_pages(
-    url: str, params: Optional[Dict] = None, limit: int = 100
-) -> List[Dict]:
+    url: str, params: dict | None = None, limit: int = 100
+) -> list[dict]:
     """Fetch all pages of a paginated endpoint."""
     all_items = []
     params = params or {}
     params["limit"] = limit
-    current_url: Optional[str] = url
+    current_url: str | None = url
 
     while current_url:
-        response = requests.get(current_url, headers=make_headers(), params=params)
+        if params:
+            query_string = urllib.parse.urlencode(params)
+            full_url = (
+                f"{current_url}?{query_string}"
+                if "?" not in current_url
+                else current_url
+            )
+        else:
+            full_url = current_url
+
+        req = urllib.request.Request(full_url, headers=make_headers())
+        try:
+            response = urllib.request.urlopen(req)
+        except urllib.error.HTTPError as e:
+            # Re-raise as CodebergError
+            raise CodebergError(
+                f"API error (HTTP {e.code}): {e.reason}", EXIT_NETWORK, "network_error"
+            )
+
         data = handle_response(response)
 
         if isinstance(data, list):
@@ -153,56 +174,107 @@ def fetch_all_pages(
     return all_items
 
 
+def get_json(endpoint: str, params: dict | None = None) -> Any:
+    """GET JSON data from an API endpoint."""
+    url = build_url(endpoint)
+    if params:
+        query_string = urllib.parse.urlencode(params)
+        url = f"{url}?{query_string}"
+
+    req = urllib.request.Request(url, headers=make_headers())
+
+    try:
+        response = urllib.request.urlopen(req)
+    except urllib.error.HTTPError as e:
+        raise CodebergError(
+            f"API error (HTTP {e.code}): {e.reason}", EXIT_NETWORK, "network_error"
+        )
+
+    return handle_response(response)
+
+
+def post_json(endpoint: str, data: dict) -> Any:
+    """POST JSON data to an API endpoint."""
+    url = build_url(endpoint)
+    headers = make_headers()
+    headers["Content-Type"] = "application/json"
+
+    json_data = json.dumps(data).encode("utf-8")
+    req = urllib.request.Request(url, data=json_data, headers=headers, method="POST")
+
+    try:
+        response = urllib.request.urlopen(req)
+    except urllib.error.HTTPError as e:
+        raise CodebergError(
+            f"API error (HTTP {e.code}): {e.reason}", EXIT_NETWORK, "network_error"
+        )
+
+    return handle_response(response)
+
+
+def patch_json(endpoint: str, data: dict) -> Any:
+    """PATCH JSON data to an API endpoint."""
+    url = build_url(endpoint)
+    headers = make_headers()
+    headers["Content-Type"] = "application/json"
+
+    json_data = json.dumps(data).encode("utf-8")
+    req = urllib.request.Request(url, data=json_data, headers=headers, method="PATCH")
+
+    try:
+        response = urllib.request.urlopen(req)
+    except urllib.error.HTTPError as e:
+        raise CodebergError(
+            f"API error (HTTP {e.code}): {e.reason}", EXIT_NETWORK, "network_error"
+        )
+
+    return handle_response(response)
+
+
 # ==================== CLI Commands ====================
 
 
-def cmd_get_pr(owner: str, repo: str, index: int) -> Dict:
+def cmd_get_pr(owner: str, repo: str, index: int) -> dict:
     """Get pull request details."""
-    url = build_url(f"/repos/{owner}/{repo}/pulls/{index}")
-    response = requests.get(url, headers=make_headers())
-    return handle_response(response)
+    return get_json(f"/repos/{owner}/{repo}/pulls/{index}")
 
 
 def cmd_list_prs(
     owner: str, repo: str, state: str = "open", limit: int = 30
-) -> List[Dict]:
+) -> list[dict]:
     """List repository pull requests."""
     url = build_url(f"/repos/{owner}/{repo}/pulls")
     params = {"state": state, "limit": limit}
     return fetch_all_pages(url, params, limit)
 
 
-def cmd_get_issue(owner: str, repo: str, index: int) -> Dict:
+def cmd_get_issue(owner: str, repo: str, index: int) -> dict:
     """Get issue details."""
-    url = build_url(f"/repos/{owner}/{repo}/issues/{index}")
-    response = requests.get(url, headers=make_headers())
-    return handle_response(response)
+    return get_json(f"/repos/{owner}/{repo}/issues/{index}")
 
 
 def cmd_list_issues(
     owner: str, repo: str, state: str = "open", limit: int = 30
-) -> List[Dict]:
+) -> list[dict]:
     """List repository issues."""
     url = build_url(f"/repos/{owner}/{repo}/issues")
     params = {"state": state, "limit": limit}
     return fetch_all_pages(url, params, limit)
 
 
-def cmd_get_comments(owner: str, repo: str, index: int) -> List[Dict]:
+def cmd_get_comments(owner: str, repo: str, index: int) -> list[dict]:
     """Get comments for an issue or PR."""
     # Try issues first, then falls back to try pulls
-    url = build_url(f"/repos/{owner}/{repo}/issues/{index}/comments")
-    response = requests.get(url, headers=make_headers())
-
-    if response.status_code == 404:
-        # Try pull request comments
-        url = build_url(f"/repos/{owner}/{repo}/pulls/{index}/comments")
-        response = requests.get(url, headers=make_headers())
-
-    return handle_response(response)
+    try:
+        return get_json(f"/repos/{owner}/{repo}/issues/{index}/comments")
+    except CodebergError as e:
+        if e.exit_code == EXIT_NOT_FOUND:
+            # Try pull request comments
+            return get_json(f"/repos/{owner}/{repo}/pulls/{index}/comments")
+        raise
 
 
-def cmd_find_comment(owner: str, repo: str, index: int, comment_id: int) -> Dict:
+def cmd_find_comment(owner: str, repo: str, index: int, comment_id: int) -> dict:
     """
     Find a specific comment by ID using the timeline API.
 
@@ -247,62 +319,54 @@ def cmd_find_comment(owner: str, repo: str, index: int, comment_id: int) -> Dict
 
 def cmd_get_pr_diff(owner: str, repo: str, index: int) -> str:
     """Get the diff text of a pull request."""
-    url = build_url(f"/repos/{owner}/{repo}/pulls/{index}.diff")
-    response = requests.get(url, headers=make_headers())
-    return handle_response(response)
+    return get_json(f"/repos/{owner}/{repo}/pulls/{index}.diff")
 
 
-def cmd_list_pr_files(owner: str, repo: str, index: int) -> List[Dict]:
+def cmd_list_pr_files(owner: str, repo: str, index: int) -> list[dict]:
     """List changed files in a pull request."""
-    url = build_url(f"/repos/{owner}/{repo}/pulls/{index}/files")
-    response = requests.get(url, headers=make_headers())
-    return handle_response(response)
+    return get_json(f"/repos/{owner}/{repo}/pulls/{index}/files")
 
 
-def cmd_get_timeline(owner: str, repo: str, index: int) -> List[Dict]:
+def cmd_get_timeline(owner: str, repo: str, index: int) -> list[dict]:
     """Get the full timeline of events for an issue or PR."""
     url = build_url(f"/repos/{owner}/{repo}/issues/{index}/timeline")
     params = {"limit": 100}
     return fetch_all_pages(url, params, limit=100)
 
 
-def cmd_list_labels(owner: str, repo: str) -> List[Dict]:
+def cmd_list_labels(owner: str, repo: str) -> list[dict]:
     """List repository labels."""
     url = build_url(f"/repos/{owner}/{repo}/labels")
     params = {"limit": 100}
     return fetch_all_pages(url, params, limit=100)
 
 
-def cmd_list_milestones(owner: str, repo: str) -> List[Dict]:
+def cmd_list_milestones(owner: str, repo: str) -> list[dict]:
     """List repository milestones."""
     url = build_url(f"/repos/{owner}/{repo}/milestones")
     params = {"state": "all", "limit": 100}
     return fetch_all_pages(url, params, limit=100)
 
 
-def cmd_get_file(owner: str, repo: str, path: str, ref: Optional[str] = None) -> Dict:
+def cmd_get_file(owner: str, repo: str, path: str, ref: str | None = None) -> dict:
     """Get file contents from repository."""
-    url = build_url(f"/repos/{owner}/{repo}/raw/{path}")
-    params = {"ref": ref} if ref else {}
-    response = requests.get(url, headers=make_headers(), params=params)
-    return handle_response(response)
+    params = {"ref": ref} if ref else None
+    return get_json(f"/repos/{owner}/{repo}/raw/{path}", params)
 
 
-def cmd_list_commits(owner: str, repo: str, limit: int = 100) -> List[Dict]:
+def cmd_list_commits(owner: str, repo: str, limit: int = 100) -> list[dict]:
     """List repository commits."""
     url = build_url(f"/repos/{owner}/{repo}/commits")
     params = {"limit": limit}
     return fetch_all_pages(url, params, limit=limit)
 
 
-def cmd_get_repo(owner: str, repo: str) -> Dict:
+def cmd_get_repo(owner: str, repo: str) -> dict:
     """Get repository information."""
-    url = build_url(f"/repos/{owner}/{repo}")
-    response = requests.get(url, headers=make_headers())
-    return handle_response(response)
+    return get_json(f"/repos/{owner}/{repo}")
 
 
-def cmd_get_reviews(owner: str, repo: str, index: int) -> List[Dict]:
+def cmd_get_reviews(owner: str, repo: str, index: int) -> list[dict]:
     """Get pull request reviews."""
     url = build_url(f"/repos/{owner}/{repo}/pulls/{index}/reviews")
     params = {"limit": 100}
@@ -311,29 +375,108 @@ def cmd_get_reviews(owner: str, repo: str, index: int) -> List[Dict]:
 
 def cmd_get_review_comments(
     owner: str, repo: str, index: int, review_id: int
-) -> List[Dict]:
+) -> list[dict]:
     """Get inline comments on a review."""
     url = build_url(f"/repos/{owner}/{repo}/pulls/{index}/reviews/{review_id}/comments")
     params = {"limit": 100}
     return fetch_all_pages(url, params, limit=100)
 
 
-def cmd_list_branches(owner: str, repo: str) -> List[Dict]:
+def cmd_list_branches(owner: str, repo: str) -> list[dict]:
     """List repository branches."""
     url = build_url(f"/repos/{owner}/{repo}/branches")
     params = {"limit": 100}
     return fetch_all_pages(url, params, limit=100)
 
 
-def cmd_list_releases(owner: str, repo: str) -> List[Dict]:
+def cmd_list_releases(owner: str, repo: str) -> list[dict]:
     """List repository releases."""
     url = build_url(f"/repos/{owner}/{repo}/releases")
     params = {"limit": 100}
     return fetch_all_pages(url, params, limit=100)
 
 
+# ==================== Write Operations ====================
+
+
+def cmd_post_comment(owner: str, repo: str, index: int, body: str) -> dict:
+    """Post a comment on an issue or PR."""
+    return post_json(f"/repos/{owner}/{repo}/issues/{index}/comments", {"body": body})
+
+
+def cmd_create_issue(
+    owner: str,
+    repo: str,
+    title: str,
+    body: str,
+    labels: list[int] | None = None,
+) -> dict:
+    """Create a new issue."""
+    data: dict[str, Any] = {"title": title, "body": body}
+    if labels:
+        data["labels"] = labels
+    return post_json(f"/repos/{owner}/{repo}/issues", data)
+
+
+def cmd_close_issue(owner: str, repo: str, index: int) -> dict:
+    """Close an issue or PR."""
+    return patch_json(f"/repos/{owner}/{repo}/issues/{index}", {"state": "closed"})
+
+
+def cmd_reopen_issue(owner: str, repo: str, index: int) -> dict:
+    """Reopen an issue or PR."""
+    return patch_json(f"/repos/{owner}/{repo}/issues/{index}", {"state": "open"})
+
+
+def cmd_add_labels(
+    owner: str, repo: str, index: int, label_ids: list[int]
+) -> list[dict]:
+    """Add labels to an issue or PR."""
+    return post_json(
+        f"/repos/{owner}/{repo}/issues/{index}/labels", {"labels": label_ids}
+    )
+
+
+def cmd_submit_review(owner: str, repo: str, index: int, event: str, body: str) -> dict:
+    """Submit a PR review."""
+    if event not in ["APPROVED", "REQUEST_CHANGES", "COMMENT"]:
+        raise CodebergError(
+            f"Invalid event type: {event}. Must be APPROVED, REQUEST_CHANGES, or COMMENT",
+            EXIT_INVALID_ARGS,
+            "invalid_args",
+        )
+    return post_json(
+        f"/repos/{owner}/{repo}/pulls/{index}/reviews",
+        {"body": body, "event": event},
+    )
+
+
+def cmd_create_pr(
+    owner: str, repo: str, title: str, body: str, head: str, base: str
+) -> dict:
+    """Create a new pull request."""
+    return post_json(
+        f"/repos/{owner}/{repo}/pulls",
+        {"title": title, "body": body, "head": head, "base": base},
+    )
+
+
+def cmd_merge_pr(owner: str, repo: str, index: int, style: str = "merge") -> dict:
+    """Merge a pull request."""
+    if style not in ["merge", "rebase", "squash"]:
+        raise CodebergError(
+            f"Invalid merge style: {style}. Must be merge, rebase, or squash",
+            EXIT_INVALID_ARGS,
+            "invalid_args",
+        )
+    return post_json(
+        f"/repos/{owner}/{repo}/pulls/{index}/merge",
+        {"Do": style, "merge_message_field": ""},
+    )
+
+
 def build_curl_command(
-    method: str, url: str, headers: Dict, params: Optional[Dict] = None
+    method: str, url: str, headers: dict, params: dict | None = None
 ) -> str:
     """Build a curl command string for dry-run mode."""
     parts = ["curl", "-X", method]
@@ -486,6 +629,76 @@ Examples:
     p.add_argument("owner", help="Repository owner")
     p.add_argument("repo", help="Repository name")
 
+    # post-comment
+    p = subparsers.add_parser("post-comment", help="Post a comment on an issue or PR")
+    p.add_argument("owner", help="Repository owner")
+    p.add_argument("repo", help="Repository name")
+    p.add_argument("index", type=int, help="Issue or PR number")
+    p.add_argument("body", help="Comment body text")
+
+    # create-issue
+    p = subparsers.add_parser("create-issue", help="Create a new issue")
+    p.add_argument("owner", help="Repository owner")
+    p.add_argument("repo", help="Repository name")
+    p.add_argument("title", help="Issue title")
+    p.add_argument("body", help="Issue body")
+    p.add_argument("--labels", type=str, help="Comma-separated label IDs (e.g., 1,2,3)")
+
+    # close-issue
+    p = subparsers.add_parser("close-issue", help="Close an issue or PR")
+    p.add_argument("owner", help="Repository owner")
+    p.add_argument("repo", help="Repository name")
+    p.add_argument("index", type=int, help="Issue or PR number")
+
+    # reopen-issue
+    p = subparsers.add_parser("reopen-issue", help="Reopen an issue or PR")
+    p.add_argument("owner", help="Repository owner")
+    p.add_argument("repo", help="Repository name")
+    p.add_argument("index", type=int, help="Issue or PR number")
+
+    # add-labels
+    p = subparsers.add_parser("add-labels", help="Add labels to an issue or PR")
+    p.add_argument("owner", help="Repository owner")
+    p.add_argument("repo", help="Repository name")
+    p.add_argument("index", type=int, help="Issue or PR number")
+    p.add_argument("label_ids", help="Comma-separated label IDs (e.g., 1,2,3)")
+
+    # submit-review
+    p = subparsers.add_parser("submit-review", help="Submit a PR review")
+    p.add_argument("owner", help="Repository owner")
+    p.add_argument("repo", help="Repository name")
+    p.add_argument("index", type=int, help="PR number")
+    p.add_argument(
+        "event",
+        choices=["APPROVED", "REQUEST_CHANGES", "COMMENT"],
+        help="Review event type",
+    )
+    p.add_argument("body", help="Review body text")
+
+    # create-pr
+    p = subparsers.add_parser("create-pr", help="Create a new pull request")
+    p.add_argument("owner", help="Repository owner")
+    p.add_argument("repo", help="Repository name")
+    p.add_argument("title", help="PR title")
+    p.add_argument("body", help="PR body")
+    p.add_argument("head", help="Head branch name")
+    p.add_argument("base", help="Base branch name")
+
+    # merge-pr
+    p = subparsers.add_parser("merge-pr", help="Merge a pull request (requires --yes)")
+    p.add_argument("owner", help="Repository owner")
+    p.add_argument("repo", help="Repository name")
+    p.add_argument("index", type=int, help="PR number")
+    p.add_argument(
+        "--style",
+        choices=["merge", "rebase", "squash"],
+        default="merge",
+        help="Merge style (default: merge)",
+    )
+    p.add_argument(
+        "--yes", action="store_true", help="Confirm merge (required for safety)"
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -569,6 +782,75 @@ Examples:
             elif args.command == "list-releases":
                 url = build_url(f"/repos/{args.owner}/{args.repo}/releases")
                 print(build_curl_command("GET", url, headers))
+            elif args.command == "post-comment":
+                url = build_url(
+                    f"/repos/{args.owner}/{args.repo}/issues/{args.index}/comments"
+                )
+                data = {"body": args.body}
+                print(
+                    f"curl -X POST -H 'Authorization: token $CODEBERG_TOKEN' -H 'Content-Type: application/json' -d '{json.dumps(data)}' {url}"
+                )
+            elif args.command == "create-issue":
+                url = build_url(f"/repos/{args.owner}/{args.repo}/issues")
+                data = {"title": args.title, "body": args.body}
+                if args.labels:
+                    data["labels"] = [int(x) for x in args.labels.split(",")]
+                print(
+                    f"curl -X POST -H 'Authorization: token $CODEBERG_TOKEN' -H 'Content-Type: application/json' -d '{json.dumps(data)}' {url}"
+                )
+            elif args.command == "close-issue":
+                url = build_url(f"/repos/{args.owner}/{args.repo}/issues/{args.index}")
+                data = {"state": "closed"}
+                print(
+                    f"curl -X PATCH -H 'Authorization: token $CODEBERG_TOKEN' -H 'Content-Type: application/json' -d '{json.dumps(data)}' {url}"
+                )
+            elif args.command == "reopen-issue":
+                url = build_url(f"/repos/{args.owner}/{args.repo}/issues/{args.index}")
+                data = {"state": "open"}
+                print(
+                    f"curl -X PATCH -H 'Authorization: token $CODEBERG_TOKEN' -H 'Content-Type: application/json' -d '{json.dumps(data)}' {url}"
+                )
+            elif args.command == "add-labels":
+                url = build_url(
+                    f"/repos/{args.owner}/{args.repo}/issues/{args.index}/labels"
+                )
+                data = {"labels": [int(x) for x in args.label_ids.split(",")]}
+                print(
+                    f"curl -X POST -H 'Authorization: token $CODEBERG_TOKEN' -H 'Content-Type: application/json' -d '{json.dumps(data)}' {url}"
+                )
+            elif args.command == "submit-review":
+                url = build_url(
+                    f"/repos/{args.owner}/{args.repo}/pulls/{args.index}/reviews"
+                )
+                data = {"body": args.body, "event": args.event}
+                print(
+                    f"curl -X POST -H 'Authorization: token $CODEBERG_TOKEN' -H 'Content-Type: application/json' -d '{json.dumps(data)}' {url}"
+                )
+            elif args.command == "create-pr":
+                url = build_url(f"/repos/{args.owner}/{args.repo}/pulls")
+                data = {
+                    "title": args.title,
+                    "body": args.body,
+                    "head": args.head,
+                    "base": args.base,
+                }
+                print(
+                    f"curl -X POST -H 'Authorization: token $CODEBERG_TOKEN' -H 'Content-Type: application/json' -d '{json.dumps(data)}' {url}"
+                )
+            elif args.command == "merge-pr":
+                if not args.yes:
+                    print(
+                        f"# Would merge PR #{args.index} in {args.owner}/{args.repo} with style '{args.style}'"
+                    )
+                    print("# Add --yes flag to actually merge")
+                    sys.exit(EXIT_INVALID_ARGS)
+                url = build_url(
+                    f"/repos/{args.owner}/{args.repo}/pulls/{args.index}/merge"
+                )
+                data = {"Do": args.style, "merge_message_field": ""}
+                print(
+                    f"curl -X POST -H 'Authorization: token $CODEBERG_TOKEN' -H 'Content-Type: application/json' -d '{json.dumps(data)}' {url}"
+                )
             else:
                 print(f"# Unknown command: {args.command}", file=sys.stderr)
                 sys.exit(EXIT_INVALID_ARGS)
@@ -618,6 +900,39 @@ Examples:
             result = cmd_list_branches(args.owner, args.repo)
         elif args.command == "list-releases":
             result = cmd_list_releases(args.owner, args.repo)
+        elif args.command == "post-comment":
+            result = cmd_post_comment(args.owner, args.repo, args.index, args.body)
+        elif args.command == "create-issue":
+            labels = None
+            if args.labels:
+                labels = [int(x) for x in args.labels.split(",")]
+            result = cmd_create_issue(
+                args.owner, args.repo, args.title, args.body, labels
+            )
+        elif args.command == "close-issue":
+            result = cmd_close_issue(args.owner, args.repo, args.index)
+        elif args.command == "reopen-issue":
+            result = cmd_reopen_issue(args.owner, args.repo, args.index)
+        elif args.command == "add-labels":
+            label_ids = [int(x) for x in args.label_ids.split(",")]
+            result = cmd_add_labels(args.owner, args.repo, args.index, label_ids)
+        elif args.command == "submit-review":
+            result = cmd_submit_review(
+                args.owner, args.repo, args.index, args.event, args.body
+            )
+        elif args.command == "create-pr":
+            result = cmd_create_pr(
+                args.owner, args.repo, args.title, args.body, args.head, args.base
+            )
+        elif args.command == "merge-pr":
+            if not args.yes:
+                print(
+                    f"# Would merge PR #{args.index} in {args.owner}/{args.repo} with style '{args.style}'",
+                    file=sys.stderr,
+                )
+                print("# Add --yes flag to actually merge", file=sys.stderr)
+                sys.exit(EXIT_INVALID_ARGS)
+            result = cmd_merge_pr(args.owner, args.repo, args.index, args.style)
         else:
             print(f"# Unknown command: {args.command}", file=sys.stderr)
             sys.exit(EXIT_INVALID_ARGS)
@@ -626,11 +941,11 @@ Examples:
 
     except CodebergError as e:
         output_error(e)
-    except requests.RequestException as e:
-        error = CodebergError(f"Network error: {str(e)}", EXIT_NETWORK, "network_error")
+    except urllib.error.URLError as e:
+        error = CodebergError(f"Network error: {e!s}", EXIT_NETWORK, "network_error")
         output_error(error)
-    except Exception as e:
-        error = CodebergError(f"Unexpected error: {str(e)}", EXIT_GENERAL, "general")
+    except Exception as e:  # noqa: BLE001
+        error = CodebergError(f"Unexpected error: {e!s}", EXIT_GENERAL, "general")
         output_error(error)
 
 
