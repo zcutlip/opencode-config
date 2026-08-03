@@ -29,7 +29,7 @@ Interact with Codeberg (Forgejo/Gitea) repositories via the REST API. Authentica
 export CODEBERG_TOKEN="your-token-here"
 ```
 
-**Note:** The `scripts/codeberg-helper.py` script reads the token from the `CODEBERG_TOKEN` environment variable automatically.
+**Note:** The `{BASE_DIRECTORY}/scripts/codeberg-helper.py` script reads the token from the `CODEBERG_TOKEN` environment variable automatically.
 
 **Security rules:**
 - NEVER hardcode tokens in skills, scripts, or committed files
@@ -47,19 +47,19 @@ For self-hosted Forgejo/Gitea instances, replace `codeberg.org` with instance do
 
 ## Quick Reference
 
-**Helper script:** Use `scripts/codeberg-helper.py` (requires `CODEBERG_TOKEN` env var)
+**Helper script:** Use `{BASE_DIRECTORY}/scripts/codeberg-helper.py` (requires `CODEBERG_TOKEN` env var)
 
 ```bash
 # Basic usage
-scripts/codeberg-helper.py get-repo <owner> <repo>
-scripts/codeberg-helper.py list-prs <owner> <repo>
-scripts/codeberg-helper.py get-pr <owner> <repo> <index>
-scripts/codeberg-helper.py get-comments <owner> <repo> <index>
-scripts/codeberg-helper.py find-comment <owner> <repo> <index> <comment_id>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-repo <owner> <repo>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py list-prs <owner> <repo>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-pr <owner> <repo> <index>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-comments <owner> <repo> <index>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py find-comment <owner> <repo> <index> <comment_id>
 
 # Global options
-scripts/codeberg-helper.py --raw <command> ...    # Output raw JSON (no pretty print)
-scripts/codeberg-helper.py --dry-run <command> ... # Show what would be sent, don't execute
+{BASE_DIRECTORY}/scripts/codeberg-helper.py --raw <command> ...    # Output raw JSON (no pretty print)
+{BASE_DIRECTORY}/scripts/codeberg-helper.py --dry-run <command> ... # Show what would be sent, don't execute
 ```
 
 ## Helper Script Usage
@@ -69,7 +69,7 @@ The `codeberg-helper.py` script wraps common API operations, handling authentica
 ### Script Location
 
 ```bash
-scripts/codeberg-helper.py  # From skills directory or project root
+{BASE_DIRECTORY}/scripts/codeberg-helper.py  # From skills directory or project root
 ```
 
 ### Global Options
@@ -153,7 +153,7 @@ To extract API parameters from a URL:
 
 To reliably find any `#issuecomment-{id}`, use the **find-comment** command which queries the timeline endpoint:
 ```bash
-scripts/codeberg-helper.py find-comment <owner> <repo> <index> <comment_id>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py find-comment <owner> <repo> <index> <comment_id>
 ```
 The timeline event's `type` field tells you what it is (`comment`, `review`, etc.).
 
@@ -162,7 +162,7 @@ The timeline event's `type` field tells you what it is (`comment`, `review`, etc
 ### Fetch all comments on a PR
 
 ```bash
-scripts/codeberg-helper.py get-comments <owner> <repo> <index>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-comments <owner> <repo> <index>
 ```
 
 Note: PRs are a type of issue in Gitea/Forgejo, so use `/issues/{index}/comments` for conversation comments.
@@ -170,7 +170,7 @@ Note: PRs are a type of issue in Gitea/Forgejo, so use `/issues/{index}/comments
 ### Find a specific comment by ID (from `#issuecomment-{id}` URL)
 
 ```bash
-scripts/codeberg-helper.py find-comment <owner> <repo> <index> <comment_id>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py find-comment <owner> <repo> <index> <comment_id>
 ```
 
 This command uses the timeline endpoint to find any comment type (regular, review, inline). It returns the comment's type, author, date, and body.
@@ -178,19 +178,19 @@ This command uses the timeline endpoint to find any comment type (regular, revie
 ### Get PR details
 
 ```bash
-scripts/codeberg-helper.py get-pr <owner> <repo> <index>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-pr <owner> <repo> <index>
 ```
 
 ### Get PR diff
 
 ```bash
-scripts/codeberg-helper.py get-pr-diff <owner> <repo> <index>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-pr-diff <owner> <repo> <index>
 ```
 
 ### Get timeline
 
 ```bash
-scripts/codeberg-helper.py get-timeline <owner> <repo> <index>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-timeline <owner> <repo> <index>
 ```
 
 Returns all events (comments, reviews, status changes, etc.) for an issue or PR in chronological order.
@@ -198,7 +198,7 @@ Returns all events (comments, reviews, status changes, etc.) for an issue or PR 
 ### List PR files
 
 ```bash
-scripts/codeberg-helper.py list-pr-files <owner> <repo> <index>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py list-pr-files <owner> <repo> <index>
 ```
 
 Lists all files changed in a PR with their status (added, modified, deleted) and additions/deletions counts.
@@ -206,27 +206,27 @@ Lists all files changed in a PR with their status (added, modified, deleted) and
 ### List PRs
 
 ```bash
-scripts/codeberg-helper.py list-prs <owner> <repo> [--state {open,closed,all}]
+{BASE_DIRECTORY}/scripts/codeberg-helper.py list-prs <owner> <repo> [--state {open,closed,all}]
 # --state: open (default), closed, all
 ```
 
 ### List issues
 
 ```bash
-scripts/codeberg-helper.py list-issues <owner> <repo> [--state {open,closed,all}]
+{BASE_DIRECTORY}/scripts/codeberg-helper.py list-issues <owner> <repo> [--state {open,closed,all}]
 # --state: open (default), closed, all
 ```
 
 ### Get issue details
 
 ```bash
-scripts/codeberg-helper.py get-issue <owner> <repo> <index>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-issue <owner> <repo> <index>
 ```
 
 ### Get file
 
 ```bash
-scripts/codeberg-helper.py get-file <owner> <repo> <path> [--ref <branch>]
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-file <owner> <repo> <path> [--ref <branch>]
 ```
 
 Gets the contents of a file in the repository. Use `--ref` to specify a branch (default: default branch).
@@ -234,7 +234,7 @@ Gets the contents of a file in the repository. Use `--ref` to specify a branch (
 ### List commits
 
 ```bash
-scripts/codeberg-helper.py list-commits <owner> <repo> [--limit N]
+{BASE_DIRECTORY}/scripts/codeberg-helper.py list-commits <owner> <repo> [--limit N]
 ```
 
 Lists commits for the repository. Use `--limit` to control the number of results (default: 10).
@@ -242,7 +242,7 @@ Lists commits for the repository. Use `--limit` to control the number of results
 ### Get PR reviews
 
 ```bash
-scripts/codeberg-helper.py get-reviews <owner> <repo> <index>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-reviews <owner> <repo> <index>
 ```
 
 Gets all reviews on a pull request. Each review contains the reviewer's feedback, comments, and approval status.
@@ -250,7 +250,7 @@ Gets all reviews on a pull request. Each review contains the reviewer's feedback
 ### Get inline review comments
 
 ```bash
-scripts/codeberg-helper.py get-review-comments <owner> <repo> <index> <review_id>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-review-comments <owner> <repo> <index> <review_id>
 ```
 
 Gets inline comments (file-specific comments) on a specific review. These are code review comments tied to specific lines of code.
@@ -258,7 +258,7 @@ Gets inline comments (file-specific comments) on a specific review. These are co
 ### List branches
 
 ```bash
-scripts/codeberg-helper.py list-branches <owner> <repo>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py list-branches <owner> <repo>
 ```
 
 Lists all branches in the repository, including protected status and commit information.
@@ -266,7 +266,7 @@ Lists all branches in the repository, including protected status and commit info
 ### List releases
 
 ```bash
-scripts/codeberg-helper.py list-releases <owner> <repo>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py list-releases <owner> <repo>
 ```
 
 Lists all releases in the repository, including tag, name, and release notes.
@@ -274,24 +274,24 @@ Lists all releases in the repository, including tag, name, and release notes.
 ### List labels
 
 ```bash
-scripts/codeberg-helper.py list-labels <owner> <repo>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py list-labels <owner> <repo>
 ```
 
 ### List milestones
 
 ```bash
-scripts/codeberg-helper.py list-milestones <owner> <repo>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py list-milestones <owner> <repo>
 ```
 
 ### Get repository info
 
 ```bash
-scripts/codeberg-helper.py get-repo <owner> <repo>
+{BASE_DIRECTORY}/scripts/codeberg-helper.py get-repo <owner> <repo>
 ```
 
 ## Common Mistakes
 
-- **Assuming `#issuecomment-{id}` is always an issue comment** -- it can be a review event. Use `scripts/codeberg-helper.py find-comment` to find any comment by ID reliably
+- **Assuming `#issuecomment-{id}` is always an issue comment** -- it can be a review event. Use `{BASE_DIRECTORY}/scripts/codeberg-helper.py find-comment` to find any comment by ID reliably
 - Using `/pulls/{index}/comments` for conversation comments -- use `/issues/{index}/comments` instead
 - **Looking only at `/issues/{index}/comments` for PR feedback** -- inline code review comments live under `/pulls/{index}/reviews/{id}/comments`, not the issues endpoint
 - Forgetting that PR index and issue index share the same namespace
