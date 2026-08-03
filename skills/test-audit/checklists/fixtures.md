@@ -182,41 +182,7 @@ afterEach(() => {
 
 ## conftest.py Analysis
 
-### Common Patterns
-```python
-# Shared fixtures
-@pytest.fixture
-def client():
-    app = create_app()
-    with app.test_client() as client:
-        yield client
-
-# Hooks
-def pytest_configure(config):
-    # Run before all tests
-    pass
-
-def pytest_collection_modifyitems(config, items):
-    # Modify test collection
-    pass
-
-def pytest_runtest_setup(item):
-    # Run before each test
-    pass
-
-def pytest_runtest_teardown(item):
-    # Run after each test
-    pass
-```
-
-### Quality Checks
-- [ ] Fixtures are properly scoped (function, class, module, session)
-- [ ] Fixtures have cleanup code where needed
-- [ ] Fixtures are parameterized where appropriate
-- [ ] No duplicate fixtures
-- [ ] Fixtures are well-documented
-- [ ] Fixtures use tmp_path for temporary files
-- [ ] Fixtures don't leave resources behind after tests
+conftest.py is a pytest-specific idiom — shared fixtures, hooks, and configuration live there. For conftest patterns and quality checks, see `../frameworks/pytest.md` ("conftest.py Analysis" section).
 
 ## Audit Checklist
 

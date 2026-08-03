@@ -1,6 +1,6 @@
 ---
 name: test-audit
-description: "Audit test suites for quality issues: missing assertions, exception swallowing, trivial tests, and fixture problems. Supports pytest (Python) and Bun/Jest/Vitest (TypeScript/JavaScript)."
+description: "Audit test suites for quality issues: missing assertions, exception swallowing, trivial tests, fixture problems, and flakiness patterns. Supports pytest (Python) and Bun/Jest/Vitest/node:test (TypeScript/JavaScript)."
 license: MIT
 compatibility: opencode
 metadata:
@@ -24,17 +24,20 @@ I analyze test suites for:
 - Exception handling that swallows errors without verification
 - Skipped or `xfail` tests without a documented reason
 - Tests that only check "doesn't crash" without validation
+- Shared mutable state and order-dependent tests (see `checklists/isolation.md`)
 
 **Medium Issues:**
 - Tests that only check `is not None` / `len() > 0` / type, without value validation (context-dependent — see Context-Aware Analysis)
 - Tests that only check default values or trivial conditions
 - Weak assertions that could pass on wrong output
 - Fixture quality problems (hardcoded values, no cleanup)
+- Flaky test patterns: fixed delays, unfrozen time, unseeded randomness, environment dependencies (see `checklists/flakiness.md`)
 
 **Minor Issues:**
 - Misleading test names
 - Edge case tests with minimal validation
 - Inconsistent assertion patterns
+- Missing cleanup, stale snapshots
 
 ## Context-Aware Analysis
 
@@ -69,8 +72,8 @@ Before suggesting any external tool, library, or pattern change:
 
 When multiple issues share a severity level, rank them by impact within the tier:
 
-- **Within Critical:** Tests with no assertions > Tests that always pass > Tests with exception swallowing
-- **Within Medium:** Tests checking only type > Tests checking only defaults > Tests checking only file existence
+- **Within Critical:** Tests with no assertions > Tests that always pass > Tests with exception swallowing > Order-dependent tests
+- **Within Medium:** Tests checking only type > Tests checking only defaults > Tests checking only file existence > Flaky patterns
 - **Within Minor:** Missing edge cases > Missing documentation > Naming inconsistencies
 
 Report format for within-tier ranking:
@@ -84,23 +87,21 @@ Report format for within-tier ranking:
 
 This helps teams know which issues to tackle first within each severity level.
 
-### Framework Support
-
-- **pytest** (Python) — primary; see `frameworks/pytest.md` and `frameworks/python.md`
-- **Bun** (TypeScript/JavaScript) — primary; see `frameworks/bun.md` and `frameworks/typescript.md`
-- **Jest** and **Vitest** (JavaScript/TypeScript) — Bun's test API is Jest-compatible, so `frameworks/bun.md` and `frameworks/typescript.md` apply. Note any framework-specific differences where relevant.
-- **unittest** (Python) — covered via the Python checklists; uses `assertRaises`/`assertEqual` instead of `pytest.raises`/`assert`.
-
-Auto-detection based on project configuration files and import statements.
-
 ## When to Use Me
 
 Use this skill when you need to:
 - Assess test suite quality before refactoring
-- Identify flaky or low-value tests
+- Identify flaky or low-value tests (see `checklists/flakiness.md`)
+- Find test isolation problems (see `checklists/isolation.md`)
 - Review test coverage gaps (opt-in — see `checklists/coverage.md`)
 - Improve test maintainability
 - Prepare for code reviews or audits
+
+## When NOT to Use Me
+
+- **Writing new tests** — This skill audits existing tests; it doesn't write them.
+- **Chasing coverage percentages** — Coverage is opt-in and secondary to quality (see `checklists/coverage.md`).
+- **Replacing CI** — Running the test suite here is a baseline check, not a CI substitute.
 
 ## Methodology
 
@@ -112,6 +113,44 @@ Auditing test quality requires reading test bodies — assertions, exception han
 2. **Read each test file** — read the full file; assertion quality depends on context (imports, fixtures, helpers) that targeted reads risk missing.
 3. **Evaluate each test** against the checklists in `checklists/`.
 4. **Report findings** by severity with specific fixes.
+
+### Heuristic Pre-Scan (Tier 1)
+
+Before deep-reading, run cheap grep patterns across the entire suite to find mechanical issues and prioritize reading order:
+
+- `assert True` / `assert True:` — no-op assertions
+- Commented-out asserts — `# assert` patterns
+- Bare `except:` — exception swallowing
+- Skips without reason — `@pytest.mark.skip` / `.skip()` / `{ skip: true }` without `reason=`
+- `sleep(` / `time.sleep` — fixed delays
+- `Date.now()` / `datetime.now()` — unfrozen time
+- `Mock(return_value` followed by asserting on the mock — mock tautology candidates
+
+These patterns run suite-wide regardless of audit mode — they catch the most egregious issues even before reading begins. Results also set reading priority: files with the most hits get read first.
+
+### Audit Modes
+
+The skill supports two modes. Choose based on the suite size and the user's goal.
+
+**Fix-list mode (default, exhaustive).** Read every test file and produce a complete findings list. The goal is: the user can fix everything.
+
+- Files are read in batches of ~30, worst-first (pre-scan results determine order).
+- Per-batch progress notes: "Batch 2/6: 3 Critical, 5 Medium so far."
+- Findings accumulate as compact one-liners between batches.
+- Resumable: if the user stops early, the partial report covers the worst files; "continue" picks up.
+- Full report earns completeness claims: "All N files read."
+
+**Health-check mode (opt-in, sampled).** Quick assessment — not a complete fix list.
+
+- Read: all conftest/setup files + all pre-scan-flagged files + largest files per directory.
+- Disclosure is mandatory: "N of M files read, selected by [criteria]."
+- No completeness claims — findings read "at least these issues exist."
+- Coverage-gap analysis is incompatible with sampled mode; note this in the report.
+
+**Mode selection:**
+- ≤30 test files → just run (fix-list; one batch).
+- 31–100 files → fix-list mode by default (2–4 batches).
+- >100 files → ask the user: "Full batched audit, or sampled health check?"
 
 ### LSP as an optional accelerator
 
@@ -129,42 +168,47 @@ For suites with many test files, read files in parallel (multiple Read calls in 
 
 ## Audit Workflow
 
-### Phase 0: Run Tests First
+### Phase 0: Establish a Green Baseline
 
-**Before any static analysis, run the test suite to establish a baseline.**
+**Before any static analysis, run the test suite.** A green suite is table stakes — the purpose is not to discover pass/fail (the user likely already knows), but to:
+
+1. **Gate the audit.** If the suite is red — any failures, collection errors, or import breaks — **stop immediately and report**. Auditing a broken suite is premature; fix the red tests first. The report template includes an abort path for this case.
+
+2. **Collection cross-reference.** Compare the runner's reported test count against the number of tests you discover by reading files. A mismatch means silently uncollected tests. Common causes:
+   - Misnamed test class (`FooTest` instead of `TestFoo` in pytest)
+   - Wrong glob pattern (file doesn't match `test_*.py` / `*.test.ts`)
+   - Import error at collection time (test file never loads)
+   - Skip marker hiding the test from the count
+
+   `pytest --collect-only -q` is the cheap alternative when a full run is impractical — it gives the count without executing test bodies.
+
+3. **Secondary signals.** `--durations` for slow tests. A suite that can't complete within ~10 minutes is itself a quality finding.
 
 ```bash
 # pytest
-pytest --tb=short -q
+pytest --tb=short -q --durations=10
 
 # Bun
 bun test
 
+# node:test
+node --test
+
 # Or the project's own test runner
 ```
 
-Record:
-- Total tests run
-- Pass/fail rate
-- Any failures (these are critical issues to investigate)
-- Test execution time
+**Safety note:** Running the test suite executes repo code (filesystem and network side effects are possible). Use the project's own runner command; be cautious in unfamiliar repos.
 
-**Cross-reference counts:** Compare the runner's reported test count against the number of tests you discover by reading files. A mismatch usually means a test is collected but not run (e.g., skipped, or a class not matching the `Test*` pattern), or a discovery miss.
-
-**Why this matters:**
-- Static analysis alone produces reports like "Pass rate: Unknown" which is unhelpful
-- A failing test is a higher-priority finding than any static analysis issue
-- Running tests reveals flaky tests, slow tests, and runtime-only issues
-
-**If tests cannot be run:**
-- Note explicitly why (missing dependencies, environment issues)
-- Continue with static analysis but flag "tests were not executed" in the report
+**If the suite cannot be run:**
+- Note explicitly why (missing dependencies, environment issues, timeout).
+- Continue with static analysis but flag "tests were not executed" in the report.
 
 ### Phase 1: Discovery
 
 1. **Find test files** — glob for the framework's test file patterns (see the relevant `frameworks/*.md`).
-2. **Read each test file** in full. For large suites, read multiple files in parallel.
-3. **Read `conftest.py` / setup files** if they exist — fixtures and hooks live here.
+2. **Run heuristic pre-scan** — grep suite-wide for mechanical patterns (see Heuristic Pre-Scan above).
+3. **Read each test file** — in batches, worst-first. For large suites, read multiple files in parallel within each batch.
+4. **Read `conftest.py` / setup files** if they exist — fixtures and hooks live here.
 
 ### Phase 2: Analysis
 
@@ -173,26 +217,43 @@ For each test, evaluate against the checklists:
 1. **Assertions** (`checklists/assertions.md`) — count assertions, flag none/vacuous/weak/trivial, apply the context-aware decision tree.
 2. **Exception handling** (`checklists/exceptions.md`) — find `try/except` and bare `except:`, check for `pytest.raises`/`toThrow` with verification.
 3. **Fixtures** (`checklists/fixtures.md`) — hardcoded paths, missing cleanup, duplication, parameterization.
-4. **Coverage gaps** (`checklists/coverage.md`) — **opt-in only**; lead with coverage tooling when available.
+4. **Isolation** (`checklists/isolation.md`) — shared mutable state, order dependence, global variables, scope mismatches.
+5. **Flakiness** (`checklists/flakiness.md`) — sleep delays, unfrozen time, unseeded randomness, environment deps, unmocked external services.
+6. **Coverage gaps** (`checklists/coverage.md`) — **opt-in only**; lead with coverage tooling when available. Incompatible with health-check (sampled) mode.
 
 ### Phase 3: Reporting
 
 Generate a markdown report using the template below.
 
-## Framework-Specific Guidance
+## Frameworks & Checklists
+
+### Framework Auto-Detection
+
+| Framework | Detection Signals | Docs |
+|-----------|------------------|------|
+| **pytest** | `pytest.ini`, `pyproject.toml` `[tool.pytest]`, `conftest.py`, `import pytest` | `frameworks/pytest.md`, `frameworks/python.md` |
+| **Bun** | `bunfig.toml`, `bun.lockb`, `import {...} from "bun:test"` | `frameworks/bun.md`, `frameworks/typescript.md` |
+| **Jest / Vitest** | `jest.config.*`, `vitest.config.*`, `import {...} from "@jest/globals"` / `"vitest"` | `frameworks/bun.md` (Jest-compatible API), `frameworks/typescript.md` |
+| **node:test** | `"node --test"` in package.json scripts, `import {...} from "node:test"`, absence of Bun/Jest/Vitest config | `frameworks/node.md`, `frameworks/typescript.md` |
+| **unittest** | `import unittest`, `class Test*(unittest.TestCase)` | Python checklists apply; uses `assertRaises`/`assertEqual` instead of pytest idioms |
+
+### Framework Docs
+
+Examples in the checklists are illustrative and shown in Python/pytest; apply each concept in the project's language, using the framework files for idioms.
 
 - `frameworks/pytest.md` — pytest discovery, markers, configuration, conftest hooks
 - `frameworks/python.md` — Python-specific: parameterization, global state, string transforms, snapshot testing, CLI testing
 - `frameworks/bun.md` — Bun test runner, subprocess testing, lifecycle hooks (also covers Jest/Vitest)
+- `frameworks/node.md` — Node.js built-in test runner: `node:assert/strict` patterns, mocking, subprocess testing
 - `frameworks/typescript.md` — TypeScript: interface validation, type assertions, JSON parsing, async patterns
 
-## Checklist Reference
+### Checklist Docs
 
-Examples in the checklists are illustrative and shown in Python/pytest; apply each concept in the project's language, using the `frameworks/*.md` files for idioms.
-
-- `checklists/assertions.md` — Assertion quality with context-aware decision tree
+- `checklists/assertions.md` — Assertion quality with context-aware decision tree (includes mock tautology and property-based testing)
 - `checklists/exceptions.md` — Exception handling patterns
 - `checklists/fixtures.md` — Fixture quality checks
+- `checklists/isolation.md` — Test isolation: shared state, order dependence, scope mismatches
+- `checklists/flakiness.md` — Flaky test patterns: sleep, time, randomness, environment, network
 - `checklists/coverage.md` — Coverage gap analysis (opt-in)
 
 ## Report Template
@@ -203,12 +264,20 @@ Examples in the checklists are illustrative and shown in Python/pytest; apply ea
 ## Executive Summary
 
 - **Total tests:** N
-- **Pass rate:** X% (N passed, M failed)
+- **Suite status:** Green / Red — audit not performed
+- **Collection cross-reference:** Runner reported N tests, discovery found M tests (match / mismatch + explanation)
 - **Tests executed:** Yes/No (if No, explain why)
+- **Audit mode:** Fix-list (exhaustive, N of M files read) / Health-check (sampled, N of M files read, selection: [criteria])
 - **Critical issues:** N
 - **Medium issues:** N
 - **Minor issues:** N
 - **Overall health:** Good/Fair/Poor
+
+### Health Rubric
+
+- **Poor:** Suite red/audit aborted, OR ≥1 Critical issue
+- **Fair:** 0 Critical, but any Medium issues
+- **Good:** 0 Critical, 0 Medium, only scattered Minor
 
 ## Context
 
@@ -225,6 +294,13 @@ Examples in the checklists are illustrative and shown in Python/pytest; apply ea
    - Line: N
    - Impact: Why this matters
    - Recommendation: Specific fix with code example
+
+**OR, for grouped findings (≥3 tests sharing the same issue):**
+
+1. **[Issue type]** — Issue description *(N tests affected)*
+   - Affected tests: `test_a` (line X), `test_b` (line Y), `test_c` (line Z)
+   - Impact: Why this matters
+   - Recommendation: Single fix with code example
 
 ### Medium Issues (Should Fix)
 
@@ -254,70 +330,55 @@ Examples in the checklists are illustrative and shown in Python/pytest; apply ea
 
 ## Notes
 
-- Framework: pytest / Bun / other (see framework-specific docs)
+- Framework: pytest / Bun / node:test / other
+- Audit mode: Fix-list (exhaustive) / Health-check (sampled)
+- Files read: N of M (if sampled, describe selection criteria)
 - LSP used: Yes/No
 - Tests executed: Yes/No
+- Issue counts are instances — a single test may contribute multiple findings
+```
+
+### Red-Suite Abort Report
+
+If Phase 0 finds the suite is red, produce this abbreviated report instead:
+
+```markdown
+# Test Suite Audit Report — Aborted
+
+## Executive Summary
+
+- **Suite status:** Red — audit not performed
+- **Failures:** N
+- **Collection errors:** N (if any)
+- **Recommendation:** Fix the failing tests before running a quality audit.
+
+## Failures
+
+1. **test_name** — Failure description
+   - File: `path/to/test_file.py`
+   - Error: [truncated error message]
 ```
 
 ## Best Practices
 
 ### When Auditing
 
-1. **Always run tests first** — Establish baseline pass rate before static analysis
-2. **Understand the code under test** — Random generators need different assertion standards than deterministic functions
-3. **Check project constraints** — Don't recommend tools that violate dependency policies or design principles
-4. **Read full test files** — assertion quality depends on surrounding context (fixtures, helpers, imports)
-5. **Be specific** in recommendations — provide code examples
-6. **Prioritize** issues by impact and severity, including within-tier ranking
-7. **Context matters** — some "trivial" tests are intentional smoke tests
+1. **Run the suite first** — Establish a green baseline; abort if red
+2. **Pre-scan with greps** — Catch mechanical issues suite-wide before deep reading
+3. **Understand the code under test** — Random generators need different assertion standards than deterministic functions
+4. **Check project constraints** — Don't recommend tools that violate dependency policies or design principles
+5. **Read full test files** — assertion quality depends on surrounding context (fixtures, helpers, imports)
+6. **Be specific** in recommendations — provide code examples
+7. **Prioritize** issues by impact and severity, including within-tier ranking
+8. **Context matters** — some "trivial" tests are intentional smoke tests
 
 ### When Reporting
 
-1. **Be constructive** - focus on improvements, not just problems
-2. **Provide examples** - show before/after code
-3. **Explain why** - help developers understand the issue
-4. **Suggest priorities** - help teams decide what to fix first, including within-tier ranking
-5. **Note limitations** - if LSP unavailable or tests couldn't be run, mention it
-6. **Respect constraints** - all recommendations must be implementable within project constraints
-
-### Common Patterns
-
-**Good test:**
-```python
-def test_user_authentication():
-    user = authenticate("user", "pass")
-    assert user is not None
-    assert user.username == "user"
-    assert user.is_authenticated is True
-```
-
-**Bad test (no assertions):**
-```python
-def test_user_authentication():
-    user = authenticate("user", "pass")
-    # No assertions - only checks it doesn't crash
-```
-
-**Bad test (vacuous loop — passes on empty collection):**
-```python
-def test_all_items_valid():
-    items = get_items()
-    for item in items:        # If items is empty, this passes trivially
-        assert item.valid
-```
-
-**Bad test (mock tautology — tests the mock, not the code):**
-```python
-def test_process():
-    mock = Mock(return_value=42)
-    assert mock() == 42   # Just confirms the mock returned what you configured
-```
-
-**Bad test (exception swallowing):**
-```python
-def test_user_authentication():
-    try:
-        user = authenticate("user", "pass")
-    except Exception:
-        pass  # Swallows all exceptions
-```
+1. **Be constructive** — focus on improvements, not just problems
+2. **Provide examples** — show before/after code
+3. **Explain why** — help developers understand the issue
+4. **Suggest priorities** — help teams decide what to fix first, including within-tier ranking
+5. **Note limitations** — if LSP unavailable or tests couldn't be run, mention it
+6. **Respect constraints** — all recommendations must be implementable within project constraints
+7. **Group when possible** — ≥3 tests sharing an issue: report once with affected-test list
+8. **Disclose sampling** — in health-check mode, always report what was and wasn't read

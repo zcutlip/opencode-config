@@ -165,6 +165,15 @@ def test_output_snapshot():
 - **Evaluate the native pattern** — The "create if missing, then fail" pattern is functional but can be confusing. Check if there's a regeneration script.
 - **Recommend improvements within constraints** — Suggest a `conftest.py` fixture for snapshot management, or a `--update-snapshots` flag, without adding dependencies.
 
+### Snapshot Quality Checks
+
+When auditing snapshot tests (native or library-based), check for:
+
+- **Oversized snapshots** — Snapshots exceeding ~50 lines are fragile (any minor output change breaks the test). Recommend asserting on key sections instead of full-output snapshots.
+- **Auto-accept without review** — Tests that automatically create missing snapshots (`if not snapshot_path.exists(): snapshot_path.write_text(result); pytest.fail(...)`) without a review step can lock in wrong output. Check if there's a `--update-snapshots` flag and whether CI disallows it.
+- **Missing regeneration path** — If snapshots break, there should be a documented way to regenerate them (a script or a flag). Without one, developers are tempted to manually edit snapshot files, which defeats the purpose.
+- **Stale snapshots** — Snapshots that haven't changed in many commits while the code under test has. These may not be running or may be matching too broadly.
+
 ## CLI Testing Patterns
 
 ### argparse Exit Code Testing

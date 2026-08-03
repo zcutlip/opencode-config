@@ -149,62 +149,14 @@ def test_auth_2():
     pass
 ```
 
-### Check 2: Test Isolation
-- Tests should not depend on each other
-- Tests should clean up after themselves
-- Tests should be runnable in any order
+### Check 2: Test Isolation and Independence
 
-**Good:**
-```python
-def test_create_user():
-    user = create_user("test")
-    assert user.username == "test"
-    # Cleanup happens automatically via fixture
+Test isolation is a universal quality concern — shared mutable state, order dependence, and global variables are language-agnostic problems. For the full checklist and examples, see `../checklists/isolation.md`.
 
-def test_delete_user():
-    user = create_user("test")
-    delete_user(user.id)
-    assert not user_exists(user.id)
-```
-
-**Bad:**
-```python
-def test_create_user():
-    global user_id
-    user_id = create_user("test")
-
-def test_delete_user():
-    # Depends on test_create_user running first
-    delete_user(user_id)
-```
-
-### Check 3: Test Independence
-- Tests should not share state
-- Tests should not use global variables
-- Tests should not modify shared resources
-
-**Good:**
-```python
-def test_with_fixture(sample_data):
-    # Each test gets fresh data
-    assert sample_data["key"] == "value"
-
-def test_with_another_fixture(sample_data):
-    # Independent from previous test
-    assert sample_data["key"] == "value"
-```
-
-**Bad:**
-```python
-global_data = {}
-
-def test_modify_global():
-    global_data["key"] = "value"
-
-def test_read_global():
-    # Depends on previous test
-    assert global_data["key"] == "value"
-```
+**pytest-specific isolation idioms** to look for:
+- `autouse=True` fixtures for guaranteed global state cleanup
+- Module-level mutable state (dicts, lists) that tests modify — flag for fixture conversion
+- `conftest.py` fixtures with scope mismatches (session-scoped fixture modified per test)
 
 ## pytest Configuration Analysis
 

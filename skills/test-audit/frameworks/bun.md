@@ -301,46 +301,13 @@ test("basic", () => {});
 ```
 
 ### Check 2: Test Isolation
-- Tests should not depend on each other
-- Each test should clean up after itself
-- Use `beforeEach` for per-test setup
 
-**Good:**
-```typescript
-describe("isolated tests", () => {
-  let tempFile: string;
+Test isolation is a universal quality concern — shared mutable state, order dependence, and global variables are language-agnostic problems. For the full checklist and examples, see `../checklists/isolation.md`.
 
-  beforeEach(async () => {
-    tempFile = await createTempFile();
-  });
-
-  afterEach(async () => {
-    await unlink(tempFile);
-  });
-
-  test("test 1", async () => {
-    // Uses fresh tempFile
-  });
-
-  test("test 2", async () => {
-    // Uses fresh tempFile, independent of test 1
-  });
-});
-```
-
-**Bad:**
-```typescript
-let sharedData: any;
-
-test("test 1", () => {
-  sharedData = createData();
-});
-
-test("test 2", () => {
-  // Depends on test 1 running first
-  expect(sharedData).toBeDefined();
-});
-```
+**Bun/Jest/Vitest-specific isolation idioms** to look for:
+- `beforeEach`/`afterEach` for per-test setup and teardown
+- Module-level `let` variables that tests mutate — flag for fixture conversion
+- `describe` blocks that share state via closure variables
 
 ### Check 3: Fixture Usage
 - Use fixtures for test data

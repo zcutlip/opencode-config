@@ -61,6 +61,17 @@ def test_known_bug():        # what bug? where's the ticket?
 ```
 **Recommendation:** Require a `reason=` (and ideally a tracker link). Flag skips/xfails that have outlived their purpose — if the reason is stale, remove the marker and run the test.
 
+### Mock Tautology ("Mock Theater")
+**Description:** The test asserts that a mock returned the value you configured it to return. It tests the mock, not the code under test — nothing real is verified.
+**Severity:** Critical
+**Example:**
+```python
+def test_process():
+    mock = Mock(return_value=42)
+    assert mock() == 42   # just confirms the mock returned what you set
+```
+**Recommendation:** Use the mock as a stand-in for a dependency, then assert on the *real* code's behavior (return value, side effects, or state change). If the test genuinely only checks wiring, make that intent explicit in the name.
+
 ## Medium Issues
 
 ### Test Only Checks `is not None`
@@ -118,16 +129,16 @@ def test_something():
 ```
 **Recommendation:** Validate actual value or properties (unless output is nondeterministic and unseeded)
 
-### Mock Tautology ("Mock Theater")
-**Description:** The test asserts that a mock returned the value you configured it to return. It tests the mock, not the code under test — nothing real is verified.
+### Property-Based Test with Trivially Narrow Strategy
+**Description:** Property-based tests (e.g., Hypothesis for Python) use strategies to generate inputs, but the strategy is so narrow it only produces one value — making the test a tautology.
 **Severity:** Medium
 **Example:**
 ```python
-def test_process():
-    mock = Mock(return_value=42)
-    assert mock() == 42   # just confirms the mock returned what you set
+@given(st.just(42))  # Strategy only ever generates 42
+def test_always_forty_two(n):
+    assert n == 42  # Tautology — strategy guarantees the assertion
 ```
-**Recommendation:** Use the mock as a stand-in for a dependency, then assert on the *real* code's behavior (return value, side effects, or state change). If the test genuinely only checks wiring, make that intent explicit in the name.
+**Recommendation:** Verify strategies cover the input space meaningfully. Check that `@given` strategies aren't trivially narrow. Ensure shrinking works (Hypothesis does this by default). If the project doesn't use external deps, note this as an observation rather than recommending Hypothesis.
 
 ## Minor Issues
 
