@@ -57,7 +57,7 @@
     // "opencode-runtime-fallback",
     "opencode-session-manager@latest",
     // "@angdrew/opencode-hashline-plugin",
-    "opencode-codebase-index",
+    "open-codebase-index",
     "opencode-skill-creator",
     "@cortexkit/opencode-magic-context@latest",
     "@dietrichgebert/ponytail",
