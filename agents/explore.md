@@ -32,9 +32,10 @@ Raw structure only:
 
 ## Tool Priority
 
-1. **LSP** — workspaceSymbol, documentSymbol, findReferences, goToDefinition, hover, incomingCalls/outgoingCalls
-2. **glob/grep** — file discovery by pattern, text search when LSP unavailable
-3. **read** — examine located code only
+1. **Code Index**: if the code index is available, always use it first
+2. **LSP** — workspaceSymbol, documentSymbol, findReferences, goToDefinition, hover, incomingCalls/outgoingCalls
+3. **glob/grep** — file discovery by pattern, text search when LSP unavailable
+4. **read** — examine located code only
 
 **NO workarounds.** Never write bash scripts, Python parsers, or Unix pipe chains. If standard tools fail, report the error and escalate to the calling agent.
 
