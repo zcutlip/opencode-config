@@ -54,15 +54,15 @@
     "doom_loop": "ask"
   },
   "plugin": [
-    // "opencode-runtime-fallback",
     "opencode-session-manager@latest",
-    // "@angdrew/opencode-hashline-plugin",
     "open-codebase-index",
     "opencode-skill-creator",
     "@cortexkit/opencode-magic-context@latest",
     "@dietrichgebert/ponytail",
     "cc-safety-net",
-    // "@tarquinen/opencode-dcp@latest",
+    // "opencode-runtime-fallback",
+    // "@angdrew/opencode-hashline-plugin",
+    // "opencode-better-hashline",
     // "opencode-froggy"
   ],
   "agent": {
