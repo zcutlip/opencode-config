@@ -6,6 +6,43 @@
     "prune": false,
     "reserved": 10000
   },
+  "provider": {
+    "nativ": {
+      "models": {
+        "mlx-community/Qwen3.6-35B-A3B-8bit": {
+          "attachment": true,
+          "interleaved": {
+            "field": "reasoning_content"
+          },
+          "limit": {
+            "context": 262144,
+            "output": 2048
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Qwen3.6-35B-A3B-8bit",
+          "options": {
+            "enable_thinking": true
+          },
+          "reasoning": true,
+          "temperature": true,
+          "tool_call": true
+        }
+      },
+      "name": "Nativ",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://127.0.0.1:8080/v1"
+      }
+    }
+  },
   "watcher": {
     "ignore": [
       "node_modules/**",
