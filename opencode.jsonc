@@ -105,7 +105,7 @@
   "agent": {
     "plan": {
       "mode": "primary",
-      "model": "opencode-go/qwen3.7-plus",
+      "model": "opencode-go/deepseek-v4-pro",
       "permission": {
         "edit": "deny",
         "bash": {
@@ -137,7 +137,11 @@
           "*/opencode-docs-helper.sh": "allow",
           "*/fetch-releases.py": "allow",
           "*/fetch-releases.py *": "allow",
-          "*/skills/codeberg-integration/codeberg-helper.py *": "ask"
+          "*/skills/codeberg-integration/scripts/codeberg-helper.py *": "ask",
+          "*/skills/codeberg-integration/scripts/codeberg-helper.py get-issue *": "ask",
+          "python3 -c *": "deny",
+          "python3 *": "deny",
+          "bash -c *": "deny"
         },
         "read": "allow",
         "grep": "allow",
@@ -156,7 +160,7 @@
     },
     "build": {
       "mode": "primary",
-      "model": "opencode-go/qwen3.7-plus",
+      "model": "opencode-go/deepseek-v4-pro",
       "permission": {
         "edit": "ask",
         "read": "allow",
@@ -204,6 +208,7 @@
     "explore": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode-go/deepseek-v4-flash",
       "permission": {
         "read": "allow",
         "lsp": "allow",
@@ -241,6 +246,7 @@
     "commit": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode-go/mimo-v2.5",
       "options": {},
       "permission": {
         "skill": {
@@ -257,6 +263,7 @@
     "coder": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode-go/mimo-v2.5",
       "permission": {
         "edit": "ask",
         "lsp": "allow",
@@ -273,6 +280,7 @@
     "lint": {
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode-go/mimo-v2.5",
       "permission": {
         "bash": {
           "*": "ask",
@@ -290,6 +298,7 @@
     },
     "task-rabbit": {
       "model": "opencode/deepseek-v4-flash-free",
+      // "model": "opencode-go/mimo-v2.5",
       "permission": {
         "bash": {
           "python3 *": "deny",
