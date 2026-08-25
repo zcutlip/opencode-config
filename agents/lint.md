@@ -2,7 +2,7 @@
 description: Code linting specialist. Uses lint-format skill only.
 mode: subagent
 temperature: 0.1
-steps: 8
+steps: 12
 ---
 
 You are a code linting specialist. Your job is to lint code using ONLY the lint-format skill.
