@@ -94,10 +94,12 @@
     "opencode-session-manager@latest",
     "open-codebase-index",
     "opencode-skill-creator",
-    "@cortexkit/opencode-magic-context@0.34.2",
-    "@dietrichgebert/ponytail",
+    "@cortexkit/opencode-magic-context@latest",
     "cc-safety-net",
-    "opencode-better-hashline",
+    "opencode-cmd-provider",
+    "@mohak34/opencode-notifier@latest"
+    // "@dietrichgebert/ponytail",
+    // "opencode-better-hashline",
     // "opencode-runtime-fallback",
     // "@angdrew/opencode-hashline-plugin",
     // "opencode-froggy"
@@ -105,7 +107,7 @@
   "agent": {
     "plan": {
       "mode": "primary",
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "opencode/muse-spark-1.2-contributor-free",
       "permission": {
         "edit": "deny",
         "bash": {
@@ -160,7 +162,7 @@
     },
     "build": {
       "mode": "primary",
-      "model": "opencode-go/deepseek-v4-pro",
+      "model": "opencode/muse-spark-1.2-contributor-free",
       "permission": {
         "edit": "ask",
         "read": "allow",
@@ -207,7 +209,7 @@
     },
     "explore": {
       "mode": "subagent",
-      "model": "opencode/deepseek-v4-flash-free",
+      "model": "opencode/muse-spark-1.2-contributor-free",
       // "model": "opencode-go/deepseek-v4-flash",
       "permission": {
         "read": "allow",
@@ -245,8 +247,8 @@
     },
     "commit": {
       "mode": "subagent",
-      "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode-go/mimo-v2.5",
+      "model": "opencode/muse-spark-1.2-contributor-free",
+      // "model": "opencode-go/deepseek-v4-flash",
       "options": {},
       "permission": {
         "skill": {
@@ -256,14 +258,18 @@
           "*": "ask",
           "git status *": "allow",
           "git diff *": "allow",
-          "git log *": "allow"
+          "git log *": "allow",
+          "head *": "allow",
+          "cat *": "allow",
+          "tail *": "allow",
+          "echo *": "deny"
         }
       }
     },
     "coder": {
       "mode": "subagent",
-      "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode-go/mimo-v2.5",
+      "model": "opencode/muse-spark-1.2-contributor-free",
+      // "model": "opencode-go/deepseek-v4-flash",
       "permission": {
         "edit": "ask",
         "lsp": "allow",
@@ -279,8 +285,8 @@
     },
     "lint": {
       "mode": "subagent",
-      "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode-go/mimo-v2.5",
+      "model": "opencode/muse-spark-1.2-contributor-free",
+      // "model": "opencode-go/deepseek-v4-flash",
       "permission": {
         "bash": {
           "*": "ask",
@@ -297,8 +303,8 @@
       "options": {}
     },
     "task-rabbit": {
-      "model": "opencode/deepseek-v4-flash-free",
-      // "model": "opencode-go/mimo-v2.5",
+      "model": "opencode/muse-spark-1.2-contributor-free",
+      // "model": "opencode-go/deepseek-v4-flash",
       "permission": {
         "bash": {
           "python3 *": "deny",
