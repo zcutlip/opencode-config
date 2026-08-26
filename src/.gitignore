@@ -1,0 +1,39 @@
+commands/analyze-usage.md
+commands/froggy-docs.md
+skills/analyze-usage
+skills/nono-sandbox
+skills/opencode-errata
+skills/opencode-skill-creator
+skills/opencode-froggy-docs
+plugins/nono-sandbox*
+opencode-skill-creator-update-check.json
+disabled-skills
+
+/skills/opencode-docs
+commands/oc-docs.md
+
+#### MacOS Stuff ####
+# General
+.DS_Store
+.localized
+__MACOSX/
+.AppleDouble
+.LSOverride
+Icon[
+]
+# Thumbnails
+._*
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk

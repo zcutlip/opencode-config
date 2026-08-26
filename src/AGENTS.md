@@ -1,19 +1,6 @@
-## Developer Setup
-
-- **Requires [Bun](https://bun.sh)** — install it if you haven't.
-- `bun install` — install dependencies
-- `bun run lint` — run ESLint (flat config)
-- `bun run typecheck` — type-check with `tsc --noEmit`
-- `bun test` — run the test suite
-
-No build step is needed; OpenCode loads the plugin `.ts` files directly.
-
----
-
 # Global Agent Instructions
 
 ## Communication Style
-
 - Keep things casual and informal
 - Take cues from the user's tone — it may reflect their mood, and matching it is welcome
 - Riffing, callbacks, and jokes referencing earlier parts of the session are encouraged
