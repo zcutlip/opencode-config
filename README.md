@@ -52,30 +52,50 @@ automatically.
 | `@coder` | Subagent | Code editing — targeted single-purpose code modifications |
 | `@lint` | Subagent | Code quality — runs linting & verification after changes |
 | `@commit` | Subagent | Git commits — creates atomic, well-formatted commits |
+| `@task-rabbit` | Subagent | Task execution — runs scripts & lightweight chores, skill-use specialist |
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| `/docs` | Opens local OpenCode documentation |
+| `/analyze-usage` | Analyze OpenCode model and agent usage patterns from logs |
+| `/commit-delegate` | Delegate to the @commit subagent to create a git commit |
+| `/oc-docs` | Browse and read OpenCode documentation via helper script |
+| `/reflect-questions` | Reflect on previous questions and categorize as decided/recommended/user choice |
+| `/retry` | Retry after provider interruption |
+| `/search-session` | Find a session by searching its title, content, or description |
+| `/tdd-continue` | Continue TDD cycle after stop gate |
 
 ### Skills
 
 | Skill | Description |
 |-------|-------------|
+| `analyze-usage` | Interpret model and agent usage to recommend cost-saving configurations |
 | `codeberg-integration` | Interact with Codeberg (Forgejo/Gitea) repositories |
 | `git-commit` | Guidelines for creating atomic, well-formatted commits |
+| `humanizer` | Detect AI writing patterns and rewrite text with voice profiles |
+| `lint-format` | Lint and format code. Python supported. Falls back to pre-commit |
+| `magic-context-release-notes` | Release highlights for the Magic Context project |
+| `nono-sandbox` | Diagnose and resolve permission denials in the nono sandbox |
+| `opencode-docs` | Offline documentation for OpenCode features and configuration |
+| `opencode-release-notes` | Release highlights for the OpenCode project |
+| `opencode-skill-creator` | Create, test, evaluate, optimize, and package OpenCode skills |
+| `test-audit` | Audit test suites for quality issues and flakiness patterns |
 
 ### Themes
 
 - **cyberpunk** — Neon-themed UI with cyan, pink, and green accents
+- **korp-net** — Dystopian corporate terminal with void-black backgrounds and aggressive red accents
+
+### Plugins
+
+`src/plugins/` contains `agent-rules-reminder.ts` and `nono-sandbox.ts`, loaded via `@opencode-ai/plugin` (`src/package.json`).
 
 ## Configuration Highlights
 
-- **Permissions**: Bash, edit, and write operations default to `ask` for safety
-- **Compaction**: Auto-compaction with context pruning enabled
+- **Permissions**: Bash defaults to `deny` (allowlisted commands only), `edit` and `external_directory` default to `ask`
+- **Compaction**: Built-in auto-compaction and pruning disabled (`auto: false`, `prune: false`); dynamic context compression via DCP (`dcp.jsonc`)
 - **File Watcher**: Ignores `node_modules`, `dist`, `build`, `.git`, and log files
-- **MCP**: Forgejo MCP server for Codeberg integration
 - **Pre-commit**: Trailing whitespace, EOF fixer, JSON/YAML validation, and more
 
 ## Project Structure
