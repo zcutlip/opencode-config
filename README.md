@@ -8,8 +8,7 @@ This repository contains the configuration, custom agents, commands, skills, and
 
 ## Installation
 
-OpenCode reads its configuration from `~/.config/opencode`. This repo is designed to *be* that
-directory via a symlink — there is no build or copy step.
+OpenCode reads its configuration from `~/.config/opencode`. This repo's `src/` directory is designed to *be* that directory via a symlink — the repo root stays free for project-level config when hacking on this repo itself.
 
 **One command (recommended):**
 
@@ -33,7 +32,7 @@ directory via a symlink — there is no build or copy step.
 
 3. **Symlink into place** — point OpenCode's config dir at this repo:
    ```sh
-   ln -s "$(pwd)" ~/.config/opencode
+    ln -s "$(pwd)/src" ~/.config/opencode
    ```
    > If `~/.config/opencode` already exists as a real directory, move or remove it first
    > (e.g. `mv ~/.config/opencode ~/.config/opencode.bak`).
@@ -82,13 +81,22 @@ automatically.
 ## Project Structure
 
 ```
-├── agents/              # Custom agent definitions
-├── commands/            # Custom slash commands
-├── skills/              # Reusable skill workflows
-├── themes/              # UI theme configurations
-├── opencode.json        # Main OpenCode configuration
-├── AGENTS.md            # Global agent instructions
-└── .pre-commit-config.yaml
+├── AGENTS.md            # Project dev setup (Bun/lint/typecheck)
+├── eslint.config.mjs
+├── tsconfig.json
+├── install.sh
+├── src/
+│   ├── AGENTS.md        # Global agent instructions
+│   ├── opencode.jsonc
+│   ├── agents/
+│   ├── commands/
+│   ├── skills/
+│   ├── plugins/
+│   ├── themes/
+│   ├── hook/
+│   ├── tui.json
+│   └── ...
+└── ...
 ```
 
 ## License
