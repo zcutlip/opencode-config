@@ -2,17 +2,6 @@ bun.lock
 package-lock.json
 node_modules
 
-commands/analyze-usage.md
-commands/froggy-docs.md
-skills/analyze-usage
-skills/nono-sandbox
-skills/opencode-errata
-skills/opencode-froggy-docs
-skills/opencode-skill-creator
-plugins/nono-sandbox*
-opencode-skill-creator-update-check.json
-/disabled-skills
-
 # tui.json
 
 #### Python Stuff ####
@@ -414,8 +403,7 @@ Temporary Items
 
 
 /notes
-/skills/opencode-docs
 .ponytail-active
-commands/oc-docs.md
 .opencode/index/
 opencode-notifier-state.json
+package.json
