@@ -107,7 +107,8 @@
   "agent": {
     "plan": {
       "mode": "primary",
-      "model": "opencode/muse-spark-1.2-contributor-free",
+      // "model": "opencode/muse-spark-1.2-contributor-free",
+      "model": "commandcode/minimax/minimax-m3-free",
       "permission": {
         "edit": "deny",
         "bash": {
@@ -143,6 +144,7 @@
           "*/skills/codeberg-integration/scripts/codeberg-helper.py get-issue *": "ask",
           "python3 -c *": "deny",
           "python3 *": "deny",
+          "pytest *": "deny",
           "bash -c *": "deny"
         },
         "read": "allow",
@@ -162,7 +164,8 @@
     },
     "build": {
       "mode": "primary",
-      "model": "opencode/muse-spark-1.2-contributor-free",
+      // "model": "opencode/muse-spark-1.2-contributor-free",
+      "model": "commandcode/minimax/minimax-m3-free",
       "permission": {
         "edit": "ask",
         "read": "allow",
@@ -199,7 +202,6 @@
           "git submodule status *": "allow"
         },
         "task": {
-          "*": "deny",
           "coder": "allow",
           "explore": "allow",
           "lint": "allow"
@@ -209,8 +211,8 @@
     },
     "explore": {
       "mode": "subagent",
-      "model": "opencode/muse-spark-1.2-contributor-free",
-      // "model": "opencode-go/deepseek-v4-flash",
+      // "model": "opencode/muse-spark-1.2-contributor-free",
+      "model": "commandcode/MiniMaxAI/MiniMax-M3",
       "permission": {
         "read": "allow",
         "lsp": "allow",
@@ -247,8 +249,8 @@
     },
     "commit": {
       "mode": "subagent",
-      "model": "opencode/muse-spark-1.2-contributor-free",
-      // "model": "opencode-go/deepseek-v4-flash",
+      // "model": "opencode/muse-spark-1.2-contributor-free",
+      "model": "commandcode/MiniMaxAI/MiniMax-M3",
       "options": {},
       "permission": {
         "skill": {
@@ -256,9 +258,29 @@
         },
         "bash": {
           "*": "ask",
+          "ls *": "allow",
           "git status *": "allow",
           "git diff *": "allow",
           "git log *": "allow",
+          "git branch *": "allow",
+          "git show *": "allow",
+          "git ls-files *": "allow",
+          "git blame *": "allow",
+          "git grep *": "allow",
+          "git rev-parse *": "allow",
+          "git rev-list *": "allow",
+          "git describe *": "allow",
+          "git merge-base *": "allow",
+          "git name-rev *": "allow",
+          "git shortlog *": "allow",
+          "git for-each-ref *": "allow",
+          "git cat-file *": "allow",
+          "git tag *": "allow",
+          "git remote -v": "allow",
+          "git remote get-url *": "allow",
+          "git worktree list *": "allow",
+          "git stash list *": "allow",
+          "git submodule status *": "allow",
           "head *": "allow",
           "cat *": "allow",
           "tail *": "allow",
@@ -268,8 +290,8 @@
     },
     "coder": {
       "mode": "subagent",
-      "model": "opencode/muse-spark-1.2-contributor-free",
-      // "model": "opencode-go/deepseek-v4-flash",
+      // "model": "opencode/muse-spark-1.2-contributor-free",
+      "model": "commandcode/MiniMaxAI/MiniMax-M3",
       "permission": {
         "edit": "ask",
         "lsp": "allow",
@@ -285,8 +307,8 @@
     },
     "lint": {
       "mode": "subagent",
-      "model": "opencode/muse-spark-1.2-contributor-free",
-      // "model": "opencode-go/deepseek-v4-flash",
+      // "model": "opencode/muse-spark-1.2-contributor-free",
+      "model": "commandcode/MiniMaxAI/MiniMax-M3",
       "permission": {
         "bash": {
           "*": "ask",
@@ -303,8 +325,8 @@
       "options": {}
     },
     "task-rabbit": {
-      "model": "opencode/muse-spark-1.2-contributor-free",
-      // "model": "opencode-go/deepseek-v4-flash",
+      // "model": "opencode/muse-spark-1.2-contributor-free",
+      "model": "commandcode/MiniMaxAI/MiniMax-M3",
       "permission": {
         "bash": {
           "python3 *": "deny",
