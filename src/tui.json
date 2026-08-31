@@ -1,5 +1,6 @@
 {
   "plugin": [
-    "@cortexkit/opencode-magic-context@latest"
+    "@cortexkit/opencode-magic-context@latest",
+    "opencode-cmd-provider"
   ]
 }
