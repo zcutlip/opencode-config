@@ -2,11 +2,14 @@
 set -euo pipefail
 
 # Python linting handler using Ruff
-# Usage: python.sh <operation> <path>
+# Usage: python.sh <operation> <path> [<path>...]
 # Operations: check | fix | format
 
 OPERATION="${1:-}"
-TARGET_PATH="${2:-}"
+if [[ $# -gt 0 ]]; then
+    shift
+fi
+PATHS=("$@")
 
 # JSON escape helper
 json_escape() {
@@ -33,6 +36,16 @@ output_json() {
 EOF
 }
 
+if [[ -z "$OPERATION" ]]; then
+    output_json "false" "$OPERATION" "[]" "[]" "Usage: python.sh <operation> <path> [<path>...]"
+    exit 1
+fi
+
+if [[ ${#PATHS[@]} -eq 0 ]]; then
+    output_json "false" "$OPERATION" "[]" "[]" "Usage: python.sh <operation> <path> [<path>...]"
+    exit 1
+fi
+
 # Check if ruff is available
 if ! command -v ruff &> /dev/null; then
     output_json "false" "$OPERATION" "[]" "[]" "ruff not found in PATH"
@@ -41,13 +54,19 @@ fi
 
 # Collect files to process
 FILES=()
-if [[ -f "$TARGET_PATH" ]]; then
-    FILES+=("$TARGET_PATH")
-elif [[ -d "$TARGET_PATH" ]]; then
-    while IFS= read -r -d '' file; do
-        FILES+=("$file")
-    done < <(find "$TARGET_PATH" -name "*.py" -type f -print0 2>/dev/null || true)
-fi
+for p in "${PATHS[@]}"; do
+    if [[ ! -e "$p" ]]; then
+        output_json "false" "$OPERATION" "[]" "[]" "Path not found: $p"
+        exit 1
+    fi
+    if [[ -f "$p" ]]; then
+        FILES+=("$p")
+    elif [[ -d "$p" ]]; then
+        while IFS= read -r -d '' file; do
+            FILES+=("$file")
+        done < <(find "$p" -name "*.py" -type f -print0 2>/dev/null || true)
+    fi
+done
 
 if [[ ${#FILES[@]} -eq 0 ]]; then
     output_json "true" "$OPERATION" "[]" "[]" "No Python files found"
