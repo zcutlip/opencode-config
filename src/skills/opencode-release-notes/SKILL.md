@@ -76,3 +76,7 @@ If the script fails:
 - It will print an error message to stderr
 - Common errors: API rate limiting, network issues, repository not found
 - Report the error message to the user clearly
+
+## Completion
+
+After producing the structured summary, if you are a subagent called by the primary agent, instruct the caller to deliver your report to the user verbatim, and not to further summarize.
