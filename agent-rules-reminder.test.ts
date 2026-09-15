@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from "bun:test"
-import { AgentRulesReminder } from "./src/plugins/agent-rules-reminder.ts"
+import { AgentRulesReminder } from "./src/plugins/agent-rules-reminder.ts.disabled"
 
 const factoryArgs = {
   client: {} as any,

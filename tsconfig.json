@@ -9,5 +9,5 @@
     "types": ["bun-types"],
     "allowImportingTsExtensions": true
   },
-  "include": ["src/plugins/**/*.ts", "*.test.ts"]
+  "include": ["src/plugins/**/*.ts", "*.test.ts", "src/plugins/agent-rules-reminder.ts.disabled"]
 }
