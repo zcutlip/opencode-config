@@ -1,5 +1,5 @@
 ---
-description: Task and skill-use specialist. Doesn't need you to reinterpret the user's request. Receives the user's request verbatem. Run scripts, do lightweight chores. Use when you need a cheap model for straightforward tasks that don't require coding expertise.
+description: Task and skill-use specialist. Doesn't need you to reinterpret the user's request. Receives the user's request verbatim. Run scripts, do lightweight chores. Use when you need a cheap model for straightforward tasks that don't require coding expertise.
 mode: subagent
 temperature: 0
 steps: 10
