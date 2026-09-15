@@ -91,13 +91,13 @@
     "doom_loop": "ask"
   },
   "plugin": [
-    "opencode-session-manager@latest",
+    "opencode-session-manager",
     "open-codebase-index",
     "opencode-skill-creator",
-    "@cortexkit/opencode-magic-context@latest",
     "cc-safety-net",
     "opencode-cmd-provider",
-    "@mohak34/opencode-notifier@latest"
+    "@mohak34/opencode-notifier",
+    "@cortexkit/opencode-magic-context@0.42.5"
     // "@dietrichgebert/ponytail",
     // "opencode-better-hashline",
     // "opencode-runtime-fallback",
@@ -107,8 +107,8 @@
   "agent": {
     "plan": {
       "mode": "primary",
-      // "model": "commandcode/gpt-5.6-luna",
-      "model": "chutes/zai-org/GLM-5.2-TEE",
+      "model": "opencode/muse-spark-1.3-contributor-free",
+      // "model": "chutes/zai-org/GLM-5.2-TEE",
       "permission": {
         "edit": "deny",
         "bash": {
@@ -164,8 +164,8 @@
     },
     "build": {
       "mode": "primary",
-      "model": "chutes/zai-org/GLM-5.2-TEE",
-      // "model": "commandcode/z-ai/glm-5.3-flash",
+      "model": "opencode/muse-spark-1.3-contributor-free",
+      // "model": "chutes/zai-org/GLM-5.2-TEE",
       "permission": {
         "edit": "ask",
         "read": "allow",
@@ -212,7 +212,7 @@
     "explore": {
       "mode": "subagent",
       // "model": "commandcode/z-ai/glm-5.3-flash",
-      "model": "opencode/muse-spark-1.3-contributor-free",
+      "model": "opencode-go/deepseek-v4.1-flash",
       "permission": {
         "read": "allow",
         "lsp": "allow",
@@ -250,7 +250,7 @@
     "commit": {
       "mode": "subagent",
       // "model": "commandcode/z-ai/glm-5.3-flash",
-      "model": "opencode/muse-spark-1.3-contributor-free",
+      "model": "opencode-go/deepseek-v4.1-flash",
       "options": {},
       "permission": {
         "skill": {
@@ -291,7 +291,7 @@
     "coder": {
       "mode": "subagent",
       // "model": "commandcode/z-ai/glm-5.3-flash",
-      "model": "opencode/muse-spark-1.3-contributor-free",
+      "model": "opencode-go/deepseek-v4.1-flash",
       "permission": {
         "edit": "ask",
         "lsp": "allow",
@@ -308,7 +308,7 @@
     "lint": {
       "mode": "subagent",
       // "model": "commandcode/z-ai/glm-5.3-flash",
-      "model": "opencode-go/omen-alpha",
+      "model": "opencode-go/deepseek-v4.1-flash",
       "permission": {
         "bash": {
           "*": "ask",
@@ -326,7 +326,7 @@
     },
     "task-rabbit": {
       // "model": "commandcode/z-ai/glm-5.3-flash",
-      "model": "chutes/Qwen/Qwen3.6-27B-TEE",
+      "model": "opencode-go/deepseek-v4.1-flash",
       "permission": {
         "bash": {
           "python3 *": "deny",
