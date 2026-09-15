@@ -97,7 +97,7 @@
     "cc-safety-net",
     "opencode-cmd-provider",
     "@mohak34/opencode-notifier",
-    "@cortexkit/opencode-magic-context@0.42.5"
+    "@cortexkit/opencode-magic-context"
     // "@dietrichgebert/ponytail",
     // "opencode-better-hashline",
     // "opencode-runtime-fallback",
