@@ -36,6 +36,9 @@ PROVIDER_HINTS = (
     ("longcat", "meituan"),
     ("qwen", "alibaba"),
     ("hy3", "tencent"),
+    ("hy4", "tencent"),
+    ("grok", "xai"),
+    ("gpt", "openai"),
 )
 
 FALLBACK_PROVIDERS = (
@@ -64,7 +67,6 @@ FALLBACK_PROVIDERS = (
 
 CACHE_RATIO_PATTERN = re.compile(r"cacheRatio:([0-9]+(?:\.[0-9]+)?)")
 PROMO_PATTERN = re.compile(r"<small>(.*?)</small>")
-MAX_PROVIDER_ATTEMPTS = 4
 
 COLUMN_ALIASES = {
     "model": "model",
@@ -89,7 +91,7 @@ def candidate_providers(slug: str) -> list[str]:
     """Return data providers to try for a slug, deduped and order-preserving."""
     ordered = [p for prefix, p in PROVIDER_HINTS if slug.startswith(prefix)]
     ordered += [p for p in FALLBACK_PROVIDERS if p not in ordered]
-    return list(dict.fromkeys(ordered))[:MAX_PROVIDER_ATTEMPTS]
+    return list(dict.fromkeys(ordered))
 
 
 def fetch_cache_ratio(slug: str) -> float | None:
@@ -123,10 +125,11 @@ def render_table(scored: list[dict], show_blended: bool) -> str:
         "|" + "|".join("---" for _ in headings) + "|",
     ]
     for rank, item in enumerate(scored, start=1):
+        ratio_cell = "—" if item["ratio"] is None else f"{round(item['ratio'] * 100)}%"
         cells = [
             str(rank),
             item["model"],
-            f"{round(item['ratio'] * 100)}%",
+            ratio_cell,
             f"${item['eff']:.4f}",
         ]
         if show_blended:
@@ -174,6 +177,21 @@ def main() -> None:
         promos += [(model, text) for text in PROMO_PATTERN.findall(monthly)]
 
         slug = normalize(model)
+        input_px = parse_price(cell(row, "input"))
+        output_px = parse_price(cell(row, "output"))
+        cached_px = parse_price(cell(row, "cached_read"))
+        if input_px == 0.0 and output_px == 0.0 and cached_px == 0.0:
+            scored.append(
+                {
+                    "model": model,
+                    "ratio": None,
+                    "eff": 0.0,
+                    "blended": 0.0,
+                    "write": cell(row, "cached_write"),
+                    "limit": monthly,
+                }
+            )
+            continue
         ratio = fetch_cache_ratio(slug)
         if args.debug:
             print(
@@ -186,9 +204,9 @@ def main() -> None:
             continue
 
         eff, blended = compute_effective(
-            parse_price(cell(row, "input")) or 0.0,
-            parse_price(cell(row, "output")) or 0.0,
-            parse_price(cell(row, "cached_read")) or 0.0,
+            input_px or 0.0,
+            output_px or 0.0,
+            cached_px or 0.0,
             ratio,
             args.output_share,
         )

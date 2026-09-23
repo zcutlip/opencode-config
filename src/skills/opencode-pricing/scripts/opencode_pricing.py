@@ -3,12 +3,14 @@
 import re
 import sys
 import urllib.request
+from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
 
 SOURCES = {
     "go": {
-        "url": "https://opencode.ai/docs/go.md",
+        "url": "https://opencode.ai/v2/docs/console/go/",
         "table_heading": "Usage limits",
+        "has_limit": True,
     },
 }
 
@@ -49,10 +51,117 @@ def try_fetch_page(url: str) -> str | None:
         return None
 
 
+class _GoPricingTableParser(HTMLParser):
+    """Collect tables as (aria_label, rows) with markdown-ish cell text.
+
+    <strong>/<b> -> **...**, <s>/<del>/<strike> -> ~~...~~,
+    <small> -> <small>...</small>, <br> -> space, all else stripped.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.tables: list[tuple[str | None, list[list[str]]]] = []
+        self._aria: str | None = None
+        self._in_table = False
+        self._rows: list[list[str]] = []
+        self._current_row: list[str] | None = None
+        self._cell_parts: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        if tag == "table":
+            self._in_table = True
+            self._rows = []
+            self._aria = None
+            for name, value in attrs:
+                if name.lower() == "aria-label" and value is not None:
+                    self._aria = value
+        elif not self._in_table:
+            return
+        elif tag == "tr":
+            self._current_row = []
+        elif tag in ("th", "td"):
+            self._cell_parts = []
+        elif self._cell_parts is not None:
+            if tag in ("strong", "b"):
+                self._cell_parts.append("**")
+            elif tag in ("s", "del", "strike"):
+                self._cell_parts.append("~~")
+            elif tag == "small":
+                self._cell_parts.append("<small>")
+            elif tag == "br":
+                self._cell_parts.append(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if tag == "table" and self._in_table:
+            self.tables.append((self._aria, self._rows))
+            self._in_table = False
+            self._rows = []
+            self._current_row = None
+            self._cell_parts = None
+        elif not self._in_table:
+            return
+        elif tag == "tr":
+            if self._current_row is not None:
+                self._rows.append(self._current_row)
+            self._current_row = None
+        elif tag in ("th", "td"):
+            if self._cell_parts is not None and self._current_row is not None:
+                text = "".join(self._cell_parts)
+                text = re.sub(r"\s+", " ", text).strip()
+                self._current_row.append(text)
+            self._cell_parts = None
+        elif self._cell_parts is not None:
+            if tag in ("strong", "b"):
+                self._cell_parts.append("**")
+            elif tag in ("s", "del", "strike"):
+                self._cell_parts.append("~~")
+            elif tag == "small":
+                self._cell_parts.append("</small>")
+
+    def handle_data(self, data: str) -> None:
+        if self._in_table and self._cell_parts is not None:
+            self._cell_parts.append(data)
+
+
+def _extract_html_table(
+    html: str, table_heading: str
+) -> tuple[list[str], list[list[str]]]:
+    """Extract header/rows from the first table after a heading."""
+    heading_pos = html.find(table_heading)
+    if heading_pos == -1:
+        print(f"Error: Section '## {table_heading}' not found", file=sys.stderr)
+        sys.exit(1)
+    sub = html[heading_pos:]
+    parser = _GoPricingTableParser()
+    parser.feed(sub)
+    parser.close()
+    if not parser.tables:
+        print(f"Error: No table found under '## {table_heading}'", file=sys.stderr)
+        sys.exit(1)
+    for aria, rows in parser.tables:
+        if aria == "Go model pricing":
+            if not rows:
+                print(
+                    f"Error: No table found under '## {table_heading}'",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            return rows[0], rows[1:]
+    rows = parser.tables[0][1]
+    if not rows:
+        print(f"Error: No table found under '## {table_heading}'", file=sys.stderr)
+        sys.exit(1)
+    return rows[0], rows[1:]
+
+
 def extract_table(
     markdown: str, table_heading: str
 ) -> tuple[list[str], list[list[str]]]:
-    """Extract the header cells and data rows of a markdown table section."""
+    """Extract the header cells and data rows of a markdown or HTML table section."""
+    if "<table" in markdown.lower():
+        return _extract_html_table(markdown, table_heading)
     heading_line = f"## {table_heading}"
     lines = markdown.splitlines()
 
@@ -91,8 +200,10 @@ def extract_table(
     return header_cells, data_rows
 
 
-def parse_monthly_limit(cell: str) -> int:
+def parse_monthly_limit(cell: str) -> float:
     """Parse a dollar monthly limit from a cell, preferring bold values."""
+    if "unlimited" in cell.lower():
+        return float("inf")
     cleaned = STRIKETHROUGH_PATTERN.sub("", cell)
     bold_match = BOLD_PRICE_PATTERN.search(cleaned)
     if bold_match:
@@ -105,6 +216,8 @@ def parse_monthly_limit(cell: str) -> int:
 
 def parse_price(cell: str) -> float | None:
     """Parse a per-token price from a cell, returning None when absent."""
+    if "free" in cell.lower():
+        return 0.0
     cleaned = STRIKETHROUGH_PATTERN.sub("", cell).replace("**", "")
     if cleaned.strip() == "-":
         return None
