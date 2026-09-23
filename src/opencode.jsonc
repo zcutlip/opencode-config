@@ -97,7 +97,7 @@
     "cc-safety-net",
     "opencode-cmd-provider",
     "@mohak34/opencode-notifier",
-    "@cortexkit/opencode-magic-context"
+    "@cortexkit/opencode-magic-context@latest"
     // "@dietrichgebert/ponytail",
     // "opencode-better-hashline",
     // "opencode-runtime-fallback",
@@ -108,7 +108,7 @@
     "plan": {
       "mode": "primary",
       "model": "opencode/muse-spark-1.3-contributor-free",
-      // "model": "chutes/zai-org/GLM-5.2-TEE",
+      // "model": "opencode-go/muse-spark-1.3-contributor",
       "permission": {
         "edit": "deny",
         "bash": {
@@ -165,7 +165,7 @@
     "build": {
       "mode": "primary",
       "model": "opencode/muse-spark-1.3-contributor-free",
-      // "model": "chutes/zai-org/GLM-5.2-TEE",
+      // "model": "opencode-go/muse-spark-1.3-contributor",
       "permission": {
         "edit": "ask",
         "read": "allow",
@@ -212,7 +212,8 @@
     "explore": {
       "mode": "subagent",
       // "model": "commandcode/z-ai/glm-5.3-flash",
-      "model": "opencode-go/deepseek-v4.1-flash",
+      // "model": "opencode-go/muse-spark-1.3-contributor",
+      "model": "opencode/muse-spark-1.3-contributor-free",
       "permission": {
         "read": "allow",
         "lsp": "allow",
@@ -250,7 +251,8 @@
     "commit": {
       "mode": "subagent",
       // "model": "commandcode/z-ai/glm-5.3-flash",
-      "model": "opencode-go/deepseek-v4.1-flash",
+      // "model": "opencode-go/muse-spark-1.3-contributor",
+      "model": "opencode/muse-spark-1.3-contributor-free",
       "options": {},
       "permission": {
         "skill": {
@@ -291,7 +293,8 @@
     "coder": {
       "mode": "subagent",
       // "model": "commandcode/z-ai/glm-5.3-flash",
-      "model": "opencode-go/deepseek-v4.1-flash",
+      // "model": "opencode-go/muse-spark-1.3-contributor",
+      "model": "opencode/muse-spark-1.3-contributor-free",
       "permission": {
         "edit": "ask",
         "lsp": "allow",
@@ -308,7 +311,8 @@
     "lint": {
       "mode": "subagent",
       // "model": "commandcode/z-ai/glm-5.3-flash",
-      "model": "opencode-go/deepseek-v4.1-flash",
+      // "model": "opencode-go/muse-spark-1.3-contributor",
+      "model": "opencode/muse-spark-1.3-contributor-free",
       "permission": {
         "bash": {
           "*": "ask",
@@ -326,7 +330,8 @@
     },
     "task-rabbit": {
       // "model": "commandcode/z-ai/glm-5.3-flash",
-      "model": "opencode-go/deepseek-v4.1-flash",
+      // "model": "opencode-go/muse-spark-1.3-contributor",
+      "model": "opencode/muse-spark-1.3-contributor-free",
       "permission": {
         "bash": {
           "python3 *": "deny",
