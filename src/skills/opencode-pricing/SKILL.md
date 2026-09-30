@@ -55,7 +55,7 @@ Then present the output table verbatim — columns: Model, Input, Output, Cached
 scripts/rank-value.py
 ```
 
-Ranks Go models by effective input cost (see below). Optional flags: `--output-share 0.1` (adds a blended column that weights the output price), `--top N`, `--debug`.
+Ranks Go models by effective input cost (see below). Optional flags: `--output-share 0.1` (adds a blended column that weights the output price), `--top N`, `--debug`, `--normalize-60` (opt-in: adds Normalized $/M column as effective * (60 / monthly_limit), free/unlimited left blank, sorts by normalized).
 
 Present the output verbatim, including the caveat lines the script emits.
 
