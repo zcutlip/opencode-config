@@ -19,6 +19,7 @@ from opencode_pricing import (
     extract_table,
     fetch_page,
     filter_rows,
+    parse_monthly_limit,
     parse_price,
     try_fetch_page,
 )
@@ -113,9 +114,11 @@ def column_indices(header: list[str]) -> dict[str, int]:
     }
 
 
-def render_table(scored: list[dict], show_blended: bool) -> str:
+def render_table(scored: list[dict], show_blended: bool, show_normalized: bool = False) -> str:
     """Render the ranked rows as a markdown table."""
     headings = ["Rank", "Model", "Cache ratio", "Effective input $/M"]
+    if show_normalized:
+        headings.append("Normalized $/M")
     if show_blended:
         headings.append("Blended $/M")
     headings += ["Cached write", "Monthly limit"]
@@ -132,6 +135,9 @@ def render_table(scored: list[dict], show_blended: bool) -> str:
             ratio_cell,
             f"${item['eff']:.4f}",
         ]
+        if show_normalized:
+            norm = item.get("norm")
+            cells.append(f"${norm:.4f}" if norm is not None else "—")
         if show_blended:
             cells.append(f"${item['blended']:.4f}")
         cells += [item["write"], item["limit"]]
@@ -147,6 +153,13 @@ def main() -> None:
     parser.add_argument("--output-share", type=float, default=0.0)
     parser.add_argument("--top", type=int, default=0)
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument(
+        "--normalize-60",
+        action="store_true",
+        help="Add a Normalized $/M column as effective * (60 / monthly_limit) "
+        "using the effective promo limit shown in Monthly limit, leave "
+        "free/unlimited models blank, and sort by it (fallback to effective).",
+    )
     args = parser.parse_args()
 
     source = SOURCES.get(args.source)
@@ -189,6 +202,7 @@ def main() -> None:
                     "blended": 0.0,
                     "write": cell(row, "cached_write"),
                     "limit": monthly,
+                    "norm": None,
                 }
             )
             continue
@@ -218,13 +232,27 @@ def main() -> None:
                 "blended": blended,
                 "write": cell(row, "cached_write"),
                 "limit": monthly,
+                "norm": None,
             }
         )
 
-    scored.sort(key=lambda item: item["eff"])
+    if args.normalize_60:
+        for item in scored:
+            limit_val = parse_monthly_limit(item["limit"])
+            if item["eff"] == 0.0 or limit_val == float("inf") or limit_val == 0:
+                item["norm"] = None
+            else:
+                item["norm"] = item["eff"] * (60 / limit_val)
+        scored.sort(
+            key=lambda item: item["norm"]
+            if item["norm"] is not None
+            else item["eff"]
+        )
+    else:
+        scored.sort(key=lambda item: item["eff"])
     if args.top > 0:
         scored = scored[: args.top]
-    print(render_table(scored, args.output_share > 0))
+    print(render_table(scored, args.output_share > 0, args.normalize_60))
 
     if missing:
         print("\nNo cache-ratio data (excluded from ranking): " + ", ".join(missing))
