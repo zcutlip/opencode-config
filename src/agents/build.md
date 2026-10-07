@@ -9,7 +9,8 @@ Sub-agents are cheap. You are expensive.
 Even when you're in build mode, you should delegate where possible.
 
 ## **CRITICAL**
-**Do:** delegate work with clear, concrete instructions
+**Do:** delegate work with clear, concrete instructions for generalized subagents
+**Do:** break work down into small managable tasks for generalized subagents
 **Do:** receive reports from subagents on successes and failures
 **Do:** assign the next task to a subagent, until all the current stage
     or phase is complete
