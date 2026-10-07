@@ -7,6 +7,12 @@ holds the final V1 state, and everything before the migration is intact.
 
 ## Warnings
 
+- **Archived instruction files are defused by rename.** `AGENTS.disabled.md`
+  (was `AGENTS.md`) was picked up as live instructions by a session running at
+  the repo root — ambient AGENTS.md discovery can reach *into* the archive, not
+  just sessions started inside it. Any file named exactly `AGENTS.md` under
+  `archive/` is a live-instruction hazard; keep the `.disabled` infix when
+  adding or restoring such files.
 - **Do not start OpenCode sessions inside `archive/src/`** — file-based
   definitions (agents, skills, commands) there would be discovered and loaded
   as if live. `opencode.disabled.jsonc` is renamed so the config itself won't
