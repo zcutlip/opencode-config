@@ -57,13 +57,14 @@ convenient), **dead** (meaningless in V2), **parked** (decided to revisit),
 | permissions wall (`opencode.disabled.jsonc`) | **reference** — symptom catalog of obnoxious V1 behaviors, not a port list. If V2 agents act up, find the specific behavior here and write one narrow V2 `permissions` rule for it |
 | LSP (`lsp: true`, `lsp` permissions, "try LSP tools first" in `agents/plan.md`) | **dead** — LSP removed in V2; replace with project lint/typecheck (the `@lint` agent and `lint-format` skill pattern) |
 | `hook/hooks.md.disabled` + `hook/inspect-bash.sh` | **dead** — V1 `hooks` mechanism has no V2 equivalent; plugins + `permissions`/`policies` own this now |
-| `tui.json` | **candidate** — the tui.json→cli.json auto-migration never ran (it lived inside the removed symlink). Port manually: TUI plugin entries → `cli.json` `plugins` |
-| themes (`themes/cyberpunk.json`, `themes/korp-net.json`) | **candidate** — V2 themes are selected via `cli.json` `theme.name`; port the theme files when wanted |
-| `AGENTS.md` global instructions (casual tone, delegation etiquette) | **candidate** — port as `~/.config/opencode/AGENTS.md` when the vanilla tone starts to grate |
+| `tui.json` | **ported (partially)** — notifications preference lives in `src/cli.json` `attention.notifications`. TUI plugin entries remain parked: audit each plugin before porting any |
+| themes (`themes/cyberpunk.json`, `themes/korp-net.json`) | **candidate — needs conversion, not copying** — files are V1-format (`defs` + `theme` maps); V2 requires the new structure (`base`/modes, hue scales, semantic tokens). Also unknown which theme was actually in use — V1 `tui.json` never named one |
+| `AGENTS.md` global instructions (casual tone, delegation etiquette) | **candidate** — defused as `AGENTS.disabled.md` after ambient pickup. Port the content to `~/.config/opencode/AGENTS.md` when the vanilla tone starts to grate |
 | agent prompts (`agents/*.md`) | **candidate** — Tier 3: port by rewriting, never verbatim. Strip the LSP line from `plan.md`; re-examine "delegate everything" now that background subagents are native; consider V2 default agents raw first |
 | watcher ignore list | **candidate** — trivially portable; node_modules/dist/build/.git/*.log |
-| `small_model` → V2 `agents.title.model` | **candidate** — was `opencode-go/longcat-2.5-preview-free` |
-| model picks (`opencode.disabled.jsonc`) | **reference** — final V1 choices: glm-5.3-flash (default), mimo-v2.6-pro (plan), deepseek-v4.1-flash (build/coder), longcat-2.5-preview-free (commit/lint/task-rabbit/title) |
+| `small_model` → V2 `agents.title.model` | **ported** — `agents.title.model` in `src/opencode.jsonc`, was `opencode-go/longcat-2.5-preview-free` |
+| model picks (`opencode.disabled.jsonc`) | **reference** — default + title models ported to `src/opencode.jsonc`; per-agent models ride with the agents (Tier 3). Final V1 choices: glm-5.3-flash (default), mimo-v2.6-pro (plan), deepseek-v4.1-flash (build/coder), longcat-2.5-preview-free (commit/lint/task-rabbit/title) |
+| `nativ` provider | **ported** — V2 shape in `src/opencode.jsonc`: `package`, `settings.baseURL`, model `capabilities`, `compatibility.reasoningField` (from V1 `interleaved.field`) |
 | commented-out plugin experiments (ponytail, better-hashline, runtime-fallback, @angdrew/hashline, froggy) | **parked** — never adopted; maybe interesting under V2, maybe not |
 | external plugins (session-manager, codebase-index, skill-creator, cc-safety-net, cmd-provider, notifier, magic-context) | **parked** — audit each for a V2-native equivalent before re-adding any |
 | stop-gate / TDD enforcement (`commands/tdd-continue.md`, root analysis doc) | **parked** — separate future discussion |
