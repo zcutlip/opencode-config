@@ -1,0 +1,56 @@
+{
+  // V2 config — rebuilt gradually, strangler-fig style, from the V1 setup.
+  // The V1 config is archived at ../archive/src/ — see ../archive/README.md
+  // (the port ledger) before pulling anything out of the archive.
+  //
+  // Tier 1 mechanics only so far: default + title model picks, the local
+  // `nativ` provider. Judgment-laden text (agents, permissions, prose) is
+  // deliberately absent until it proves load-bearing under vanilla V2.
+  "$schema": "https://opencode.ai/config.json",
+
+  // Final V1 default model, ported as the starting reference.
+  "model": "commandcode/z-ai/glm-5.3-flash",
+
+  // Former V1 `small_model`: the hidden title agent's model.
+  "agents": {
+    "title": {
+      "model": "opencode-go/longcat-2.5-preview-free"
+    }
+  },
+
+  // Local MLX server — the V1 `nativ` provider in the V2 shape.
+  // Field mapping: npm -> package, options.baseURL -> settings.baseURL,
+  // tool_call/modalities/attachment -> capabilities, interleaved.field ->
+  // compatibility.reasoningField, options -> settings, limit unchanged.
+  // Dropped as V2-ignored: reasoning, temperature.
+  "providers": {
+    "nativ": {
+      "name": "Nativ",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "http://127.0.0.1:8080/v1"
+      },
+      "models": {
+        "Qwen3.6-35B-A3B-8bit": {
+          "modelID": "mlx-community/Qwen3.6-35B-A3B-8bit",
+          "name": "Qwen3.6-35B-A3B-8bit",
+          "capabilities": {
+            "tools": true,
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
+          "compatibility": {
+            "reasoningField": "reasoning_content"
+          },
+          "limit": {
+            "context": 262144,
+            "output": 2048
+          },
+          "settings": {
+            "enable_thinking": true
+          }
+        }
+      }
+    }
+  }
+}
