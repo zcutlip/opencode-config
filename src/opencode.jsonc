@@ -25,7 +25,10 @@
   ],
 
   // Magic Context (anti-compaction + persistent memory) — see LEDGER.md.
-  "plugins": ["@cortexkit/opencode-magic-context@latest"],
+  "plugins": [
+    "@cortexkit/opencode-magic-context@latest",
+    "opencode-cmd-provider"
+  ],
 
   // Its required setup: the host's compaction would interfere, so it is off.
   "compaction": {
