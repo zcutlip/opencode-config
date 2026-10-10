@@ -37,7 +37,7 @@ a lookup, not to port).
 | model picks (`archive/src/opencode.disabled.jsonc`) | **reference** — default + title models ported to `src/opencode.jsonc`; per-agent models ride with the agents (Tier 3). Final V1 choices: glm-5.3-flash (default), mimo-v2.6-pro (plan), deepseek-v4.1-flash (build/coder), longcat-2.5-preview-free (commit/lint/task-rabbit/title) |
 | `nativ` provider | **ported** — V2 shape in `src/opencode.jsonc`: `package`, `settings.baseURL`, model `capabilities`, `compatibility.reasoningField` (from V1 `interleaved.field`) |
 | commented-out plugin experiments (ponytail, better-hashline, runtime-fallback, @angdrew/hashline, froggy) | **parked** — never adopted; maybe interesting under V2, maybe not |
-| external plugins (session-manager, codebase-index, skill-creator, cc-safety-net, cmd-provider, notifier, magic-context) | **parked** — audit each for a V2-native equivalent before re-adding any |
+| external plugins (the V1 list) | **mixed — per-item verdicts (audited 2026-10)** — V2-ready: `cc-safety-net`, `opencode-cmd-provider` (the latter gated on the CommandCode plan question). Actively maintained, real capability gap: `open-codebase-index` (V2 has no native semantic search; MCP route available). V1-only: `opencode-session-manager`. Unverified: `opencode-skill-creator`. Resolved: `@mohak34/opencode-notifier` superseded; `@cortexkit/opencode-magic-context` ported (live) |
 | stop-gate / TDD enforcement (`commands/tdd-continue.md`, root analysis doc) | **parked** — separate future discussion |
 | `scripts/refresh-models.sh` (repo root) | **candidate** — kept live; verify `opencode models --refresh` flag on installed V2 before relying on it |
 
