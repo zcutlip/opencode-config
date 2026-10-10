@@ -407,3 +407,4 @@ Temporary Items
 .opencode/index/
 opencode-notifier-state.json
 package.json
+.cortexkit/magic-context/
