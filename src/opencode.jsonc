@@ -1,11 +1,7 @@
 {
   // V2 config — rebuilt gradually, strangler-fig style, from the V1 setup.
-  // The V1 config is archived at ../archive/src/ — see ../archive/README.md
+  // The V1 config is archived at ../archive/src/ — see ../LEDGER.md
   // (the port ledger) before pulling anything out of the archive.
-  //
-  // Tier 1 mechanics only so far: default + title model picks, the local
-  // `nativ` provider. Judgment-laden text (agents, permissions, prose) is
-  // deliberately absent until it proves load-bearing under vanilla V2.
   "$schema": "https://opencode.ai/config.json",
 
   // Final V1 default model, ported as the starting reference.
@@ -16,6 +12,23 @@
     "title": {
       "model": "opencode-go/longcat-2.5-preview-free"
     }
+  },
+
+  // Live posture: shell asks by default; "always allow" approvals accumulate
+  // durable project-scoped rules on top (audit them with `oc-permissions`).
+  "permissions": [
+    { "action": "shell", "resource": "*", "effect": "ask" },
+    { "action": "shell", "resource": "git status *", "effect": "allow" },
+    { "action": "shell", "resource": "git diff *", "effect": "allow" },
+    { "action": "shell", "resource": "git push *", "effect": "deny" }
+  ],
+
+  // Magic Context (anti-compaction + persistent memory) — see LEDGER.md.
+  "plugins": ["@cortexkit/opencode-magic-context@latest"],
+
+  // Its required setup: the host's compaction would interfere, so it is off.
+  "compaction": {
+    "auto": false
   },
 
   // Local MLX server — the V1 `nativ` provider in the V2 shape.
