@@ -1,0 +1,12 @@
+# Machine-local state in the live config dir — present on disk, never
+# versioned (externally managed or secret). See ../LEDGER.md.
+
+# The background service's shared password.
+service.json
+
+# nono's sandbox plugin and skills — installed and updated by the nono
+# utility; the repo preserves them here so the config-dir swap doesn't
+# orphan them.
+plugins/nono-sandbox.ts
+skills/nono-sandbox
+skills/nono-troubleshoot
