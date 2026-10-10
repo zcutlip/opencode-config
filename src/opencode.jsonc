@@ -4,7 +4,8 @@
   // (the port ledger) before pulling anything out of the archive.
   "$schema": "https://opencode.ai/config.json",
 
-  // Final V1 default model, ported as the starting reference.
+  // Default model — switched 2026-10 from V1's commandcode/z-ai/glm-5.3-flash
+  // (the ported starting reference).
   "model": "opencode-go/glm-5.3-flash",
 
   // Former V1 `small_model`: the hidden title agent's model.
