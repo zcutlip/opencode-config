@@ -8,7 +8,8 @@ see `LEDGER.md` (the port ledger) before resurrecting anything from it.
 
 - Atomic commits — one logical change per commit, `file: description` subject
   format, docs separate and committed last. Full house style:
-  `archive/src/skills/git-commit/SKILL.md`
+  `src/skills/git-commit/SKILL.md`; commits are made only by the commit
+  subagent (`src/agents/commit.md`)
 - Pre-commit hooks enforce trailing-whitespace, end-of-file, and JSON/JSON5
   checks — fix what they flag rather than bypassing them
 - No build/lint/test toolchain at present; it is parked in `archive/` with the
