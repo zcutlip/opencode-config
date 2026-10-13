@@ -9,19 +9,102 @@
   "model": "opencode-go/glm-5.3-flash",
 
   // Former V1 `small_model`: the hidden title agent's model.
+  // 2026-10-11: on opencode/big-pickle (the opencode/ PAYG free tier) —
+  // the opencode-go free tier shuts off at the Go limit, and -preview
+  // models evaporate; big-pickle has been active since 2025-10.
   "agents": {
     "title": {
-      "model": "opencode-go/longcat-2.5-preview-free"
+      "model": "opencode/big-pickle"
+    },
+    // The exclusive commit route. OpenCode wiring only: mode, cheap permuting
+    // model, step bound, and the permission fence live here — the agent's
+    // Markdown (src/agents/commit.md) is harness-agnostic and carries none of
+    // this. Rule order inside the list matters: deny-everything first, then
+    // the allowlist, so the last matching rule is the specific allowance.
+    "commit": {
+      "description": "Git commit specialist. Creates atomic, well-formatted commits when explicitly requested by user.",
+      "mode": "subagent",
+      "steps": 18,
+      "model": "opencode-go/longcat-2.5-preview-free",
+      "permissions": [
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "git status *", "effect": "allow" },
+        { "action": "shell", "resource": "git diff *", "effect": "allow" },
+        { "action": "shell", "resource": "git log *", "effect": "allow" },
+        { "action": "shell", "resource": "git add *", "effect": "allow" },
+        { "action": "shell", "resource": "git commit *", "effect": "ask" },
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "*", "effect": "deny" },
+        { "action": "skill", "resource": "*", "effect": "deny" },
+        { "action": "skill", "resource": "git-commit", "effect": "allow" }
+      ]
     }
   },
 
   // Live posture: shell asks by default; "always allow" approvals accumulate
   // durable project-scoped rules on top (audit them with `oc-permissions`).
+  // Git is read-only at the global level: the catch-all `git *` deny sits
+  // before the read-only allows (last match wins), so every git subcommand
+  // not explicitly allowlisted — mutating ones and future ones — is denied.
+  // Saved "always allow" approvals never override a configured deny.
+  // Staging and committing happen only via the commit subagent, whose
+  // agent rules append after these and override the git denies for itself
+  // (options/agents/commit wiring below); it must ask before `git commit`.
   "permissions": [
     { "action": "shell", "resource": "*", "effect": "ask" },
+    { "action": "shell", "resource": "git *", "effect": "deny" },
     { "action": "shell", "resource": "git status *", "effect": "allow" },
     { "action": "shell", "resource": "git diff *", "effect": "allow" },
-    { "action": "shell", "resource": "git push *", "effect": "deny" }
+    { "action": "shell", "resource": "git log *", "effect": "allow" },
+    { "action": "shell", "resource": "git show *", "effect": "allow" },
+    { "action": "shell", "resource": "git ls-files *", "effect": "allow" },
+    { "action": "shell", "resource": "git blame *", "effect": "allow" },
+    { "action": "shell", "resource": "git rev-parse *", "effect": "allow" },
+    { "action": "shell", "resource": "git cat-file *", "effect": "allow" },
+    { "action": "shell", "resource": "git rev-list *", "effect": "allow" },
+    { "action": "shell", "resource": "git describe *", "effect": "allow" },
+    { "action": "shell", "resource": "git grep *", "effect": "allow" },
+    // Exact-literal reads of mutator subcommands: no trailing " *", so only
+    // the literal list forms match and the write forms stay denied.
+    { "action": "shell", "resource": "git tag -l", "effect": "allow" },
+    { "action": "shell", "resource": "git remote -v", "effect": "allow" },
+    // opencode config, agent definitions, and the service secret are
+    // read-only for agents outside this repository. Patterns anchor on
+    // FILENAMES, not paths — they hold on any machine, and canonicalized
+    // edits (the ~/.config/opencode symlink resolves into this repo) still
+    // end in the filename. Bare patterns catch project-root files; "**/"
+    // catches every nested form (.opencode/, .config/, src/...).
+    // "opencode.json*" covers both extensions — the loader reads .json too.
+    // Agent .md files are locked because their frontmatter permissions
+    // OVERRIDE config fences (verified 2026-10-11: a probe agent's
+    // frontmatter allow beat a live config deny, and its frontmatter deny
+    // removed the tool entirely). When frontmatter is silent, config rules
+    // govern — verified with a neutral probe (fm silent + config edit-deny:
+    // write tool withheld, no file created). The repo-root opencode.jsonc carves a
+    // read/write exception for this repo (the fig requires config editing
+    // here); project rules append after these globals, so its allows win.
+    // The user's own TUI/manual writes are unaffected — they never pass
+    // through agent tool permissions.
+    { "action": "edit", "resource": "opencode.json*", "effect": "deny" },
+    { "action": "edit", "resource": "**/opencode.json*", "effect": "deny" },
+    { "action": "edit", "resource": "cli.json", "effect": "deny" },
+    { "action": "edit", "resource": "**/cli.json", "effect": "deny" },
+    { "action": "edit", "resource": "agents/*.md", "effect": "deny" },
+    { "action": "edit", "resource": "**/agents/*.md", "effect": "deny" },
+    // V2 still discovers the V1-compat agent dirs (agent/, mode/, modes/) —
+    // each is a frontmatter-permissions surface, so each is fenced too.
+    // Collateral: ordinary projects with same-named doc dirs are denied;
+    // add narrow allows on friction. (Gap found + demonstrated live
+    // 2026-10-11: .opencode/agent/ was writable while .opencode/agents/
+    // was denied.)
+    { "action": "edit", "resource": "agent/*.md", "effect": "deny" },
+    { "action": "edit", "resource": "**/agent/*.md", "effect": "deny" },
+    { "action": "edit", "resource": "mode/*.md", "effect": "deny" },
+    { "action": "edit", "resource": "**/mode/*.md", "effect": "deny" },
+    { "action": "edit", "resource": "modes/*.md", "effect": "deny" },
+    { "action": "edit", "resource": "**/modes/*.md", "effect": "deny" },
+    { "action": "edit", "resource": "service.json", "effect": "deny" },
+    { "action": "edit", "resource": "**/service.json", "effect": "deny" }
   ],
 
   // Magic Context (anti-compaction + persistent memory) — see LEDGER.md.

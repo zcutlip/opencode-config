@@ -1,0 +1,25 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // Project-local carve-out: opencode config stays writable HERE.
+  // This repository IS the opencode config (strangler-fig migration; src/
+  // is symlinked to ~/.config/opencode), so agents working the migration
+  // inside this repo must be able to edit the config files. Everywhere
+  // else they are read-only for agents (global denies in src/opencode.jsonc).
+  //
+  // These allows use repo-relative paths — the proven form (probed live
+  // 2026-10-11; note that ~/.config-form edits canonicalize to the real
+  // paths, which the filename-anchored global denies catch, so repo-relative
+  // is the working path here). Deliberate gaps, kept denied even in this
+  // repo: bare "opencode.json" / "**/opencode.json" shadow configs, and
+  // .opencode/** forms — nothing live lives there.
+  //
+  // Project rules append after the global rules, so these allows win by
+  // last-match — the same mechanism the commit agent's fence relies on.
+  "permissions": [
+    { "action": "edit", "resource": "opencode.jsonc", "effect": "allow" },
+    { "action": "edit", "resource": "src/opencode.jsonc", "effect": "allow" },
+    { "action": "edit", "resource": "src/cli.json", "effect": "allow" },
+    { "action": "edit", "resource": "src/agents/*.md", "effect": "allow" },
+    { "action": "edit", "resource": "src/service.json", "effect": "allow" }
+  ]
+}
