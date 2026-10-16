@@ -31,7 +31,16 @@
         { "action": "shell", "resource": "git status *", "effect": "allow" },
         { "action": "shell", "resource": "git diff *", "effect": "allow" },
         { "action": "shell", "resource": "git log *", "effect": "allow" },
+        // Bare forms (no args) — a trailing-wildcard pattern doesn't match a
+        // zero-argument command; found live in dogfood (2026-10-14).
+        { "action": "shell", "resource": "git status", "effect": "allow" },
+        { "action": "shell", "resource": "git diff", "effect": "allow" },
+        { "action": "shell", "resource": "git log", "effect": "allow" },
         { "action": "shell", "resource": "git add *", "effect": "allow" },
+        // Index-only by git's definition (restores the index entry to HEAD;
+        // never touches worktree or history). Required to split a mixed index
+        // atomically — its denial is what forced 3be6e0c into one commit.
+        { "action": "shell", "resource": "git restore --staged *", "effect": "allow" },
         { "action": "shell", "resource": "git commit *", "effect": "ask" },
         { "action": "edit", "resource": "*", "effect": "deny" },
         { "action": "subagent", "resource": "*", "effect": "deny" },
@@ -64,6 +73,11 @@
     { "action": "shell", "resource": "git rev-list *", "effect": "allow" },
     { "action": "shell", "resource": "git describe *", "effect": "allow" },
     { "action": "shell", "resource": "git grep *", "effect": "allow" },
+    // Bare forms (no args) of the reads above — a trailing-wildcard pattern
+    // doesn't match a zero-argument command.
+    { "action": "shell", "resource": "git status", "effect": "allow" },
+    { "action": "shell", "resource": "git diff", "effect": "allow" },
+    { "action": "shell", "resource": "git log", "effect": "allow" },
     // Exact-literal reads of mutator subcommands: no trailing " *", so only
     // the literal list forms match and the write forms stay denied.
     { "action": "shell", "resource": "git tag -l", "effect": "allow" },
