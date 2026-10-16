@@ -27,7 +27,9 @@ description: Guidelines for creating atomic, well-formatted git commits
 - Concise descriptions (don't need to be comprehensive)
 - Staging and committing are separate commands: stage with plain `git add <files>`, review what is staged with `git diff --cached`, then commit. Never `git add X && git commit Y`
 - Never use `git commit -a`, `--all`, `--patch`, or `--include` — staging happens explicitly, and the staged diff must be reviewed before the commit is composed
-- use the bash heredoc technique so the commit message is readable in output
+- Use ONE `-m` flag whose value contains real newlines (subject line, blank line, bullet body) — see Scenario D. The readable-in-output goal now has an audience: the permission gate shows the command to the user, so the message itself must be legible.
+- Never pass multiple `-m` flags — the user rejects multi-flag messages outright.
+- Never nest a substitution or heredoc (`$(cat <<EOF …)`) into the commit command — the permission fence segments nested execution and the non-git segments hit the deny-all backbone mechanically; the ask never even reaches the user. A plain multi-line `-m` passes as one segment.
 
 ### Multi-line commit style
 

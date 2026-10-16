@@ -23,7 +23,7 @@ When asked to create a commit:
 
 - Run git in plain form from the project root: `git status`, not `git -C <path> status`. Permission fences match plain command shapes; flag-prefixed variants fall through to denial.
 - If the index already holds staged files beyond the work you were asked to commit, say so in the report. To split a mixed index across atomic commits, use `git restore --staged <file>` (index-only); never wholesale resets.
-- Compose subject and body as separate `git commit -m <subject> -m <body>` calls, then verify with `git log -1` that both landed before reporting the commit.
+- Compose the commit with ONE `-m` flag carrying a real multi-line string: subject line, blank line, bullet body (Scenario D form). Never repeat `-m` — the user rejects multi-flag messages. Never build the message via `$(cat <<EOF …)` or any nested substitution — the permission fence segments it mechanically and denies it before the ask reaches the user. Verify with `git log -1` afterwards.
 
 ## Commit Authorization
 
