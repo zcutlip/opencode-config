@@ -27,7 +27,7 @@
       "steps": 18,
       "model": "opencode-go/longcat-2.5-preview-free",
       "permissions": [
-        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "ask" },
         { "action": "shell", "resource": "git status *", "effect": "allow" },
         { "action": "shell", "resource": "git diff *", "effect": "allow" },
         { "action": "shell", "resource": "git log *", "effect": "allow" },
@@ -61,7 +61,7 @@
   // (options/agents/commit wiring below); it must ask before `git commit`.
   "permissions": [
     { "action": "shell", "resource": "*", "effect": "ask" },
-    { "action": "shell", "resource": "git *", "effect": "deny" },
+    { "action": "shell", "resource": "git *", "effect": "ask" },
     { "action": "shell", "resource": "git status *", "effect": "allow" },
     { "action": "shell", "resource": "git diff *", "effect": "allow" },
     { "action": "shell", "resource": "git log *", "effect": "allow" },
