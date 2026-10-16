@@ -1,5 +1,5 @@
 import { Plugin } from "@opencode/plugin/tui"
-import { createSignal } from "solid-js"
+import { createSignal, type Accessor, type Setter } from "solid-js"
 import { appendFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
@@ -11,12 +11,11 @@ import {
   type TelemetryMode,
 } from "./engine"
 
-// matrix-rain — Phase 2: strip surface + frame loop + per-session telemetry.
+// matrix-rain — Phase 2: strip surface + frame loop + per-session isolation.
 //
-// Surfaces (per approved plan): v1 = strip + screensaver; v1.1 = panel +
-// auto-wake. This file currently implements the strip in session.composer.top:
-// 2 rows of calm, sparse trickle while idle, 4 rows of downpour while the
-// currently viewed session is generating.
+// Each sessionID gets its own Rain engine and reactive frame/mode signals, so
+// multiple open tabs or terminal windows never share column state, speed, or
+// row expansion.
 
 const TICK_MS = 66 // ~15 fps cap
 const IDLE_ROWS = 2
@@ -58,11 +57,6 @@ function eventSessionID(details: unknown): string | undefined {
 
 /**
  * Classify V2 server events into per-session generating/idle transitions.
- * Observed V2 stream events:
- *   session.step.started / streamed, session.reasoning.*, session.text.*,
- *   session.tool.input.*, session.tool.called / progress
- * Observed V2 completion events:
- *   session.execution.succeeded / failed / interrupted, session.idle
  */
 function classifyEventType(type: string): TelemetryMode | null {
   if (/^session\.(execution\.(succeeded|failed|interrupted)|idle|deleted|error)$/.test(type)) {
@@ -91,53 +85,50 @@ function readSessionStatus(statusVal: unknown): TelemetryMode | null {
   return null
 }
 
+interface SessionRain {
+  readonly sid: string
+  readonly engine: Rain
+  readonly frame: Accessor<Frame | undefined>
+  readonly setFrame: Setter<Frame | undefined>
+  readonly mode: Accessor<TelemetryMode>
+  readonly setMode: Setter<TelemetryMode>
+  width: number
+  height: number
+}
+
 export default Plugin.define({
   id: "local.matrix-rain",
   setup(context) {
     const palette = paletteFor("matrix") // persisted prefs land in Phase 3
     const speedScale = 1
 
-    let width = termWidth(context.renderer)
-    let height = IDLE_ROWS
-    const engine = new Rain({ density: 0.85, maxRows: GEN_ROWS })
-    engine.resize(Math.max(1, Math.floor(width / 2)), height)
-
-    const [frame, setFrame] = createSignal<Frame | undefined>(undefined)
-    const [mode, setMode] = createSignal<TelemetryMode>("idle")
-
-    // Per-session activity map so activity in one session never triggers
-    // the 4-row expansion in other open tabs or terminal windows.
     const sessionActivity = new Map<string, { mode: TelemetryMode; updatedAt: number }>()
-    let activeSessionID: string | undefined
-    let loggedStatusShape = false
+    const sessionRains = new Map<string, SessionRain>()
 
-    function currentViewedSessionID(): string | undefined {
-      try {
-        const route = context.ui.router.current() as { type?: string; sessionID?: string } | undefined
-        if (route && route.type === "session" && typeof route.sessionID === "string") {
-          return route.sessionID
-        }
-      } catch {
-        // ignore if router is not ready during early setup
-      }
-      return activeSessionID
+    function getSessionRain(sid: string): SessionRain {
+      let existing = sessionRains.get(sid)
+      if (existing) return existing
+      const w = termWidth(context.renderer)
+      const h = IDLE_ROWS
+      const engine = new Rain({ density: 0.85, maxRows: GEN_ROWS })
+      engine.resize(Math.max(1, Math.floor(w / 2)), h)
+      const [frame, setFrame] = createSignal<Frame | undefined>(undefined)
+      const [mode, setMode] = createSignal<TelemetryMode>("idle")
+      existing = { sid, engine, frame, setFrame, mode, setMode, width: w, height: h }
+      sessionRains.set(sid, existing)
+      return existing
     }
 
-    function resolveModeForSession(sid: string | undefined, now: number): TelemetryMode {
-      if (!sid) return "idle"
+    function resolveModeForSession(sid: string, now: number): TelemetryMode {
+      if (!sid || sid === "__default__") return "idle"
       try {
         const rawStatus = context.data.session.status(sid)
-        if (!loggedStatusShape && rawStatus !== undefined) {
-          loggedStatusShape = true
-          debug(`status shape for ${sid}: ${JSON.stringify(rawStatus)}`)
-        }
         const fromStatus = readSessionStatus(rawStatus)
         if (fromStatus) return fromStatus
       } catch {
         // fallback to event timestamps below
       }
 
-      // Check the session itself and any child sessions in its family tree.
       let family: readonly string[] = [sid]
       try {
         const fam = context.data.session.family(sid)
@@ -172,28 +163,49 @@ export default Plugin.define({
       }
     })
 
+    function currentViewedSessionID(): string | undefined {
+      try {
+        const route = context.ui.router.current() as { type?: string; sessionID?: string } | undefined
+        if (route && route.type === "session" && typeof route.sessionID === "string") {
+          return route.sessionID
+        }
+      } catch {
+        // ignore
+      }
+      return undefined
+    }
+
     let last = Date.now()
     const timer = setInterval(() => {
       try {
         const now = Date.now()
         const dt = Math.min(200, now - last)
         last = now
-
-        const sid = currentViewedSessionID()
-        const nextMode = resolveModeForSession(sid, now)
-        if (nextMode !== mode()) setMode(nextMode)
-
         const w = termWidth(context.renderer)
-        const h = nextMode === "generating" ? GEN_ROWS : IDLE_ROWS
-        if (w !== width || h !== height) {
-          width = w
-          height = h
-          engine.resize(Math.max(1, Math.floor(w / 2)), h)
-        }
+        const viewedSid = currentViewedSessionID()
 
-        const factor = telemetryFactor(nextMode, false)
-        engine.step(dt, factor, speedScale, now)
-        setFrame(engine.frame(factor, palette))
+        for (const state of sessionRains.values()) {
+          const targetSid = state.sid === "__default__" ? (viewedSid ?? "__default__") : state.sid
+          const prevMode = state.mode()
+          const nextMode = resolveModeForSession(targetSid, now)
+          if (nextMode !== prevMode) {
+            state.setMode(nextMode)
+            if (prevMode === "generating" && nextMode === "idle") {
+              state.engine.thinOffscreen(0.4)
+            }
+          }
+
+          const h = nextMode === "generating" ? GEN_ROWS : IDLE_ROWS
+          if (w !== state.width || h !== state.height) {
+            state.width = w
+            state.height = h
+            state.engine.resize(Math.max(1, Math.floor(w / 2)), h)
+          }
+
+          const factor = telemetryFactor(nextMode, false)
+          state.engine.step(dt, factor, speedScale, now)
+          state.setFrame(state.engine.frame(factor, palette))
+        }
       } catch (error) {
         debug(`tick error: ${String(error)}`)
       }
@@ -203,12 +215,13 @@ export default Plugin.define({
       append: "session.composer.top",
       render: (props: unknown) => {
         const p = props as { sessionID?: string } | undefined
-        if (p && typeof p.sessionID === "string") {
-          activeSessionID = p.sessionID
-        }
-        const f = frame()
+        const sid =
+          (p && typeof p.sessionID === "string" ? p.sessionID : currentViewedSessionID()) ??
+          "__default__"
+        const state = getSessionRain(sid)
+        const f = state.frame()
         if (!f) return null
-        const visible = mode() === "generating" ? GEN_ROWS : IDLE_ROWS
+        const visible = state.mode() === "generating" ? GEN_ROWS : IDLE_ROWS
         return (
           <box flexDirection="column" backgroundColor={f.bg}>
             {f.rows.slice(0, visible).map((row) => (
@@ -226,6 +239,7 @@ export default Plugin.define({
     return () => {
       clearInterval(timer)
       stopListen()
+      sessionRains.clear()
       if (typeof slot === "function") slot()
       else if (slot && typeof slot.dispose === "function") slot.dispose()
     }

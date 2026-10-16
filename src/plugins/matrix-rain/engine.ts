@@ -218,6 +218,20 @@ export class Rain {
     }
   }
 
+  /**
+   * One-time transition helper when a surface drops from generating -> idle:
+   * thins active columns that are still above the fold (`y < 0`) down to
+   * `targetDensity` so the strip calms immediately without killing visible drops.
+   */
+  thinOffscreen(targetDensity: number): void {
+    const keepRatio = Math.min(1, targetDensity / Math.max(0.01, this.density))
+    for (const col of this.cols) {
+      if (col.active && col.y < 0 && Math.random() > keepRatio) {
+        col.active = false
+      }
+    }
+  }
+
   /** Advance heads and age trails by `dt` ms. */
   step(dt: number, factor: TelemetryFactor, speedScale: number, now: number): void {
     const global = factor.speed * speedScale
