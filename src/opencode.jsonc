@@ -4,17 +4,19 @@
   // (the port ledger) before pulling anything out of the archive.
   "$schema": "https://opencode.ai/config.json",
 
-  // Default model — switched 2026-10 from V1's commandcode/z-ai/glm-5.3-flash
-  // (the ported starting reference).
-  "model": "opencode-go/glm-5.3-flash",
+  // Default model — 2026-10-16: everything unified on opencode/glm-5.3-flash-free
+  // (the opencode/ PAYG free tier). Before that opencode-go/glm-5.3-flash,
+  // ported from V1's commandcode/z-ai/glm-5.3-flash.
+  "model": "opencode/glm-5.3-flash-free",
 
   // Former V1 `small_model`: the hidden title agent's model.
-  // 2026-10-11: on opencode/big-pickle (the opencode/ PAYG free tier) —
-  // the opencode-go free tier shuts off at the Go limit, and -preview
-  // models evaporate; big-pickle has been active since 2025-10.
+  // 2026-10-16: unified on opencode/glm-5.3-flash-free with the rest of the
+  // config; was opencode/big-pickle (chosen 2026-10-11 over the opencode-go
+  // free tier, which shuts off at the Go limit, and over -preview models,
+  // which evaporate).
   "agents": {
     "title": {
-      "model": "opencode/big-pickle"
+      "model": "opencode/glm-5.3-flash-free"
     },
     // The exclusive commit route. OpenCode wiring only: mode, cheap permuting
     // model, step bound, and the permission fence live here — the agent's
@@ -25,7 +27,7 @@
       "description": "Git commit specialist. Creates atomic, well-formatted commits when explicitly requested by user.",
       "mode": "subagent",
       "steps": 18,
-      "model": "opencode-go/longcat-2.5-preview-free",
+      "model": "opencode/glm-5.3-flash-free",
       "permissions": [
         { "action": "shell", "resource": "*", "effect": "ask" },
         { "action": "shell", "resource": "git status *", "effect": "allow" },
