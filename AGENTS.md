@@ -3,6 +3,7 @@
 Personal OpenCode configuration. The V1 config is archived under `archive/` —
 see `LEDGER.md` (the port ledger) before resurrecting anything from it.
 `src/` is the V2 config, rebuilt gradually as items prove load-bearing.
+`~/.config/opencode` is a symlink to `./src` — edits in `src/` are live config.
 
 ## Repo conventions
 
