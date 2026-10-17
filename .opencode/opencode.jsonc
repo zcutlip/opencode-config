@@ -1,0 +1,22 @@
+{
+
+    "$schema": "https://opencode.ai/config.json",
+    "agents": {
+
+        "build": {
+            "permissions": [
+                { "action": "shell", "resource": "./scripts/ts-parse.ts", "effect": "allow" },
+                { "action": "shell", "resource": "./scripts/ts-parse.ts *", "effect": "allow" },
+                { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-check.ts", "effect": "allow" },
+                { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-check.ts *", "effect": "allow" },
+                { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-tune.ts", "effect": "allow" },
+                { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-tune.ts *", "effect": "allow" },
+                { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-view.ts", "effect": "allow" },
+                { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-view.ts *", "effect": "allow" },
+                { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/motion-classify.ts", "effect": "allow" },
+                { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/motion-classify.ts *", "effect": "allow" }
+            ]
+
+        }
+    }
+}
