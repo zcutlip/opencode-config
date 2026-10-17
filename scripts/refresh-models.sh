@@ -88,7 +88,7 @@ tmp_list="$(mktemp)"
 trap 'rm -f "$tmp_list"' EXIT HUP INT TERM
 
 # shellcheck disable=SC2086
-opencode models --refresh >"$tmp_list"
+opencode models --standalone >"$tmp_list"
 opencode_status=$?
 
 if [ "$opencode_status" -ne 0 ]; then
