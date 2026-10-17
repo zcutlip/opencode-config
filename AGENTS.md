@@ -15,5 +15,8 @@ see `LEDGER.md` (the port ledger) before resurrecting anything from it.
   checks — fix what they flag rather than bypassing them
 - No build/lint/test toolchain at present; it is parked in `archive/` with the
   V1 plugins — revive it there when authoring a V2 plugin
+- `./scripts/ts-parse.ts <path>...` parse-checks TS/TSX — syntax only, it does
+  not typecheck; `--git` also parses each file's HEAD version to separate new
+  breakage from old
 - `scripts/refresh-models.sh` filters `opencode models` output (verify the
   `--refresh` flag still exists on the installed V2 before relying on it)
