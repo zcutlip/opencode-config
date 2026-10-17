@@ -6,6 +6,7 @@ import { join } from "node:path"
 import {
   Rain,
   PALETTES,
+  GLYPHS_HALF,
   telemetryFactor,
   paletteFor,
   type Frame,
@@ -22,6 +23,7 @@ const IDLE_ROWS = 2
 const GEN_ROWS = 4
 const STREAM_ACTIVE_MS = 2500 // step/delta keep-alive window per session
 const ROUTE_NAME = "matrix-rain"
+const PANEL_NAME = "matrix-rain.panel"
 const DEBUG_LOG = join(homedir(), ".local", "share", "opencode", "matrix-rain-debug.log")
 
 const PALETTE_ORDER: readonly PaletteName[] = ["matrix", "korp-red", "theme"]
@@ -169,6 +171,50 @@ export default Plugin.define({
     let saverHeight = 0
     let saverReturnSessionID: string | undefined
 
+    // Sidecar panel engine & state (SessionRain-like, but width-bound to panel).
+    const panelEngine = new Rain({ density: 0.88, maxRows: 200 })
+    const [panelFrame, setPanelFrame] = createSignal<Frame | undefined>(undefined)
+    const [panelMode, setPanelMode] = createSignal<TelemetryMode>("idle")
+    let panelWidth = 0
+    let panelHeight = 0
+    let panelSessionID: string | undefined
+    let panelOpen = false
+    let panelForceFullscreen = false
+
+    // Narrow sidebar block (sidebar.content) — stacks with other sidebar plugins.
+    const SIDEBAR_ROWS = 6
+    const sidebarEngine = new Rain({ density: 0.88, maxRows: SIDEBAR_ROWS, glyphs: GLYPHS_HALF })
+    const [sidebarFrame, setSidebarFrame] = createSignal<Frame | undefined>(undefined)
+    const [sidebarMode, setSidebarMode] = createSignal<TelemetryMode>("idle")
+    let sidebarWidth = 0
+    let sidebarSessionID: string | undefined
+
+    function stepSidebarNow(now: number, dt: number): void {
+      const sid = currentViewedSessionID() ?? sidebarSessionID
+      if (sid) sidebarSessionID = sid
+      const nextMode = resolveModeForSession(sid, now)
+      if (nextMode !== sidebarMode()) setSidebarMode(nextMode)
+      // The sidebar is narrow; the host may pass width via slot props. Until
+      // mounted, fall back to a conservative sidebar estimate.
+      const cols = Math.max(8, sidebarWidth > 0 ? sidebarWidth : 28)
+      if (sidebarEngine.width !== cols || sidebarEngine.rows !== SIDEBAR_ROWS) {
+        sidebarEngine.resize(cols, SIDEBAR_ROWS)
+      }
+      const factor = saverTelemetryFactor(nextMode, false)
+      sidebarEngine.step(dt, factor, activeSpeed(), now)
+      setSidebarFrame(sidebarEngine.frame(factor, paletteFor(activePaletteName())))
+    }
+
+    function openSidePanel(): void {
+      const sid = currentViewedSessionID()
+      if (sid) panelSessionID = sid
+      panelOpen = true
+      stepPanelNow(Date.now(), TICK_MS)
+      context.ui.panel.open(PANEL_NAME, {
+        ...(panelForceFullscreen ? { presentation: "fullscreen" as const } : {}),
+      })
+    }
+
     function currentViewedSessionID(): string | undefined {
       try {
         const route = context.ui.router.current() as
@@ -195,6 +241,25 @@ export default Plugin.define({
       } catch {
         return false
       }
+    }
+
+    function stepPanelNow(now: number, dt: number): void {
+      const sid = currentViewedSessionID() ?? panelSessionID
+      if (sid) panelSessionID = sid
+      const nextMode = resolveModeForSession(sid, now)
+      if (nextMode !== panelMode()) setPanelMode(nextMode)
+      // Panel owns its height; the slot reports it via render props. Until
+      // mounted, fall back to a medium-height sidecar estimate.
+      const cols = Math.max(8, Math.floor(termWidth(context.renderer) / 4))
+      const rows = Math.max(8, termHeight(context.renderer) - 10)
+      if (cols !== panelWidth || rows !== panelHeight) {
+        panelWidth = cols
+        panelHeight = rows
+        panelEngine.resize(Math.max(1, Math.floor(cols / 2)), rows)
+      }
+      const factor = saverTelemetryFactor(nextMode, false)
+      panelEngine.step(dt, factor, activeSpeed(), now)
+      setPanelFrame(panelEngine.frame(factor, paletteFor(activePaletteName())))
     }
 
     function stepSaverNow(now: number, dt: number): void {
@@ -281,6 +346,12 @@ export default Plugin.define({
             description: stripOn ? "currently ON" : "currently OFF",
           },
           {
+            title: "Open Side Panel",
+            value: "surface:panel",
+            category: "Surface",
+            description: "rain beside chat (f big)",
+          },
+          {
             title: "Matrix Green",
             value: "palette:matrix",
             category: "Palette",
@@ -328,6 +399,10 @@ export default Plugin.define({
         })
         return
       }
+      if (choice === "surface:panel") {
+        openSidePanel()
+        return
+      }
       if (choice.startsWith("palette:")) {
         const next = choice.slice("palette:".length)
         if (isPaletteName(next)) {
@@ -367,6 +442,10 @@ export default Plugin.define({
       }
       if (arg === "saver" || arg === "screensaver" || arg === "full" || arg === "fullscreen") {
         openScreensaver()
+        return
+      }
+      if (arg === "panel" || arg === "side" || arg === "sidecar") {
+        openSidePanel()
         return
       }
       if (arg === "strip" || arg === "toggle") {
@@ -480,6 +559,12 @@ export default Plugin.define({
           return
         }
 
+        if (panelOpen) {
+          stepPanelNow(now, dt)
+        }
+
+        stepSidebarNow(now, dt)
+
         if (!isStripEnabled()) return
 
         const w = termWidth(context.renderer)
@@ -538,6 +623,15 @@ export default Plugin.define({
           },
         },
         {
+          id: "matrix-rain.sidecar",
+          title: "Matrix Rain: Open Side Panel",
+          group: "Matrix Rain",
+          palette: true,
+          run: () => {
+            openSidePanel()
+          },
+        },
+        {
           id: "matrix-rain.saver.exit.q",
           title: "Exit Matrix Screensaver",
           bind: "q",
@@ -587,6 +681,207 @@ export default Plugin.define({
         "matrix-rain.saver.slower",
       ],
     }))
+
+    /**
+     * Panel contribution component. The keymap layer is created inside the
+     * component (per the session.panel docs pattern) so its bindings are
+     * active while the panel owns input, and disposed with the panel.
+     */
+    function MatrixPanel(panel: {
+      sessionID?: unknown
+      width?: unknown
+      toggleFullscreen?: () => void
+      close?: () => void
+    }) {
+      context.keymap.layer(() => ({
+        mode: "global",
+        priority: 50,
+        commands: [
+          {
+            id: "matrix-rain.panel.exit.q",
+            title: "Close Matrix Side Panel",
+            bind: "q",
+            run: () => {
+              panelOpen = false
+              if (typeof panel.close === "function") panel.close()
+              else context.ui.panel.close()
+            },
+          },
+          {
+            id: "matrix-rain.panel.exit.esc",
+            title: "Close Matrix Side Panel",
+            bind: "escape",
+            run: () => {
+              panelOpen = false
+              if (typeof panel.close === "function") panel.close()
+              else context.ui.panel.close()
+            },
+          },
+          {
+            id: "matrix-rain.panel.fullscreen",
+            title: "Toggle Matrix Panel Fullscreen",
+            bind: "f",
+            run: () => {
+              if (typeof panel.toggleFullscreen === "function") panel.toggleFullscreen()
+              else {
+                panelForceFullscreen = !panelForceFullscreen
+                context.ui.panel.open(PANEL_NAME, {
+                  ...(panelForceFullscreen ? { presentation: "fullscreen" as const } : {}),
+                })
+              }
+            },
+          },
+          {
+            id: "matrix-rain.panel.palette",
+            title: "Cycle Matrix Palette",
+            bind: "p",
+            run: () => {
+              void cyclePalette()
+            },
+          },
+          {
+            id: "matrix-rain.panel.faster",
+            title: "Increase Matrix Speed",
+            bind: "=",
+            run: () => {
+              void adjustSpeed(0.2)
+            },
+          },
+          {
+            id: "matrix-rain.panel.slower",
+            title: "Decrease Matrix Speed",
+            bind: "-",
+            run: () => {
+              void adjustSpeed(-0.2)
+            },
+          },
+        ],
+        bindings: [
+          "matrix-rain.panel.exit.q",
+          "matrix-rain.panel.exit.esc",
+          "matrix-rain.panel.fullscreen",
+          "matrix-rain.panel.palette",
+          "matrix-rain.panel.faster",
+          "matrix-rain.panel.slower",
+        ],
+      }))
+
+      return (
+        <box
+          flexDirection="column"
+          backgroundColor={PALETTES[activePaletteName()].bg}
+          onUnmount={() => {
+            panelOpen = false
+          }}
+        >
+          <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1}>
+            <text fg={PALETTES[activePaletteName()].bright}>
+              {(() => {
+                const statusLabel = panelMode() === "generating" ? "GENERATING" : "IDLE"
+                const sid = panelSessionID
+                let title = "panel"
+                if (sid) {
+                  try {
+                    title = context.data.session.get(sid)?.title ?? sid.slice(0, 12)
+                  } catch {
+                    title = sid.slice(0, 12)
+                  }
+                }
+                return `[ MATRIX // ${statusLabel} · ${title} ]`
+              })()}
+            </text>
+            <text fg={PALETTES[activePaletteName()].mid}>
+              {`palette:${activePaletteName()} (p) · ${activeSpeed().toFixed(1)}x (-/=) · f big · q close`}
+            </text>
+          </box>
+          <box flexDirection="column">
+            {(() => {
+              const f = panelFrame()
+              if (!f) return null
+              return f.rows.map((row) => (
+                <box flexDirection="row">
+                  {row.map((cell) => (
+                    <text fg={cell ? cell.fg : undefined}>{cell ? cell.ch : "  "}</text>
+                  ))}
+                </box>
+              ))
+            })()}
+          </box>
+        </box>
+      )
+    }
+
+    const unregisterPanel = context.ui.slot({
+      append: "session.panel",
+      render: (props: unknown) => {
+        const p = props as {
+          name?: unknown
+          sessionID?: unknown
+          width?: unknown
+          presentation?: unknown
+          toggleFullscreen?: () => void
+          close?: () => void
+          focus?: () => void
+        }
+        if (p?.name !== PANEL_NAME) return null
+        if (typeof p.sessionID === "string" && p.sessionID) panelSessionID = p.sessionID
+        panelOpen = true
+        // Adapt the engine to the host-owned panel size when reported.
+        const cols = typeof p.width === "number" && p.width > 0 ? Math.floor(p.width) : 0
+        if (cols > 0) {
+          const rows = Math.max(4, termHeight(context.renderer) - 8)
+          if (cols !== panelWidth || rows !== panelHeight) {
+            panelWidth = cols
+            panelHeight = rows
+            panelEngine.resize(Math.max(1, Math.floor(cols / 2)), rows)
+            stepPanelNow(Date.now(), TICK_MS)
+          }
+        }
+
+        return (
+          <MatrixPanel
+            sessionID={p.sessionID}
+            width={p.width}
+            toggleFullscreen={p.toggleFullscreen}
+            close={p.close}
+          />
+        )
+      },
+    })
+
+    const unregisterSidebar = context.ui.slot({
+      append: "sidebar.content",
+      render: (props: unknown) => {
+        const p = props as { sessionID?: unknown; width?: unknown } | undefined
+        if (typeof p?.sessionID === "string" && p.sessionID) sidebarSessionID = p.sessionID
+        const cols = typeof p?.width === "number" && p.width > 0 ? Math.floor(p.width) : 0
+        if (cols > 0 && cols !== sidebarWidth) {
+          sidebarWidth = cols
+          sidebarEngine.resize(cols, SIDEBAR_ROWS)
+          stepSidebarNow(Date.now(), TICK_MS)
+        }
+        return (
+          <box flexDirection="column">
+            <text fg={PALETTES[activePaletteName()].bright}>
+              {`▶ Matrix Rain · ${sidebarMode() === "generating" ? "GENERATING" : "IDLE"}`}
+            </text>
+            <box flexDirection="column">
+              {(() => {
+                const f = sidebarFrame()
+                if (!f) return null
+                return f.rows.map((row) => (
+                  <box flexDirection="row">
+                    {row.map((cell) => (
+                      <text fg={cell ? cell.fg : undefined}>{cell ? cell.ch : " "}</text>
+                    ))}
+                  </box>
+                ))
+              })()}
+            </box>
+          </box>
+        )
+      },
+    })
 
     const unregisterRoute = context.ui.router.register({
       name: ROUTE_NAME,
@@ -666,6 +961,9 @@ export default Plugin.define({
       clearInterval(timer)
       stopListen()
       sessionRains.clear()
+      panelOpen = false
+      unregisterPanel()
+      unregisterSidebar()
       unregisterRoute()
       if (typeof slot === "function") slot()
       else if (slot && typeof slot.dispose === "function") slot.dispose()
