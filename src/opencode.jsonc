@@ -23,13 +23,16 @@
     // Markdown (src/agents/commit.md) is harness-agnostic and carries none of
     // this. Rule order inside the list matters: deny-everything first, then
     // the allowlist, so the last matching rule is the specific allowance.
+    // The ONLY ask in the fence is `git commit` itself; everything not
+    // explicitly allowed is denied outright (2026-10-17: shell catch-all
+    // tightened ask → deny — under it, any command could ride a prompt).
     "commit": {
       "description": "Git commit specialist. Creates atomic, well-formatted commits when explicitly requested by user.",
       "mode": "subagent",
       "steps": 18,
       "model": "opencode/glm-5.3-flash-free",
       "permissions": [
-        { "action": "shell", "resource": "*", "effect": "ask" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
         { "action": "shell", "resource": "git status *", "effect": "allow" },
         { "action": "shell", "resource": "git diff *", "effect": "allow" },
         { "action": "shell", "resource": "git log *", "effect": "allow" },
