@@ -27,6 +27,18 @@ const PANEL_NAME = "matrix-rain.panel"
 const DEBUG_LOG = join(homedir(), ".local", "share", "opencode", "matrix-rain-debug.log")
 
 const PALETTE_ORDER: readonly PaletteName[] = ["matrix", "korp-red", "theme"]
+
+/**
+ * Auto-activate return keys: every letter/digit/space/enter except q (exit),
+ * p (palette) and -/=/ (speed), which stay live as menu keys.
+ */
+const AUTO_RETURN_BINDS: readonly { id: string; bind: string }[] = [
+  ..."abcefghijklmnorstuvwxyz",
+  ..."0123456789",
+  "space",
+  "enter",
+].map((bind) => ({ id: `matrix-rain.activate.return.${bind}`, bind }))
+
 const SPEED_PRESETS: readonly { label: string; hint: string; value: number }[] = [
   { label: "0.6x · Calm", hint: "slow trickle", value: 0.6 },
   { label: "1.0x · Normal", hint: "default pace", value: 1.0 },
@@ -38,6 +50,8 @@ interface MatrixPrefs {
   palette: PaletteName
   speed: number
   strip: boolean
+  autoActivate?: boolean
+  autoActivateMinutes?: number
 }
 
 function debug(line: string): void {
@@ -93,6 +107,27 @@ function classifyEventType(type: string): TelemetryMode | null {
   return null
 }
 
+/** Extract a tool name from a session.tool.* event payload, defensively. */
+function eventToolName(details: unknown): string | undefined {
+  if (!details || typeof details !== "object") return undefined
+  const d = details as Record<string, unknown>
+  for (const key of ["tool", "toolName", "name"] as const) {
+    const v = d[key]
+    if (typeof v === "string" && v) return v
+  }
+  for (const key of ["data", "properties", "info"] as const) {
+    const sub = d[key]
+    if (sub && typeof sub === "object") {
+      const s = sub as Record<string, unknown>
+      for (const k2 of ["tool", "toolName", "name"] as const) {
+        const v = s[k2]
+        if (typeof v === "string" && v) return v
+      }
+    }
+  }
+  return undefined
+}
+
 /** Read context.data.session.status(sessionID) if it exposes a clear busy/idle state. */
 function readSessionStatus(statusVal: unknown): TelemetryMode | null {
   if (!statusVal) return null
@@ -144,6 +179,8 @@ export default Plugin.define({
         palette: "matrix" as PaletteName,
         speed: 1.0,
         strip: true,
+        autoActivate: false,
+        autoActivateMinutes: 10,
       } satisfies MatrixPrefs,
     })
 
@@ -160,13 +197,37 @@ export default Plugin.define({
       return prefs.strip !== false
     }
 
+    function isAutoActivateEnabled(): boolean {
+      return prefs.autoActivate === true
+    }
+
+    function autoActivateMinutes(): number {
+      const m = Number(prefs.autoActivateMinutes)
+      return Number.isFinite(m) && m >= 0.1 && m <= 120 ? m : 10
+    }
+
+    function formatIdleMinutes(m: number): string {
+      return m < 1 ? `${Math.round(m * 60)}s` : `${m} min`
+    }
+
     const sessionActivity = new Map<string, { mode: TelemetryMode; updatedAt: number }>()
+    /** per-session last activity timestamp (any server event carrying the sid) */
+    const viewedActivityAt = new Map<string, number>()
+    let prevViewedSid: string | undefined
+    /** true only while the screensaver was auto-activated (changes return keys) */
+    let autoActivateEngaged = false
+    /** when the saver was auto-activated; guards the external-dismissal check */
+    let autoActivateAt = 0
+    /** sessionIDs with a permission prompt pending; cleared on permission.replied */
+    const pendingPermissions = new Set<string>()
     const sessionRains = new Map<string, SessionRain>()
 
     // Dedicated full-screen screensaver engine & state
     const saverEngine = new Rain({ density: 0.88, maxRows: 200 })
     const [saverFrame, setSaverFrame] = createSignal<Frame | undefined>(undefined)
     const [saverMode, setSaverMode] = createSignal<TelemetryMode>("idle")
+    const [saverPending, setSaverPending] = createSignal(false)
+    const [autoActivateUp, setAutoActivateUp] = createSignal(false)
     let saverWidth = 0
     let saverHeight = 0
     let saverReturnSessionID: string | undefined
@@ -175,6 +236,7 @@ export default Plugin.define({
     const panelEngine = new Rain({ density: 0.88, maxRows: 200 })
     const [panelFrame, setPanelFrame] = createSignal<Frame | undefined>(undefined)
     const [panelMode, setPanelMode] = createSignal<TelemetryMode>("idle")
+    const [panelPending, setPanelPending] = createSignal(false)
     let panelWidth = 0
     let panelHeight = 0
     let panelSessionID: string | undefined
@@ -186,21 +248,23 @@ export default Plugin.define({
     const sidebarEngine = new Rain({ density: 0.88, maxRows: SIDEBAR_ROWS, glyphs: GLYPHS_HALF })
     const [sidebarFrame, setSidebarFrame] = createSignal<Frame | undefined>(undefined)
     const [sidebarMode, setSidebarMode] = createSignal<TelemetryMode>("idle")
+    const [sidebarPending, setSidebarPending] = createSignal(false)
     let sidebarWidth = 0
     let sidebarSessionID: string | undefined
 
     function stepSidebarNow(now: number, dt: number): void {
       const sid = currentViewedSessionID() ?? sidebarSessionID
       if (sid) sidebarSessionID = sid
-      const nextMode = resolveModeForSession(sid, now)
+      const { mode: nextMode, permissionPending } = resolveSessionState(sid, now)
       if (nextMode !== sidebarMode()) setSidebarMode(nextMode)
+      if (permissionPending !== sidebarPending()) setSidebarPending(permissionPending)
       // The sidebar is narrow; the host may pass width via slot props. Until
       // mounted, fall back to a conservative sidebar estimate.
       const cols = Math.max(8, sidebarWidth > 0 ? sidebarWidth : 28)
       if (sidebarEngine.width !== cols || sidebarEngine.rows !== SIDEBAR_ROWS) {
         sidebarEngine.resize(cols, SIDEBAR_ROWS)
       }
-      const factor = saverTelemetryFactor(nextMode, false)
+      const factor = saverTelemetryFactor(nextMode, permissionPending)
       sidebarEngine.step(dt, factor, activeSpeed(), now)
       setSidebarFrame(sidebarEngine.frame(factor, paletteFor(activePaletteName())))
     }
@@ -246,8 +310,9 @@ export default Plugin.define({
     function stepPanelNow(now: number, dt: number): void {
       const sid = currentViewedSessionID() ?? panelSessionID
       if (sid) panelSessionID = sid
-      const nextMode = resolveModeForSession(sid, now)
+      const { mode: nextMode, permissionPending } = resolveSessionState(sid, now)
       if (nextMode !== panelMode()) setPanelMode(nextMode)
+      if (permissionPending !== panelPending()) setPanelPending(permissionPending)
       // Panel owns its height; the slot reports it via render props. Until
       // mounted, fall back to a medium-height sidecar estimate.
       const cols = Math.max(8, Math.floor(termWidth(context.renderer) / 4))
@@ -257,7 +322,7 @@ export default Plugin.define({
         panelHeight = rows
         panelEngine.resize(Math.max(1, Math.floor(cols / 2)), rows)
       }
-      const factor = saverTelemetryFactor(nextMode, false)
+      const factor = saverTelemetryFactor(nextMode, permissionPending)
       panelEngine.step(dt, factor, activeSpeed(), now)
       setPanelFrame(panelEngine.frame(factor, paletteFor(activePaletteName())))
     }
@@ -271,9 +336,13 @@ export default Plugin.define({
         saverEngine.resize(Math.max(1, Math.floor(w / 2)), fullRows)
       }
       const viewedSid = currentViewedSessionID() ?? saverReturnSessionID
-      const nextSaverMode = resolveModeForSession(viewedSid, now)
+      const { mode: nextSaverMode, permissionPending: saverPermission } = resolveSessionState(
+        viewedSid,
+        now,
+      )
       if (nextSaverMode !== saverMode()) setSaverMode(nextSaverMode)
-      const factor = saverTelemetryFactor(nextSaverMode, false)
+      if (saverPermission !== saverPending()) setSaverPending(saverPermission)
+      const factor = saverTelemetryFactor(nextSaverMode, saverPermission)
       saverEngine.step(dt, factor, activeSpeed(), now)
       setSaverFrame(saverEngine.frame(factor, paletteFor(activePaletteName())))
     }
@@ -289,8 +358,24 @@ export default Plugin.define({
       })
     }
 
+    /** Phase 6 auto-activate: open the saver after idle, with any-key return. */
+    function openScreensaverAuto(): void {
+      autoActivateEngaged = true
+      autoActivateAt = Date.now()
+      setAutoActivateUp(true)
+      openScreensaver()
+      debug("auto-activate engaged")
+    }
+
     function closeScreensaver(): void {
+      debug(
+        `saver close via handler sid=${currentViewedSessionID() ?? saverReturnSessionID ?? "none"} engaged=${autoActivateEngaged}`,
+      )
+      autoActivateEngaged = false
+      setAutoActivateUp(false)
       const sid = currentViewedSessionID() ?? saverReturnSessionID
+      // Returning counts as activity so the timer restarts clean.
+      if (sid) viewedActivityAt.set(sid, Date.now())
       if (sid) {
         context.ui.router.navigate({ type: "session", sessionID: sid })
       } else {
@@ -352,6 +437,12 @@ export default Plugin.define({
             description: "rain beside chat (f big)",
           },
           {
+            title: isAutoActivateEnabled() ? "Disable Auto-Activate" : "Enable Auto-Activate",
+            value: "activate:toggle",
+            category: "Surface",
+            description: `${formatIdleMinutes(autoActivateMinutes())} idle → screensaver`,
+          },
+          {
             title: "Matrix Green",
             value: "palette:matrix",
             category: "Palette",
@@ -401,6 +492,19 @@ export default Plugin.define({
       }
       if (choice === "surface:panel") {
         openSidePanel()
+        return
+      }
+      if (choice === "activate:toggle") {
+        const next = !isAutoActivateEnabled()
+        await updatePrefs((draft) => {
+          draft.autoActivate = next
+        })
+        context.ui.toast.show({
+          title: "Matrix Rain",
+          message: next ? `Auto-activate ON · ${formatIdleMinutes(autoActivateMinutes())}` : "Auto-activate OFF",
+          variant: "success",
+          duration: 2200,
+        })
         return
       }
       if (choice.startsWith("palette:")) {
@@ -461,6 +565,25 @@ export default Plugin.define({
         })
         return
       }
+      if (arg === "activate" || arg.startsWith("activate ")) {
+        const parts = arg.split(/\s+/)
+        const mins = Number(parts[1])
+        const setMinutes = parts.length > 1 && Number.isFinite(mins)
+        const next = setMinutes ? true : !isAutoActivateEnabled()
+        await updatePrefs((draft) => {
+          draft.autoActivate = next
+          if (setMinutes && mins >= 0.1 && mins <= 120) draft.autoActivateMinutes = mins
+        })
+        context.ui.toast.show({
+          title: "Matrix Rain",
+          message: next
+            ? `Auto-activate ON · ${formatIdleMinutes(autoActivateMinutes())}`
+            : "Auto-activate OFF",
+          variant: "success",
+          duration: 2200,
+        })
+        return
+      }
       if (isPaletteName(arg)) {
         await updatePrefs((draft) => {
           draft.palette = arg
@@ -503,12 +626,14 @@ export default Plugin.define({
       return existing
     }
 
-    function resolveModeForSession(sid: string | undefined, now: number): TelemetryMode {
-      if (!sid || sid === "__default__") return "idle"
+    function resolveSessionState(
+      sid: string | undefined,
+      now: number,
+    ): { mode: TelemetryMode; permissionPending: boolean } {
+      if (!sid || sid === "__default__") return { mode: "idle", permissionPending: false }
+      let fromStatus: TelemetryMode | null = null
       try {
-        const rawStatus = context.data.session.status(sid)
-        const fromStatus = readSessionStatus(rawStatus)
-        if (fromStatus) return fromStatus
+        fromStatus = readSessionStatus(context.data.session.status(sid))
       } catch {
         // fallback to event timestamps below
       }
@@ -521,16 +646,20 @@ export default Plugin.define({
         // ignore
       }
 
+      const permissionPending = family.some((id) => pendingPermissions.has(id))
+      if (fromStatus) return { mode: fromStatus, permissionPending }
+
       for (const id of family) {
         const entry = sessionActivity.get(id)
         if (entry && entry.mode === "generating" && now - entry.updatedAt <= STREAM_ACTIVE_MS) {
-          return "generating"
+          return { mode: "generating", permissionPending }
         }
       }
-      return "idle"
+      return { mode: "idle", permissionPending }
     }
 
     const seen = new Set<string>()
+    let toolPayloadsLogged = 0
     const stopListen = context.data.listen((event: unknown) => {
       const details = (event as { details?: { type?: string } })?.details
       const type = details?.type ?? ""
@@ -541,9 +670,60 @@ export default Plugin.define({
         if (seen.size <= 100) debug(`event ${type} sid=${sid ?? "none"}`)
       }
       if (!sid) return
+      viewedActivityAt.set(sid, Date.now())
+
+      if (type === "permission.asked") {
+        pendingPermissions.add(sid)
+        return
+      }
+      if (type === "permission.replied" || type === "session.deleted") {
+        pendingPermissions.delete(sid)
+        // fall through: permission.replied is also activity
+      }
+
       const next = classifyEventType(type)
       if (next) {
         sessionActivity.set(sid, { mode: next, updatedAt: Date.now() })
+      }
+
+      if (type === "session.tool.called") {
+        let tool = eventToolName(details)
+        const d = (details as { data?: Record<string, unknown> })?.data
+        const assistantID =
+          typeof d?.assistantMessageID === "string" ? d.assistantMessageID : undefined
+        if (!tool && sid && assistantID) {
+          try {
+            const msg = context.data.session.message.get(sid, assistantID)
+            const content = (msg as unknown as { content?: unknown[] } | null)?.content ?? []
+            for (const part of content) {
+              const p = part as Record<string, unknown>
+              if (p.type !== "tool") continue
+              const t = p.name ?? p.tool
+              if (typeof t === "string" && t) {
+                tool = t
+                break
+              }
+            }
+            if (!tool && toolPayloadsLogged < 3) {
+              debug(`tool.called message=${JSON.stringify(msg).slice(0, 1200)}`)
+            }
+          } catch (error) {
+            debug(`tool message lookup error: ${String(error)}`)
+          }
+        }
+        if (toolPayloadsLogged < 3) {
+          toolPayloadsLogged++
+          debug(`tool.called payload=${JSON.stringify(details).slice(0, 1200)} tool=${tool ?? "none"}`)
+        }
+        if (tool) {
+          const now = Date.now()
+          sessionRains.get(sid)?.engine.burst(tool, now)
+          if ((currentViewedSessionID() ?? sidebarSessionID) === sid) {
+            sidebarEngine.burst(tool, now)
+          }
+          if (panelOpen && panelSessionID === sid) panelEngine.burst(tool, now)
+          if (isSaverActive() && saverReturnSessionID === sid) saverEngine.burst(tool, now)
+        }
       }
     })
 
@@ -557,6 +737,35 @@ export default Plugin.define({
         if (isSaverActive()) {
           stepSaverNow(now, dt)
           return
+        }
+
+        const viewedNow = currentViewedSessionID()
+        if (viewedNow && viewedNow !== prevViewedSid) {
+          viewedActivityAt.set(viewedNow, now)
+          prevViewedSid = viewedNow
+        }
+        // If the saver is gone while still engaged, some path other than
+        // closeScreensaver dismissed it (host-native escape, route change).
+        // Clear the engagement and restart the idle clock so the saver
+        // cannot instantly re-fire off the stale timestamp.
+        if (autoActivateEngaged && !isSaverActive() && now - autoActivateAt > 1000) {
+          autoActivateEngaged = false
+          setAutoActivateUp(false)
+          const clearSid = viewedNow ?? saverReturnSessionID
+          if (clearSid) viewedActivityAt.set(clearSid, now)
+          debug("auto-activate cleared on external dismissal")
+        }
+        if (isAutoActivateEnabled() && viewedNow) {
+          const lastActivity = viewedActivityAt.get(viewedNow) ?? now
+          if (now - lastActivity >= autoActivateMinutes() * 60_000) {
+            const state = resolveSessionState(viewedNow, now)
+            if (state.mode === "idle") {
+              debug(
+                `auto-activate trigger sid=${viewedNow} idleFor=${Math.round((now - lastActivity) / 1000)}s`,
+              )
+              openScreensaverAuto()
+            }
+          }
         }
 
         if (panelOpen) {
@@ -575,7 +784,7 @@ export default Plugin.define({
         for (const state of sessionRains.values()) {
           const targetSid = state.sid === "__default__" ? (viewedSid ?? "__default__") : state.sid
           const prevMode = state.mode()
-          const nextMode = resolveModeForSession(targetSid, now)
+          const { mode: nextMode, permissionPending } = resolveSessionState(targetSid, now)
           if (nextMode !== prevMode) {
             state.setMode(nextMode)
             if (prevMode === "generating" && nextMode === "idle") {
@@ -590,7 +799,7 @@ export default Plugin.define({
             state.engine.resize(Math.max(1, Math.floor(w / 2)), h)
           }
 
-          const factor = telemetryFactor(nextMode, false)
+          const factor = telemetryFactor(nextMode, permissionPending)
           state.engine.step(dt, factor, speedScale, now)
           state.setFrame(state.engine.frame(factor, palette))
         }
@@ -672,6 +881,14 @@ export default Plugin.define({
             void adjustSpeed(-0.2)
           },
         },
+        // Phase 6 auto-activate: any non-menu key returns to the session.
+        ...AUTO_RETURN_BINDS.map(({ id, bind }) => ({
+          id,
+          title: "Return from Screensaver (auto)",
+          bind,
+          enabled: () => isSaverActive() && autoActivateEngaged,
+          run: () => closeScreensaver(),
+        })),
       ],
       bindings: [
         "matrix-rain.saver.exit.q",
@@ -777,7 +994,7 @@ export default Plugin.define({
           <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1}>
             <text fg={PALETTES[activePaletteName()].bright}>
               {(() => {
-                const statusLabel = panelMode() === "generating" ? "GENERATING" : "IDLE"
+                const statusLabel = panelPending() ? "⚠ PERMISSION" : panelMode() === "generating" ? "GENERATING" : "IDLE"
                 const sid = panelSessionID
                 let title = "panel"
                 if (sid) {
@@ -863,7 +1080,7 @@ export default Plugin.define({
         return (
           <box flexDirection="column">
             <text fg={PALETTES[activePaletteName()].bright}>
-              {`▶ Matrix Rain · ${sidebarMode() === "generating" ? "GENERATING" : "IDLE"}`}
+              {`▶ Matrix Rain · ${sidebarPending() ? "⚠ PERMISSION" : sidebarMode() === "generating" ? "GENERATING" : "IDLE"}`}
             </text>
             <box flexDirection="column">
               {(() => {
@@ -896,7 +1113,7 @@ export default Plugin.define({
             <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1}>
               <text fg={PALETTES[activePaletteName()].bright}>
                 {(() => {
-                  const statusLabel = saverMode() === "generating" ? "GENERATING" : "IDLE"
+                  const statusLabel = saverPending() ? "⚠ PERMISSION" : saverMode() === "generating" ? "GENERATING" : "IDLE"
                   const sid = saverReturnSessionID
                   let title = "no session"
                   if (sid) {
@@ -906,7 +1123,8 @@ export default Plugin.define({
                       title = sid.slice(0, 12)
                     }
                   }
-                  return `[ MATRIX // ${statusLabel} · ${title} ]`
+                  const autoMark = autoActivateUp() ? " · AUTO" : ""
+                  return `[ MATRIX // ${statusLabel}${autoMark} · ${title} ]`
                 })()}
               </text>
               <text fg={PALETTES[activePaletteName()].mid}>
