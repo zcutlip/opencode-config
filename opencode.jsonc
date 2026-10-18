@@ -43,5 +43,11 @@
     { "action": "edit", "resource": "src/cli.json", "effect": "allow" },
     { "action": "edit", "resource": "src/agents/*.md", "effect": "allow" },
     { "action": "edit", "resource": "src/service.json", "effect": "allow" }
-  ]
+  ],
+  "commands": {
+    "config-smoke": {
+      "description": "config loaded",
+      "template": "Reply with exactly: CONFIG OK"
+    }
+  }
 }
