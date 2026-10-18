@@ -33,11 +33,6 @@
         { "action": "shell", "resource": "git status *", "effect": "allow" },
         { "action": "shell", "resource": "git diff *", "effect": "allow" },
         { "action": "shell", "resource": "git log *", "effect": "allow" },
-        // Bare forms (no args) — a trailing-wildcard pattern doesn't match a
-        // zero-argument command; found live in dogfood (2026-10-14).
-        { "action": "shell", "resource": "git status", "effect": "allow" },
-        { "action": "shell", "resource": "git diff", "effect": "allow" },
-        { "action": "shell", "resource": "git log", "effect": "allow" },
         { "action": "shell", "resource": "git add *", "effect": "allow" },
         // Index-only by git's definition (restores the index entry to HEAD;
         // never touches worktree or history). Required to split a mixed index
@@ -49,17 +44,37 @@
         { "action": "skill", "resource": "*", "effect": "deny" },
         { "action": "skill", "resource": "git-commit", "effect": "allow" }
       ]
+    },
+    // Build agent (shipped id): additional read-only set beyond the global
+    // base — toolchain/artifact diagnostics and static analysis, the
+    // generic building tools valid in any project (project-specific
+    // scripts live in this repo's root opencode.jsonc, not here).
+    // Version probes are exact literals: no trailing wildcard, so no
+    // argument form rides them.
+    "build": {
+      "permissions": [
+        { "action": "shell", "resource": "which *", "effect": "allow" },
+        { "action": "shell", "resource": "file *", "effect": "allow" },
+        { "action": "shell", "resource": "stat *", "effect": "allow" },
+        { "action": "shell", "resource": "readlink *", "effect": "allow" },
+        { "action": "shell", "resource": "flake8 *", "effect": "allow" },
+        { "action": "shell", "resource": "mypy *", "effect": "allow" },
+        { "action": "shell", "resource": "bun --version", "effect": "allow" },
+        { "action": "shell", "resource": "node --version", "effect": "allow" },
+        { "action": "shell", "resource": "python3 --version", "effect": "allow" }
+      ]
     }
   },
 
   // Live posture: shell asks by default; "always allow" approvals accumulate
   // durable project-scoped rules on top (audit them with `oc-permissions`).
-  // Git is read-only at the global level: the catch-all `git *` deny sits
-  // before the read-only allows (last match wins), so every git subcommand
-  // not explicitly allowlisted — mutating ones and future ones — is denied.
-  // Saved "always allow" approvals never override a configured deny.
+  // Git is read-preferring at the global level: the catch-all `git *` ask
+  // sits before the read-only allows (last match wins), so every git
+  // subcommand not explicitly allowlisted — mutating ones and future ones —
+  // requires asking rather than a silent ride-along. Ask, not deny, is
+  // deliberate: one-off approvals can promote a command as they surface.
   // Staging and committing happen only via the commit subagent, whose
-  // agent rules append after these and override the git denies for itself
+  // agent rules append after these and override the catch-all for itself
   // (options/agents/commit wiring below); it must ask before `git commit`.
   "permissions": [
     { "action": "shell", "resource": "*", "effect": "ask" },
@@ -75,15 +90,27 @@
     { "action": "shell", "resource": "git rev-list *", "effect": "allow" },
     { "action": "shell", "resource": "git describe *", "effect": "allow" },
     { "action": "shell", "resource": "git grep *", "effect": "allow" },
-    // Bare forms (no args) of the reads above — a trailing-wildcard pattern
-    // doesn't match a zero-argument command.
-    { "action": "shell", "resource": "git status", "effect": "allow" },
-    { "action": "shell", "resource": "git diff", "effect": "allow" },
-    { "action": "shell", "resource": "git log", "effect": "allow" },
     // Exact-literal reads of mutator subcommands: no trailing " *", so only
-    // the literal list forms match and the write forms stay denied.
+    // the literal list forms are allowlisted; every other form of these
+    // subcommands falls through to the catch-all above.
     { "action": "shell", "resource": "git tag -l", "effect": "allow" },
     { "action": "shell", "resource": "git remote -v", "effect": "allow" },
+
+    // Base = rudimentary: the splices agents actually reach shell for.
+    // Anything beyond these falls to the ask gate (dedicated Grep/Glob
+    // tools cover search and file-matching; rarer diagnostics aren't
+    // worth standing pre-approval).
+    { "action": "shell", "resource": "ls *", "effect": "allow" },
+    { "action": "shell", "resource": "cat *", "effect": "allow" },
+    { "action": "shell", "resource": "head *", "effect": "allow" },
+    { "action": "shell", "resource": "tail *", "effect": "allow" },
+    { "action": "shell", "resource": "grep *", "effect": "allow" },
+    { "action": "shell", "resource": "wc *", "effect": "allow" },
+    { "action": "shell", "resource": "pwd *", "effect": "allow" },
+    // Any command with a redirect (>, >>, 2>) asks — redirect writes never
+    // pass silently even when the command itself is allowlisted. Ask, not
+    // deny: the user decides what lands where. Last shell rule, so it wins.
+    { "action": "shell", "resource": "*> *", "effect": "ask" },
     // opencode config, agent definitions, and the service secret are
     // read-only for agents outside this repository. Patterns anchor on
     // FILENAMES, not paths — they hold on any machine, and canonicalized
