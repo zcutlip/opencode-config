@@ -15,6 +15,28 @@
   //
   // Project rules append after the global rules, so these allows win by
   // last-match — the same mechanism the commit agent's fence relies on.
+  "agents": {
+    // Build: this repo's pre-approved read-only tool commands — the TS/TSX
+    // parse checker (syntax only, per AGENTS.md) and the matrix-rain dev
+    // harnesses (see src/plugins/AGENTS.md). Deliberately PROJECT-LOCAL:
+    // these paths only exist here, so they must not ship in the global
+    // config's build layer. Listed by exact name, no dev/ wildcard that
+    // could swallow a fifth script added later without eyes on it.
+    "build": {
+      "permissions": [
+        { "action": "shell", "resource": "./scripts/ts-parse.ts *", "effect": "allow" },
+        { "action": "shell", "resource": "./scripts/ts-parse.ts", "effect": "allow" },
+        { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-check.ts *", "effect": "allow" },
+        { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-check.ts", "effect": "allow" },
+        { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-tune.ts *", "effect": "allow" },
+        { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-tune.ts", "effect": "allow" },
+        { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-view.ts *", "effect": "allow" },
+        { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/rain-view.ts", "effect": "allow" },
+        { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/motion-classify.ts *", "effect": "allow" },
+        { "action": "shell", "resource": "./src/plugins/matrix-rain/dev/motion-classify.ts", "effect": "allow" }
+      ]
+    }
+  },
   "permissions": [
     { "action": "edit", "resource": "opencode.jsonc", "effect": "allow" },
     { "action": "edit", "resource": "src/opencode.jsonc", "effect": "allow" },
