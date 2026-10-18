@@ -33,11 +33,31 @@ const PALETTE_ORDER: readonly PaletteName[] = ["matrix", "korp-red", "theme"]
  * p (palette) and -/=/ (speed), which stay live as menu keys.
  */
 const AUTO_RETURN_BINDS: readonly { id: string; bind: string }[] = [
-  ..."abcefghijklmnorstuvwxyz",
+  ..."abcdefghijklmnorstuvwxyz",
   ..."0123456789",
   "space",
   "enter",
+  "up",
+  "down",
+  "left",
+  "right",
+  "backspace",
+  "tab",
 ].map((bind) => ({ id: `matrix-rain.activate.return.${bind}`, bind }))
+
+/**
+ * Keystroke observer for auto-activate: same printable key set, but every
+ * command's `run` returns false so keyboard dispatch continues — the key
+ * still reaches the composer. Used purely as a "user is present" signal;
+ * composer keystrokes generate no server events, so this is the only way
+ * typing can reset the idle timer. Disabled unless auto-activate is on.
+ */
+const INPUT_OBSERVER_BINDS: readonly { id: string; bind: string }[] = [
+  ..."abcdefghijklmnopqrstuvwxyz",
+  ..."0123456789",
+  "space",
+  "enter",
+].map((bind) => ({ id: `matrix-rain.input.${bind}`, bind }))
 
 const SPEED_PRESETS: readonly { label: string; hint: string; value: number }[] = [
   { label: "0.6x · Calm", hint: "slow trickle", value: 0.6 },
@@ -216,6 +236,10 @@ export default Plugin.define({
     let prevViewedSid: string | undefined
     /** true only while the screensaver was auto-activated (changes return keys) */
     let autoActivateEngaged = false
+    /** last keystroke seen by the pass-through observer (0 = none yet) */
+    let lastKeystrokeAt = 0
+    /** cap for one-time observer diagnostics in the debug log */
+    let keystrokeLogs = 0
     /** when the saver was auto-activated; guards the external-dismissal check */
     let autoActivateAt = 0
     /** sessionIDs with a permission prompt pending; cleared on permission.replied */
@@ -756,7 +780,9 @@ export default Plugin.define({
           debug("auto-activate cleared on external dismissal")
         }
         if (isAutoActivateEnabled() && viewedNow) {
-          const lastActivity = viewedActivityAt.get(viewedNow) ?? now
+          // Keystrokes count as activity: typing in the composer produces no
+          // server events, so the pass-through observer is the only signal.
+          const lastActivity = Math.max(viewedActivityAt.get(viewedNow) ?? now, lastKeystrokeAt)
           if (now - lastActivity >= autoActivateMinutes() * 60_000) {
             const state = resolveSessionState(viewedNow, now)
             if (state.mode === "idle") {
@@ -897,6 +923,34 @@ export default Plugin.define({
         "matrix-rain.saver.faster",
         "matrix-rain.saver.slower",
       ],
+    }))
+
+    /**
+     * Keystroke observer (Phase 6 fix): pass-through layer so typing resets
+     * the auto-activate idle timer. Commands only run while auto-activate is
+     * enabled and the screensaver is NOT up (the auto-return binds own keys
+     * while the saver is active); each returns false to continue dispatch.
+     */
+    const noteKeystroke = (): void => {
+      lastKeystrokeAt = Date.now()
+      if (keystrokeLogs < 5) {
+        keystrokeLogs++
+        debug(`input observed: ${new Date().toISOString()}`)
+      }
+    }
+    context.keymap.layer(() => ({
+      mode: "global",
+      priority: 10,
+      commands: INPUT_OBSERVER_BINDS.map(({ id, bind }) => ({
+        id,
+        title: "Matrix Rain: input observer",
+        bind,
+        enabled: () => isAutoActivateEnabled() && !isSaverActive(),
+        run: (): boolean => {
+          noteKeystroke()
+          return false
+        },
+      })),
     }))
 
     /**
