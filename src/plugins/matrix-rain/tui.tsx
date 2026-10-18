@@ -274,6 +274,7 @@ export default Plugin.define({
     const [sidebarMode, setSidebarMode] = createSignal<TelemetryMode>("idle")
     const [sidebarPending, setSidebarPending] = createSignal(false)
     let sidebarWidth = 0
+    let sidebarPropsDumped = false
     let sidebarSessionID: string | undefined
 
     function stepSidebarNow(now: number, dt: number): void {
@@ -282,9 +283,10 @@ export default Plugin.define({
       const { mode: nextMode, permissionPending } = resolveSessionState(sid, now)
       if (nextMode !== sidebarMode()) setSidebarMode(nextMode)
       if (permissionPending !== sidebarPending()) setSidebarPending(permissionPending)
-      // The sidebar is narrow; the host may pass width via slot props. Until
-      // mounted, fall back to a conservative sidebar estimate.
-      const cols = Math.max(8, sidebarWidth > 0 ? sidebarWidth : 28)
+      // The host passes no width in sidebar.content props (verified by dump:
+      // {sessionID} only). The sidebar tracks ~1/3 of terminal width in the
+      // host layout, so derive the estimate from the terminal size.
+      const cols = Math.max(8, sidebarWidth > 0 ? sidebarWidth : Math.floor(termWidth(context.renderer) / 3))
       if (sidebarEngine.width !== cols || sidebarEngine.rows !== SIDEBAR_ROWS) {
         sidebarEngine.resize(cols, SIDEBAR_ROWS)
       }
@@ -634,6 +636,15 @@ export default Plugin.define({
         return
       }
       await openSettingsDialog()
+    }
+
+    function isSubagentSession(sid: string): boolean {
+      try {
+        const root = context.data.session.root(sid)
+        return typeof root === "string" && root.length > 0 && root !== sid
+      } catch {
+        return false
+      }
     }
 
     function getSessionRain(sid: string): SessionRain {
@@ -1124,6 +1135,12 @@ export default Plugin.define({
       append: "sidebar.content",
       render: (props: unknown) => {
         const p = props as { sessionID?: unknown; width?: unknown } | undefined
+        if (!sidebarPropsDumped) {
+          sidebarPropsDumped = true
+          try {
+            debug(`sidebar slot props=${JSON.stringify(props)}`)
+          } catch { /* non-serializable */ }
+        }
         if (typeof p?.sessionID === "string" && p.sessionID) sidebarSessionID = p.sessionID
         const cols = typeof p?.width === "number" && p.width > 0 ? Math.floor(p.width) : 0
         if (cols > 0 && cols !== sidebarWidth) {
@@ -1211,6 +1228,7 @@ export default Plugin.define({
         const sid =
           (p && typeof p.sessionID === "string" ? p.sessionID : currentViewedSessionID()) ??
           "__default__"
+        if (sid !== "__default__" && isSubagentSession(sid)) return null
         const state = getSessionRain(sid)
         const f = state.frame()
         if (!f) return null
