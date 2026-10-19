@@ -70,6 +70,7 @@ interface MatrixPrefs {
   palette: PaletteName
   speed: number
   strip: boolean
+  sidebarOpen?: boolean
   autoActivate?: boolean
   autoActivateMinutes?: number
 }
@@ -199,6 +200,7 @@ export default Plugin.define({
         palette: "matrix" as PaletteName,
         speed: 1.0,
         strip: true,
+        sidebarOpen: true,
         autoActivate: false,
         autoActivateMinutes: 10,
       } satisfies MatrixPrefs,
@@ -215,6 +217,20 @@ export default Plugin.define({
 
     function isStripEnabled(): boolean {
       return prefs.strip !== false
+    }
+
+    /** Disclosure state of the sidebar block (header always visible). */
+    function isSidebarOpen(): boolean {
+      return prefs.sidebarOpen !== false
+    }
+
+    /** Click/command toggle for the sidebar disclosure. Persisted so the
+     * collapsed state survives restarts (mirrors the native MCP section). */
+    async function toggleSidebarOpen(): Promise<void> {
+      const next = !isSidebarOpen()
+      await updatePrefs((draft) => {
+        draft.sidebarOpen = next
+      })
     }
 
     function isAutoActivateEnabled(): boolean {
@@ -469,6 +485,12 @@ export default Plugin.define({
             description: `${formatIdleMinutes(autoActivateMinutes())} idle → screensaver`,
           },
           {
+            title: isSidebarOpen() ? "Collapse Sidebar Block" : "Expand Sidebar Block",
+            value: "sidebar:toggle",
+            category: "Surface",
+            description: isSidebarOpen() ? "▸ collapse" : "▶ expand",
+          },
+          {
             title: "Matrix Green",
             value: "palette:matrix",
             category: "Palette",
@@ -511,6 +533,19 @@ export default Plugin.define({
         context.ui.toast.show({
           title: "Matrix Rain",
           message: `Composer strip ${next ? "enabled" : "hidden"}`,
+          variant: "info",
+          duration: 2000,
+        })
+        return
+      }
+      if (choice === "sidebar:toggle") {
+        const next = !isSidebarOpen()
+        await updatePrefs((draft) => {
+          draft.sidebarOpen = next
+        })
+        context.ui.toast.show({
+          title: "Matrix Rain",
+          message: `Sidebar block ${next ? "expanded" : "collapsed"}`,
           variant: "info",
           duration: 2000,
         })
@@ -586,6 +621,19 @@ export default Plugin.define({
         context.ui.toast.show({
           title: "Matrix Rain",
           message: `Composer strip ${next ? "enabled" : "hidden"}`,
+          variant: "info",
+          duration: 2000,
+        })
+        return
+      }
+      if (arg === "sidebar" || arg === "disclose") {
+        const next = !isSidebarOpen()
+        await updatePrefs((draft) => {
+          draft.sidebarOpen = next
+        })
+        context.ui.toast.show({
+          title: "Matrix Rain",
+          message: `Sidebar block ${next ? "expanded" : "collapsed"}`,
           variant: "info",
           duration: 2000,
         })
@@ -809,7 +857,7 @@ export default Plugin.define({
           stepPanelNow(now, dt)
         }
 
-        stepSidebarNow(now, dt)
+        if (isSidebarOpen()) stepSidebarNow(now, dt)
 
         if (!isStripEnabled()) return
 
@@ -1150,22 +1198,29 @@ export default Plugin.define({
         }
         return (
           <box flexDirection="column">
-            <text fg={PALETTES[activePaletteName()].bright}>
-              {`▶ Matrix Rain · ${sidebarPending() ? "⚠ PERMISSION" : sidebarMode() === "generating" ? "GENERATING" : "IDLE"}`}
-            </text>
-            <box flexDirection="column">
-              {(() => {
-                const f = sidebarFrame()
-                if (!f) return null
-                return f.rows.map((row) => (
-                  <box flexDirection="row">
-                    {row.map((cell) => (
-                      <text fg={cell ? cell.fg : undefined}>{cell ? cell.ch : " "}</text>
-                    ))}
-                  </box>
-                ))
-              })()}
+            <box
+              flexDirection="row"
+              onMouseDown={() => void toggleSidebarOpen()}
+            >
+              <text fg={PALETTES[activePaletteName()].bright}>
+                {`${isSidebarOpen() ? "▼" : "▶"} Matrix Rain · ${sidebarPending() ? "⚠ PERMISSION" : sidebarMode() === "generating" ? "GENERATING" : "IDLE"}`}
+              </text>
             </box>
+            {isSidebarOpen() && (
+              <box flexDirection="column">
+                {(() => {
+                  const f = sidebarFrame()
+                  if (!f) return null
+                  return f.rows.map((row) => (
+                    <box flexDirection="row">
+                      {row.map((cell) => (
+                        <text fg={cell ? cell.fg : undefined}>{cell ? cell.ch : " "}</text>
+                      ))}
+                    </box>
+                  ))
+                })()}
+              </box>
+            )}
           </box>
         )
       },
