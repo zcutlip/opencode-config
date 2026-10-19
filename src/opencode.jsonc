@@ -4,10 +4,7 @@
   // (the port ledger) before pulling anything out of the archive.
   "$schema": "https://opencode.ai/config.json",
 
-  // Default model — 2026-10-16: everything unified on opencode/glm-5.3-flash-free
-  // (the opencode/ PAYG free tier). Before that opencode-go/glm-5.3-flash,
-  // ported from V1's commandcode/z-ai/glm-5.3-flash.
-  "model": "opencode/glm-5.3-flash-free",
+  "model": "commandcode/z-ai/glm-5.3-flash",
 
   // Former V1 `small_model`: the hidden title agent's model.
   // 2026-10-16: unified on opencode/glm-5.3-flash-free with the rest of the
@@ -17,6 +14,11 @@
   "agents": {
     "title": {
       "model": "opencode/glm-5.3-flash-free"
+    },
+
+    // Plan agent: the default primary in this config's Plan mode.
+    "plan": {
+      "model": "commandcode/zai-org/GLM-5.3"
     },
     // The exclusive commit route. OpenCode wiring only: mode, cheap permuting
     // model, step bound, and the permission fence live here — the agent's
