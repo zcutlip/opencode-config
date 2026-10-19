@@ -327,6 +327,15 @@ export default Plugin.define({
       }
     }
 
+    /** Collapsed: engine stays paused, but the header label stays live. */
+    function refreshSidebarStatus(now: number): void {
+      const sid = currentViewedSessionID() ?? sidebarSessionID
+      if (sid) sidebarSessionID = sid
+      const { mode: nextMode, permissionPending } = resolveSessionState(sid, now)
+      if (nextMode !== sidebarMode()) setSidebarMode(nextMode)
+      if (permissionPending !== sidebarPending()) setSidebarPending(permissionPending)
+    }
+
     function stepSaverNow(now: number, dt: number): void {
       const w = termWidth(context.renderer)
       const fullRows = Math.max(4, termHeight(context.renderer) - 2)
@@ -839,6 +848,7 @@ export default Plugin.define({
         }
 
         if (isSidebarOpen()) stepSidebarNow(now, dt)
+        else refreshSidebarStatus(now)
 
         if (!isStripEnabled()) return
 
