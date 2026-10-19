@@ -13,7 +13,7 @@
   // which evaporate).
   "agents": {
     "title": {
-      "model": "opencode/glm-5.3-flash-free"
+      "model": "commandcode/z-ai/glm-5.3-flash"
     },
 
     // Plan agent: the default primary in this config's Plan mode.
@@ -30,7 +30,7 @@
     // documents intent and survives an .md rewrite that drops the prose rule.
     "explore": {
       "mode": "subagent",
-      "model": "opencode/glm-5.3-flash-free",
+      "model": "commandcode/z-ai/glm-5.3-flash",
       "permissions": [
         { "action": "edit", "resource": "*", "effect": "deny" }
       ]
@@ -48,7 +48,7 @@
       "description": "Git commit specialist. Creates atomic, well-formatted commits when explicitly requested by user.",
       "mode": "subagent",
       "steps": 18,
-      "model": "opencode/glm-5.3-flash-free",
+      "model": "commandcode/z-ai/glm-5.3-flash",
       "permissions": [
         { "action": "shell", "resource": "*", "effect": "deny" },
         { "action": "shell", "resource": "git status *", "effect": "allow" },
