@@ -34,7 +34,7 @@ record; consult before re-litigating.
 | Item | Verdict / notes |
 | --- | --- |
 | cc-safety-net | **candidate** — V2-ready (explicit `opencode/v2` entry point, `npx cc-safety-net@latest install --opencode`). A guardrail (blocks destructive git/fs commands, secret access), not a behavior-modifier — masks nothing; add on first tremor |
-| open-codebase-index | **candidate** — actively maintained; the one real capability gap (V2 has no native semantic search). Plugin or `opencode mcp add`; needs an embedding provider (the `nativ` server could feed it) |
+| open-codebase-index | **ported** (2026-10-18) — V2-ready native plugin, renamed from `opencode-codebase-index`. Installed via `opencode plugin add`; global config at `src/codebase-index.json` pins `embeddingProvider: "ollama"` (nomic-embed-text already pulled; the old `nativ`-endpoint idea was moot). `autoIndex` deliberately left false — index per-project on demand with `/index`; V1 had no config anywhere (verified: no global, one project-local knowledge-bases file) |
 | context-introspection skill | **candidate** — port as-is, zero adaptation; audits the agent's own injected context (provenance, verbatim quoting) — nothing native even tries. Already earned it once: the `AGENTS.disabled.md` possession incident |
 | codeberg-integration skill | **candidate** — port as-is; Forgejo API helper scripts for your hosting choice |
 | opencode-pricing skill | **candidate** — port for the value-ranking half (cache-ratio-adjusted effective cost); the price-table half is superseded by `/models` costs and the cmd-provider panel |
