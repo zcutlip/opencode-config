@@ -39,7 +39,7 @@ record; consult before re-litigating.
 | codeberg-integration skill | **candidate** — port as-is; Forgejo API helper scripts for your hosting choice |
 | opencode-pricing skill | **candidate** — port for the value-ranking half (cache-ratio-adjusted effective cost); the price-table half is superseded by `/models` costs and the cmd-provider panel |
 | opencode-release-notes skill | **candidate** — low priority; your own trim rules over GitHub releases; port whenever |
-| lint-format skill | **parked** — the after-edit half is superseded by V2's native `formatter` config; remaining value is on-demand lint checks — revisit on friction |
+| lint-format skill + lint agent | **parked, resurrect together** — one resurrection event, never separately: the agent's whole job is routing to the skill, so the pairing is the unit. The after-edit half is superseded by V2's native `formatter` config; remaining value is on-demand lint checks via the enforced route (skill allow-listed, raw linters denied — V2 config can make structural what V1 prose scolded). Revisit on friction |
 | magic-context-release-notes skill | **candidate** — follows Magic Context, which is now live, so release curation pays |
 | /search-session command | **candidate — needs adaptation** — wraps the V1-only session-manager plugin; a V2 port is a session-DB query command. The adopt-Magic-Context question it was meant to probe is answered (MC live); remaining use is direct transcript archaeology |
 | opencode-session-manager plugin | **parked** — V1-only, no V2 port; Magic Context (live) now covers some of the archaeology need — revisit on residual friction |
