@@ -20,6 +20,22 @@
     "plan": {
       "model": "commandcode/zai-org/GLM-5.3"
     },
+
+    // Explore (built-in, overridden by src/agents/explore.md — same-ID
+    // override): structure-only code finding. The .md carries the behavioral
+    // contract (no semantics, no edits, code-index first); this wiring adds
+    // the cheap model (same rationale as title/commit: subagents exist to
+    // be cheaper than the parent) and makes no-edit structural. The
+    // built-in posture already denies edits/subagents — this one-rule fence
+    // documents intent and survives an .md rewrite that drops the prose rule.
+    "explore": {
+      "mode": "subagent",
+      "model": "opencode/glm-5.3-flash-free",
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "deny" }
+      ]
+    },
+
     // The exclusive commit route. OpenCode wiring only: mode, cheap permuting
     // model, step bound, and the permission fence live here — the agent's
     // Markdown (src/agents/commit.md) is harness-agnostic and carries none of
