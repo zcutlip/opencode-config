@@ -4,7 +4,7 @@
   // (the port ledger) before pulling anything out of the archive.
   "$schema": "https://opencode.ai/config.json",
 
-  "model": "commandcode/z-ai/glm-5.3-flash",
+  "model": "opencode/glm-5.3-flash-free",
 
   // Former V1 `small_model`: the hidden title agent's model.
   // 2026-10-16: unified on opencode/glm-5.3-flash-free with the rest of the
@@ -13,12 +13,32 @@
   // which evaporate).
   "agents": {
     "title": {
-      "model": "commandcode/z-ai/glm-5.3-flash"
+      "model": "opencode/glm-5.3-flash-free"
     },
 
     // Plan agent: the default primary in this config's Plan mode.
     "plan": {
-      "model": "commandcode/zai-org/GLM-5.3"
+      "model": "opencode-go/muse-spark-1.3-contributor"
+    },
+    // Build agent (shipped id): additional read-only set beyond the global
+    // base — toolchain/artifact diagnostics and static analysis, the
+    // generic building tools valid in any project (project-specific
+    // scripts live in this repo's root opencode.jsonc, not here).
+    // Version probes are exact literals: no trailing wildcard, so no
+    // argument form rides them.
+    "build": {
+      "model": "opencode-go/muse-spark-1.3-contributor",
+      "permissions": [
+        { "action": "shell", "resource": "which *", "effect": "allow" },
+        { "action": "shell", "resource": "file *", "effect": "allow" },
+        { "action": "shell", "resource": "stat *", "effect": "allow" },
+        { "action": "shell", "resource": "readlink *", "effect": "allow" },
+        { "action": "shell", "resource": "flake8 *", "effect": "allow" },
+        { "action": "shell", "resource": "mypy *", "effect": "allow" },
+        { "action": "shell", "resource": "bun --version", "effect": "allow" },
+        { "action": "shell", "resource": "node --version", "effect": "allow" },
+        { "action": "shell", "resource": "python3 --version", "effect": "allow" }
+      ]
     },
 
     // Explore (built-in, overridden by src/agents/explore.md — same-ID
@@ -30,9 +50,30 @@
     // documents intent and survives an .md rewrite that drops the prose rule.
     "explore": {
       "mode": "subagent",
-      "model": "commandcode/z-ai/glm-5.3-flash",
+      "model": "opencode/glm-5.3-flash-free",
       "permissions": [
         { "action": "edit", "resource": "*", "effect": "deny" }
+      ]
+    },
+
+    // Test runner (2026-10-19): ported from the author's platform-security
+    // .opencode/agents/test.md prior art, motivated by the rag-mcp failure
+    // report (claims of verification made without running anything). The
+    // fence is the V1 original's best stroke made structural: read denied —
+    // the agent CANNOT assert from inspection because it cannot inspect.
+    // Shell is the whole job; it stays governed by the global ask posture,
+    // so a mutating test command still prompts.
+    "test": {
+      "mode": "subagent",
+      "model": {
+        "providerID": "opencode",
+        "model": "glm-5.3-flash-free",
+        "variant": "low"
+      },
+      "steps": 10,
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "read", "resource": "*", "effect": "deny" }
       ]
     },
 
@@ -48,41 +89,57 @@
       "description": "Git commit specialist. Creates atomic, well-formatted commits when explicitly requested by user.",
       "mode": "subagent",
       "steps": 18,
-      "model": "commandcode/z-ai/glm-5.3-flash",
+      "model": "opencode/glm-5.3-flash-free",
       "permissions": [
         { "action": "shell", "resource": "*", "effect": "deny" },
         { "action": "shell", "resource": "git status *", "effect": "allow" },
         { "action": "shell", "resource": "git diff *", "effect": "allow" },
         { "action": "shell", "resource": "git log *", "effect": "allow" },
+        // Read-only git set mirroring the global block — ls-files was a real
+        // gap (denied mid-commit: agent couldn't check what was tracked).
+        // All patterned reads are structurally read-only; the two literals
+        // allowlist only list forms, so mutator variants still hit the deny
+        // backbone.
+        { "action": "shell", "resource": "git show *", "effect": "allow" },
+        { "action": "shell", "resource": "git ls-files *", "effect": "allow" },
+        { "action": "shell", "resource": "git blame *", "effect": "allow" },
+        { "action": "shell", "resource": "git rev-parse *", "effect": "allow" },
+        { "action": "shell", "resource": "git cat-file *", "effect": "allow" },
+        { "action": "shell", "resource": "git rev-list *", "effect": "allow" },
+        { "action": "shell", "resource": "git describe *", "effect": "allow" },
+        { "action": "shell", "resource": "git grep *", "effect": "allow" },
+        { "action": "shell", "resource": "git tag -l", "effect": "allow" },
+        { "action": "shell", "resource": "git remote -v", "effect": "allow" },
+        // Filesystem exploration needed to plan a commit — inspect the
+        // changed files' context for atomic staging and message writing.
+        // Mirrors the global base reads exactly (trailing-" *" patterns
+        // match bare forms); everything else stays under the deny backbone.
+        { "action": "shell", "resource": "ls *", "effect": "allow" },
+        { "action": "shell", "resource": "cat *", "effect": "allow" },
+        { "action": "shell", "resource": "head *", "effect": "allow" },
+        { "action": "shell", "resource": "tail *", "effect": "allow" },
+        { "action": "shell", "resource": "grep *", "effect": "allow" },
+        { "action": "shell", "resource": "wc *", "effect": "allow" },
+        { "action": "shell", "resource": "pwd *", "effect": "allow" },
         { "action": "shell", "resource": "git add *", "effect": "allow" },
         // Index-only by git's definition (restores the index entry to HEAD;
         // never touches worktree or history). Required to split a mixed index
         // atomically — its denial is what forced 3be6e0c into one commit.
         { "action": "shell", "resource": "git restore --staged *", "effect": "allow" },
         { "action": "shell", "resource": "git commit *", "effect": "ask" },
+        // Redirect writes are structurally impossible here, not merely
+        // prompt-gated: this is the fence's LAST shell rule, so `cat a > b`
+        // matches this deny after the cat/find allows above. (The global
+        // `*> *` ask can't do this job for commit — agent rules load after
+        // global rules, so the agent's own allows would outrank it.)
+        // { "action": "shell", "resource": "*> *", "effect": "deny" },
+        // Unspaced append: `cat f>>g` matches the cat allow above with no
+        // "> " for the rule above this one to catch — deny closes it.
+        // { "action": "shell", "resource": ">>*", "effect": "deny" },
         { "action": "edit", "resource": "*", "effect": "deny" },
         { "action": "subagent", "resource": "*", "effect": "deny" },
         { "action": "skill", "resource": "*", "effect": "deny" },
         { "action": "skill", "resource": "git-commit", "effect": "allow" }
-      ]
-    },
-    // Build agent (shipped id): additional read-only set beyond the global
-    // base — toolchain/artifact diagnostics and static analysis, the
-    // generic building tools valid in any project (project-specific
-    // scripts live in this repo's root opencode.jsonc, not here).
-    // Version probes are exact literals: no trailing wildcard, so no
-    // argument form rides them.
-    "build": {
-      "permissions": [
-        { "action": "shell", "resource": "which *", "effect": "allow" },
-        { "action": "shell", "resource": "file *", "effect": "allow" },
-        { "action": "shell", "resource": "stat *", "effect": "allow" },
-        { "action": "shell", "resource": "readlink *", "effect": "allow" },
-        { "action": "shell", "resource": "flake8 *", "effect": "allow" },
-        { "action": "shell", "resource": "mypy *", "effect": "allow" },
-        { "action": "shell", "resource": "bun --version", "effect": "allow" },
-        { "action": "shell", "resource": "node --version", "effect": "allow" },
-        { "action": "shell", "resource": "python3 --version", "effect": "allow" }
       ]
     }
   },
@@ -128,10 +185,22 @@
     { "action": "shell", "resource": "grep *", "effect": "allow" },
     { "action": "shell", "resource": "wc *", "effect": "allow" },
     { "action": "shell", "resource": "pwd *", "effect": "allow" },
-    // Any command with a redirect (>, >>, 2>) asks — redirect writes never
-    // pass silently even when the command itself is allowlisted. Ask, not
-    // deny: the user decides what lands where. Last shell rule, so it wins.
-    { "action": "shell", "resource": "*> *", "effect": "ask" },
+    // Redirect writes deny outright (2026-10-20, tightened from ask): agents
+    // write through the edit tool — reviewable diffs, permission-gated —
+    // never through shell redirects. Add/appends covered spaced and unspaced;
+    // these are the last shell rules, so they win over every allow above.
+    // Acceptable noise: allowlisted commands whose *args* contain ">>" or
+    // "> " (grep patterns) now die too — glob can't see quoting.
+    { "action": "shell", "resource": "*> *", "effect": "deny" },
+    { "action": "shell", "resource": ">>*", "effect": "deny" },
+    // Interpreters with side effects the scanner cannot see: sed's -i is
+    // edit-in-place and even -n mode has the `w` write command; perl -pi and
+    // awk's `print > "file"` / `system()` are the same class. Pattern rules
+    // cannot scope a safe subset, so the whole interpreter is denied — file
+    // editing belongs to the edit tool (house rule: one reviewable action).
+    { "action": "shell", "resource": "sed *", "effect": "deny" },
+    { "action": "shell", "resource": "perl *", "effect": "deny" },
+    { "action": "shell", "resource": "awk *", "effect": "deny" },
     // opencode config, agent definitions, and the service secret are
     // read-only for agents outside this repository. Patterns anchor on
     // FILENAMES, not paths — they hold on any machine, and canonicalized
@@ -171,7 +240,6 @@
     { "action": "edit", "resource": "**/service.json", "effect": "deny" }
   ],
 
-  // Magic Context (anti-compaction + persistent memory) — see LEDGER.md.
   "plugins": [
     "@cortexkit/opencode-magic-context@latest",
     "opencode-cmd-provider",
