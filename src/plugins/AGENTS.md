@@ -1,21 +1,13 @@
 # src/plugins
 
-## matrix-rain (`matrix-rain/`)
+- Only live, auto-discovered plugins live here — everything in this directory
+  loads into every running TUI (`~/.config/opencode` is a symlink to the
+  repo's `./src`, and edits here hot-reload; no restart needed).
+- `matrix-rain` used to live here; it is parked in
+  `src/plugins-disabled/matrix-rain/` — see that directory's `AGENTS.md` for
+  its architecture and dev harnesses.
 
-- `engine.ts` is pure (no JSX/renderer) — surface code lives in `tui.tsx`
-- Trail arrays are pre-populated at spawn, never `unshift`ed per step
-- One `Rain` engine + frame signal per `sessionID`, never shared across tabs
-- Full-width glyphs (2 cells) everywhere except the sidebar block
-  (`GLYPHS_HALF`)
-- Edits hot-reload into running TUI windows — no restart needed
+## nono-sandbox.ts
 
-## Commands
-
-| Task | Command |
-|------|---------|
-| Engine stress + invariants | `./src/plugins/matrix-rain/dev/rain-check.ts` |
-| Density/speed tuning | `./src/plugins/matrix-rain/dev/rain-tune.ts` |
-| Text frame dump | `./src/plugins/matrix-rain/dev/rain-view.ts` |
-| Translate-vs-hold check | `./src/plugins/matrix-rain/dev/motion-classify.ts` |
-
-- No test framework — run `rain-check.ts` after engine changes
+- Untouched by this repo's change flow: installed and updated by the nono
+  utility, and git-ignored (see repo root AGENTS.md). Do not edit it here.
