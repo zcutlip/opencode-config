@@ -48,7 +48,7 @@ record; consult before re-litigating.
 | opencode-skill-creator (plugin + skill) | **parked** — V1-era plugin API, unverified for V2; the skill depends on the plugin's tools. Revisit when next building skills |
 | agent-rules-reminder + test | **parked** — idea seed: agent-identity enforcement via tool-result injection; never worked in V1 (wrong hook?). Revisit only if V2 agents misbehave |
 | commented-out plugin experiments (ponytail, better-hashline, runtime-fallback, @angdrew/hashline, froggy) | **parked** — never adopted; maybe interesting under V2, maybe not |
-| themes (`archive/src/themes/cyberpunk.json`, `korp-net.json`) | **candidate — needs conversion, not copying** — V1-format (`defs` + `theme` maps) → V2 structure (`base`/modes, hue scales, semantic tokens). Live theme is built-in `matrix` (2026-10) — a snapshot, not a verdict. Reference: `notes/korp-net-notes.md` |
+| themes (`src/themes/korp-net.json`, `cyberpunk.json`) | **ported (2026-10)** — converted to V2 `base`/hue shape (V1 `defs`+`theme` files do not load; verified empirically). Template: built-in `synthwave84` as the complete-base skeleton; 9-step hue scales interpolated from each theme's V1 anchors; V1 tokens mapped 1:1 (korp-net's red-visibility fixes + `notes/korp-net.md` aesthetic preserved). Live theme stays `matrix` — switching is the user's call |
 
 ### Tier 3 — judgment (rewrite, never verbatim)
 
