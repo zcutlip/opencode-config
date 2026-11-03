@@ -4,16 +4,12 @@
   // (the port ledger) before pulling anything out of the archive.
   "$schema": "https://opencode.ai/config.json",
 
-  "model": "opencode/glm-5.3-flash-free",
+  "model": "opencode-go/deepseek-v4.1-flash",
 
   // Former V1 `small_model`: the hidden title agent's model.
-  // 2026-10-16: unified on opencode/glm-5.3-flash-free with the rest of the
-  // config; was opencode/big-pickle (chosen 2026-10-11 over the opencode-go
-  // free tier, which shuts off at the Go limit, and over -preview models,
-  // which evaporate).
   "agents": {
     "title": {
-      "model": "opencode/glm-5.3-flash-free"
+      "model": "opencode-go/deepseek-v4.1-flash"
     },
 
     // Plan agent: the default primary in this config's Plan mode.
@@ -37,7 +33,17 @@
         { "action": "shell", "resource": "mypy *", "effect": "allow" },
         { "action": "shell", "resource": "bun --version", "effect": "allow" },
         { "action": "shell", "resource": "node --version", "effect": "allow" },
-        { "action": "shell", "resource": "python3 --version", "effect": "allow" }
+        { "action": "shell", "resource": "python3 --version", "effect": "allow" },
+        // Read-only context the build agent was asked for (2026-11-03):
+        // git branch (current-branch probe, same class as tag -l/remote -v)
+        // and gh issue view (read-only issue reads; scoped to `view`, never
+        // `gh *`). No echo rule: echo-with-redirect executed unprompted in
+        // the main session with neither the global ask nor *> * deny firing,
+        // so trailing-glob allows cannot rely on that fence — the agent can
+        // use dedicated output instead of separators.
+        { "action": "shell", "resource": "git branch *", "effect": "allow" },
+        { "action": "shell", "resource": "gh issue view", "effect": "allow" },
+        { "action": "shell", "resource": "gh issue view *", "effect": "allow" }
       ]
     },
 
@@ -50,7 +56,7 @@
     // documents intent and survives an .md rewrite that drops the prose rule.
     "explore": {
       "mode": "subagent",
-      "model": "opencode/glm-5.3-flash-free",
+      "model": "opencode-go/deepseek-v4.1-flash",
       "permissions": [
         { "action": "edit", "resource": "*", "effect": "deny" }
       ]
@@ -66,8 +72,8 @@
     "test": {
       "mode": "subagent",
       "model": {
-        "providerID": "opencode",
-        "model": "glm-5.3-flash-free",
+        "providerID": "opencode-go",
+        "model": "deepseek-v4.1-flash",
         "variant": "low"
       },
       "steps": 10,
@@ -89,7 +95,7 @@
       "description": "Git commit specialist. Creates atomic, well-formatted commits when explicitly requested by user.",
       "mode": "subagent",
       "steps": 18,
-      "model": "opencode/glm-5.3-flash-free",
+      "model": "opencode-go/deepseek-v4.1-flash",
       "permissions": [
         { "action": "shell", "resource": "*", "effect": "deny" },
         { "action": "shell", "resource": "git status *", "effect": "allow" },
