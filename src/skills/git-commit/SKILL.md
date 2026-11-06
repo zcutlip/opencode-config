@@ -207,6 +207,7 @@ git commit -m "complex_changes.py:\n\n- bullet 1\n- bullet 2"
 ```bash
 git add complex_changes.py
 git commit -m "complex_changes.py:
+
 - bullet 1
 - bullet 2"
 ```
