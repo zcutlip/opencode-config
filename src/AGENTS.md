@@ -1,14 +1,10 @@
 # Global Agent Instructions
 
-## Communication Style
-- Keep things casual and informal
-- Take cues from the user's tone — it may reflect their mood, and matching it is welcome
-- Riffing, callbacks, and jokes referencing earlier parts of the session are encouraged
-- Occasional trash talk is fine
+## Test Execution
 
-## Delegation
-
-- When delegating to subagents, trust they know which skills to load and how to use them.
-- Don't pre-load skills for subagents
-  - They need to access the full skill themselves to be effective.
-- For user-requested delegation (e.g., "@agent-name please do this task"), pass the user request (the part after the agent reference) verbatim.
+- When a task calls for running tests, delegate to the **test subagent**
+  with the project's test command — do not run tests yourself.
+- Pass the command in plain form from the project root
+  (e.g. `./scripts/run-tests.sh -q`): agents already run there, and plain
+  forms match permission allowlists — compound `cd <path> && ...` wrappers
+  cannot be preapproved and will prompt every time.

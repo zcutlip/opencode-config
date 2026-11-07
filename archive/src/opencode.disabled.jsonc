@@ -1,0 +1,343 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": true,
+  "model": "commandcode/z-ai/glm-5.3-flash",
+  "small_model": "opencode-go/longcat-2.5-preview-free",
+  "compaction": {
+    "auto": false,
+    "prune": false,
+    "reserved": 10000
+  },
+  "provider": {
+    "nativ": {
+      "models": {
+        "mlx-community/Qwen3.6-35B-A3B-8bit": {
+          "attachment": true,
+          "interleaved": {
+            "field": "reasoning_content"
+          },
+          "limit": {
+            "context": 262144,
+            "output": 2048
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Qwen3.6-35B-A3B-8bit",
+          "options": {
+            "enable_thinking": true
+          },
+          "reasoning": true,
+          "temperature": true,
+          "tool_call": true
+        }
+      },
+      "name": "Nativ",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://127.0.0.1:8080/v1"
+      }
+    }
+  },
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      ".git/**",
+      "*.log"
+    ]
+  },
+  "lsp": true,
+  "permission": {
+    "bash": {
+      "*": "deny",
+      "flake8 *": "allow",
+      "mypy *": "allow",
+      "git status *": "allow",
+      "git diff *": "allow",
+      "git log *": "allow",
+      "git branch *": "allow",
+      "git fetch *": "allow",
+      "git show *": "allow",
+      "git remote -v": "allow",
+      "ls *": "allow",
+      "cat *": "allow",
+      "head *": "allow",
+      "tail *": "allow",
+      "grep *": "allow",
+      "find *": "allow",
+      "which *": "allow",
+      "echo *": "allow",
+      "pwd": "allow",
+      "whoami": "allow",
+      "rm -rf *": "deny",
+      "sudo *": "deny",
+      "*/opencode-docs-helper.sh *": "allow",
+      "*/opencode-docs-helper.sh": "allow",
+      "*/fetch-releases.py": "allow",
+      "*/fetch-releases.py *": "allow"
+    },
+    "lsp": "allow",
+    "edit": "ask",
+    "external_directory": {
+      "*": "ask",
+      "~/.config/opencode/skills/opencode-release-notes/*": "allow"
+    },
+    "doom_loop": "ask"
+  },
+  "plugin": [
+    "opencode-session-manager",
+    "open-codebase-index",
+    "opencode-skill-creator",
+    "cc-safety-net",
+    "opencode-cmd-provider",
+    "@mohak34/opencode-notifier",
+    "@cortexkit/opencode-magic-context@latest"
+    // "@dietrichgebert/ponytail",
+    // "opencode-better-hashline",
+    // "opencode-runtime-fallback",
+    // "@angdrew/opencode-hashline-plugin",
+    // "opencode-froggy"
+  ],
+  "agent": {
+    "plan": {
+      "mode": "primary",
+      "model": "opencode-go/mimo-v2.6-pro",
+      // "model": "opencode-go/muse-spark-1.3-contributor",
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "ask",
+          "ls *": "allow",
+          "git status *": "allow",
+          "git branch *": "allow",
+          "git log *": "allow",
+          "git diff *": "allow",
+          "git show *": "allow",
+          "git ls-files *": "allow",
+          "git blame *": "allow",
+          "git grep *": "allow",
+          "git rev-parse *": "allow",
+          "git rev-list *": "allow",
+          "git describe *": "allow",
+          "git merge-base *": "allow",
+          "git name-rev *": "allow",
+          "git shortlog *": "allow",
+          "git for-each-ref *": "allow",
+          "git cat-file *": "allow",
+          "git tag *": "allow",
+          "git remote -v": "allow",
+          "git remote get-url *": "allow",
+          "git worktree list *": "allow",
+          "git stash list *": "allow",
+          "git submodule status *": "allow",
+          "*/opencode-docs-helper.sh *": "allow",
+          "*/opencode-docs-helper.sh": "allow",
+          "*/fetch-releases.py": "allow",
+          "*/fetch-releases.py *": "allow",
+          "*/skills/codeberg-integration/scripts/codeberg-helper.py *": "ask",
+          "*/skills/codeberg-integration/scripts/codeberg-helper.py get-issue *": "ask",
+          "python3 -c *": "deny",
+          "python3 *": "deny",
+          "pytest *": "deny",
+          "bash -c *": "deny"
+        },
+        "read": "allow",
+        "grep": "allow",
+        "glob": "allow",
+        "webfetch": "allow",
+        "question": "allow",
+        "todowrite": "allow",
+        "skill": "allow",
+        "lsp": "allow",
+        "task": {
+          "*": "deny",
+          "explore": "allow"
+        }
+      },
+      "options": {}
+    },
+    "build": {
+      "mode": "primary",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      // "model": "opencode-go/muse-spark-1.3-contributor",
+      "permission": {
+        "edit": "ask",
+        "read": "allow",
+        "grep": "allow",
+        "glob": "allow",
+        "webfetch": "allow",
+        "skill": "allow",
+        "question": "allow",
+        "todowrite": "allow",
+        "lsp": "allow",
+        "bash": {
+          "*": "ask",
+          "git status *": "allow",
+          "git branch *": "allow",
+          "git log *": "allow",
+          "git diff *": "allow",
+          "git show *": "allow",
+          "git ls-files *": "allow",
+          "git blame *": "allow",
+          "git grep *": "allow",
+          "git rev-parse *": "allow",
+          "git rev-list *": "allow",
+          "git describe *": "allow",
+          "git merge-base *": "allow",
+          "git name-rev *": "allow",
+          "git shortlog *": "allow",
+          "git for-each-ref *": "allow",
+          "git cat-file *": "allow",
+          "git tag *": "allow",
+          "git remote -v": "allow",
+          "git remote get-url *": "allow",
+          "git worktree list *": "allow",
+          "git stash list *": "allow",
+          "git submodule status *": "allow"
+        },
+        "task": {
+          "coder": "allow",
+          "explore": "allow",
+          "lint": "allow"
+        }
+      },
+      "options": {}
+    },
+    "explore": {
+      "mode": "subagent",
+      // "model": "commandcode/z-ai/glm-5.3-flash",
+      "model": "opencode-go/mimo-v2.6-flash",
+      "permission": {
+        "read": "allow",
+        "lsp": "allow",
+        "edit": "deny",
+        "grep": "allow",
+        "glob": "allow",
+        "bash": {
+          "*": "ask",
+          "git status *": "allow",
+          "git diff *": "allow",
+          "git log *": "allow",
+          "git branch *": "allow",
+          "git show *": "allow",
+          "git remote -v": "allow",
+          "git ls-files *": "allow",
+          "git blame *": "allow",
+          "git grep *": "allow",
+          "git rev-parse *": "allow",
+          "git rev-list *": "allow",
+          "git describe *": "allow",
+          "git merge-base *": "allow",
+          "git name-rev *": "allow",
+          "git shortlog *": "allow",
+          "git for-each-ref *": "allow",
+          "git cat-file *": "allow",
+          "git tag *": "allow",
+          "git remote get-url *": "allow",
+          "git worktree list *": "allow",
+          "git stash list *": "allow",
+          "git submodule status *": "allow"
+        }
+      },
+      "options": {}
+    },
+    "commit": {
+      "mode": "subagent",
+      // "model": "commandcode/z-ai/glm-5.3-flash",
+      "model": "opencode-go/longcat-2.5-preview-free",
+      "options": {},
+      "permission": {
+        "skill": {
+          "git-commit": "allow"
+        },
+        "bash": {
+          "*": "ask",
+          "ls *": "allow",
+          "git status *": "allow",
+          "git diff *": "allow",
+          "git log *": "allow",
+          "git branch *": "allow",
+          "git show *": "allow",
+          "git ls-files *": "allow",
+          "git blame *": "allow",
+          "git grep *": "allow",
+          "git rev-parse *": "allow",
+          "git rev-list *": "allow",
+          "git describe *": "allow",
+          "git merge-base *": "allow",
+          "git name-rev *": "allow",
+          "git shortlog *": "allow",
+          "git for-each-ref *": "allow",
+          "git cat-file *": "allow",
+          "git tag *": "allow",
+          "git remote -v": "allow",
+          "git remote get-url *": "allow",
+          "git worktree list *": "allow",
+          "git stash list *": "allow",
+          "git submodule status *": "allow",
+          "head *": "allow",
+          "cat *": "allow",
+          "tail *": "allow",
+          "echo *": "deny"
+        }
+      }
+    },
+    "coder": {
+      "mode": "subagent",
+      // "model": "commandcode/z-ai/glm-5.3-flash",
+      // "model": "opencode-go/muse-spark-1.3-contributor",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "permission": {
+        "edit": "ask",
+        "lsp": "allow",
+        "read": "allow",
+        "bash": {
+          "*": "ask",
+          "python3 -c *": "deny",
+          "python3 *": "deny",
+          "bash -c *": "deny"
+        }
+      },
+      "options": {}
+    },
+    "lint": {
+      "mode": "subagent",
+      // "model": "commandcode/z-ai/glm-5.3-flash",
+      "model": "opencode-go/longcat-2.5-preview-free",
+      "permission": {
+        "bash": {
+          "*": "ask",
+          "flake8 *": "allow",
+          "mypy *": "allow",
+          "ruff *": "allow",
+          "*-lint.sh": "allow",
+          "lint.sh": "allow",
+          "python3 -c *": "deny",
+          "bash -c *": "deny",
+          "*/skills/lint-format/scripts/lint-format.sh *": "allow"
+        }
+      },
+      "options": {}
+    },
+    "task-rabbit": {
+      // "model": "commandcode/z-ai/glm-5.3-flash",
+      "model": "opencode-go/longcat-2.5-preview-free",
+      "permission": {
+        "bash": {
+          "python3 *": "deny",
+          "bash -c *": "deny",
+          "bash *": "deny",
+          "*/fetch-releases.py *": "allow"
+        }
+      }
+    }
+  }
+}

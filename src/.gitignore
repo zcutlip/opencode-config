@@ -1,39 +1,12 @@
-commands/analyze-usage.md
-commands/froggy-docs.md
-skills/analyze-usage
+# Machine-local state in the live config dir — present on disk, never
+# versioned (externally managed or secret). See ../LEDGER.md.
+
+# The background service's shared password.
+service.json
+
+# nono's sandbox plugin and skills — installed and updated by the nono
+# utility; the repo preserves them here so the config-dir swap doesn't
+# orphan them.
+plugins/nono-sandbox.ts
 skills/nono-sandbox
-skills/opencode-errata
-skills/opencode-skill-creator
-skills/opencode-froggy-docs
-plugins/nono-sandbox*
-opencode-skill-creator-update-check.json
-disabled-skills
-
-/skills/opencode-docs
-commands/oc-docs.md
-
-#### MacOS Stuff ####
-# General
-.DS_Store
-.localized
-__MACOSX/
-.AppleDouble
-.LSOverride
-Icon[
-]
-# Thumbnails
-._*
-# Files that might appear in the root of a volume
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
+skills/nono-troubleshoot

@@ -95,7 +95,7 @@ If the project has no coverage tooling and adding one would violate its constrai
 
 1. **Find source files** — `glob "**/*.py"` (exclude test files)
 2. **Find test files** — `glob "**/test_*.py"`
-3. **Use `lsp.findReferences`** on each public function symbol to check whether it's referenced from any test file.
+3. **Grep each public function symbol** across all test files to check whether it's referenced from any test.
 4. **Diff** to find functions with no test references.
 
 This is approximate — a reference is not a test, and a test may reference a function without meaningfully exercising it. Prefer the coverage tool when possible, and note in the report that coverage was assessed manually.

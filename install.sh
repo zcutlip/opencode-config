@@ -33,7 +33,15 @@ else
 	echo "Symlinked $CONFIG_DIR -> $SRC_DIR"
 fi
 
-# 3. Optional Node deps (only needed to edit the TypeScript plugin).
+# 3. Make the oc-permissions CLI available on PATH (if ~/.local/bin exists).
+TOOL_SRC="$REPO_ROOT/src/scripts/oc-permissions.py"
+BIN_DIR="$HOME/.local/bin"
+if [ -x "$TOOL_SRC" ] && [ -d "$BIN_DIR" ]; then
+	ln -sfn "$TOOL_SRC" "$BIN_DIR/oc-permissions"
+	echo "Symlinked $BIN_DIR/oc-permissions -> $TOOL_SRC"
+fi
+
+# 4. Optional Node deps (only needed to edit the TypeScript plugin).
 if [ "${1:-}" = "--with-deps" ]; then
 	(cd "$REPO_ROOT" && npm install)
 fi

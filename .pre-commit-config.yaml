@@ -15,4 +15,12 @@ repos:
     rev: v1.0.1
     hooks:
       - id: check-json5
-        files: \.(jsonc)$|^opencode\.json$
+        # Was "\.(jsonc)$|^opencode\.json$" — never matched, so every commit
+        # got "(no files to check) Skipped" even for .jsonc edits. Two fixes:
+        # .* paths under full-match semantics, and types_or extended — the
+        # upstream hook only accepts [json, json5]; identify tags .jsonc
+        # files as plain `text` (jsonc is not even a valid identify tag —
+        # pre-commit rejected it), so .jsonc missed both. Local entry
+        # overrides remote defaults; the path regex does the selecting.
+        files: .*\.jsonc$|^opencode\.json$
+        types_or: [text]

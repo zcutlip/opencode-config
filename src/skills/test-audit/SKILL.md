@@ -1,11 +1,6 @@
 ---
 name: test-audit
 description: "Audit test suites for quality issues: missing assertions, exception swallowing, trivial tests, fixture problems, and flakiness patterns. Supports pytest (Python) and Bun/Jest/Vitest/node:test (TypeScript/JavaScript)."
-license: MIT
-compatibility: opencode
-metadata:
-  audience: developers
-  workflow: testing
 ---
 
 # Test Audit Skill
@@ -151,16 +146,6 @@ The skill supports two modes. Choose based on the suite size and the user's goal
 - ≤30 test files → just run (fix-list; one batch).
 - 31–100 files → fix-list mode by default (2–4 batches).
 - >100 files → ask the user: "Full batched audit, or sampled health check?"
-
-### LSP as an optional accelerator
-
-LSP tools (`documentSymbol`, `findReferences`, `hover`) can help you navigate large suites, but they are **not required** and **not a substitute for reading test bodies**. Use them opportunistically:
-
-- `lsp.documentSymbol` — get the class/method hierarchy of a large test file before reading it, so you know what's there.
-- `lsp.findReferences` — check whether a source function is referenced by any test (for coverage-gap analysis).
-- `lsp.hover` — pull docstrings/type info without opening a file.
-
-If LSP is unavailable, continue with file reads alone — the audit is not diminished. Note in the report whether LSP was used.
 
 ### Parallelizing file reads for large suites
 
@@ -333,7 +318,6 @@ Examples in the checklists are illustrative and shown in Python/pytest; apply ea
 - Framework: pytest / Bun / node:test / other
 - Audit mode: Fix-list (exhaustive) / Health-check (sampled)
 - Files read: N of M (if sampled, describe selection criteria)
-- LSP used: Yes/No
 - Tests executed: Yes/No
 - Issue counts are instances — a single test may contribute multiple findings
 ```
@@ -378,7 +362,7 @@ If Phase 0 finds the suite is red, produce this abbreviated report instead:
 2. **Provide examples** — show before/after code
 3. **Explain why** — help developers understand the issue
 4. **Suggest priorities** — help teams decide what to fix first, including within-tier ranking
-5. **Note limitations** — if LSP unavailable or tests couldn't be run, mention it
+5. **Note limitations** — if tests couldn't be run, mention it
 6. **Respect constraints** — all recommendations must be implementable within project constraints
 7. **Group when possible** — ≥3 tests sharing an issue: report once with affected-test list
 8. **Disclose sampling** — in health-check mode, always report what was and wasn't read

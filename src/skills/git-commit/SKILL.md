@@ -21,13 +21,17 @@ description: Guidelines for creating atomic, well-formatted git commits
 - Atomic commits (each commit should be independently applicable)
 - Single-line commits preferred when possible
 - Format: `file.py: description` for single-file changes
-- Multi-line format perfectl fine when needed
+- Multi-line format perfectly fine when needed
 - Line length <= 79 characters
 - No attribution in commit messages
 - Concise descriptions (don't need to be comprehensive)
-- use the bash heredoc technique so the commit message is readable in output
+- Staging and committing are separate commands: stage with plain `git add <files>`, review what is staged with `git diff --cached`, then commit. Never `git add X && git commit Y`
+- Never use `git commit -a`, `--all`, `--patch`, or `--include` — staging happens explicitly, and the staged diff must be reviewed before the commit is composed
+- Use ONE `-m` flag whose value contains real newlines (subject line, blank line, bullet body) — see Scenario D. The readable-in-output goal now has an audience: the permission gate shows the command to the user, so the message itself must be legible.
+- Never pass multiple `-m` flags — the user rejects multi-flag messages outright.
+- Never nest a substitution or heredoc (`$(cat <<EOF …)`) into the commit command — the permission fence segments nested execution and the non-git segments hit the deny-all backbone mechanically; the ask never even reaches the user. A plain multi-line `-m` passes as one segment.
 
-### Mutli-line commit stle
+### Multi-line commit style
 
   ```
   commit description
@@ -99,13 +103,16 @@ Before executing `git add` for ANY commit, verify:
 
 **If you cannot check all boxes, split the commit.**
 
-### Step 4: Execute the Commit
+### Step 4: Stage, Review, Commit
 
 When you have identified the files and message:
 
 1. Briefly state what you're committing and why (1-2 lines)
-2. Execute `git add` and `git commit`
-3. Report the commit hash and result
+2. Stage the files with plain `git add` (one command, no chaining)
+3. Review the staged changes with `git diff --cached` — the commit message
+   must describe what is actually staged, not what you assumed
+4. Execute `git commit` with the skill's message format
+5. Report the commit hash and result
 
 If something goes wrong (merge conflict, detached HEAD, uncommitted merge, unexpected git state), report the specific error so the calling agent can diagnose and handle the failure.
 
@@ -156,9 +163,12 @@ git commit -m "Fix various bugs"
 ✓ GOOD - Separate atomic commits:
 
 ```bash
-git add bugfix1.py && git commit -m "bugfix1.py: Fix issue with X"
-git add bugfix2.py && git commit -m "bugfix2.py: Fix issue with Y"
-git add unrelated.py && git commit -m "unrelated.py: Fix issue with Z"
+git add bugfix1.py
+git commit -m "bugfix1.py: Fix issue with X"
+git add bugfix2.py
+git commit -m "bugfix2.py: Fix issue with Y"
+git add unrelated.py
+git commit -m "unrelated.py: Fix issue with Z"
 ```
 
 **Scenario C: Config Enables Feature**
@@ -177,8 +187,10 @@ git commit -m "Add feature with config"
 ✓ GOOD - Config first:
 
 ```bash
-git add settings.json && git commit -m "settings.json: Add config for feature"
-git add feature.py && git commit -m "feature.py: Add feature using new config"
+git add settings.json
+git commit -m "settings.json: Add config for feature"
+git add feature.py
+git commit -m "feature.py: Add feature using new config"
 ```
 
 **Scenario D: Multi-line commit**
@@ -195,6 +207,7 @@ git commit -m "complex_changes.py:\n\n- bullet 1\n- bullet 2"
 ```bash
 git add complex_changes.py
 git commit -m "complex_changes.py:
+
 - bullet 1
 - bullet 2"
 ```
