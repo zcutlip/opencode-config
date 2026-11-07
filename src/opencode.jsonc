@@ -4,17 +4,17 @@
   // (the port ledger) before pulling anything out of the archive.
   "$schema": "https://opencode.ai/config.json",
 
-  "model": "opencode-go/deepseek-v4.1-flash",
+  "model": "commandcode/minimax/minimax-m3.1-flash",
 
   // Former V1 `small_model`: the hidden title agent's model.
   "agents": {
     "title": {
-      "model": "opencode-go/deepseek-v4.1-flash"
+      "model": "commandcode/minimax/minimax-m3.1-flash"
     },
 
     // Plan agent: the default primary in this config's Plan mode.
     "plan": {
-      "model": "opencode-go/deepseek-v4.1-flash"
+      "model": "commandcode/minimax/minimax-m3.1-flash"
     },
     // Build agent (shipped id): additional read-only set beyond the global
     // base — toolchain/artifact diagnostics and static analysis, the
@@ -23,7 +23,7 @@
     // Version probes are exact literals: no trailing wildcard, so no
     // argument form rides them.
     "build": {
-      "model": "opencode-go/deepseek-v4.1-flash",
+      "model": "commandcode/minimax/minimax-m3.1-flash",
       "permissions": [
         { "action": "shell", "resource": "which *", "effect": "allow" },
         { "action": "shell", "resource": "file *", "effect": "allow" },
@@ -57,7 +57,7 @@
     // documents intent and survives an .md rewrite that drops the prose rule.
     "explore": {
       "mode": "subagent",
-      "model": "opencode-go/deepseek-v4.1-flash",
+      "model": "commandcode/minimax/minimax-m3.1-flash",
       "permissions": [
         { "action": "edit", "resource": "*", "effect": "deny" }
       ]
@@ -96,7 +96,7 @@
       "description": "Git commit specialist. Creates atomic, well-formatted commits when explicitly requested by user.",
       "mode": "subagent",
       "steps": 18,
-      "model": "opencode-go/deepseek-v4.1-flash",
+      "model": "commandcode/minimax/minimax-m3.1-flash",
       "permissions": [
         { "action": "shell", "resource": "*", "effect": "deny" },
         { "action": "shell", "resource": "git status *", "effect": "allow" },
