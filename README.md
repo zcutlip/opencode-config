@@ -1,19 +1,23 @@
 # OpenCode Config
 
-Personal configuration for [OpenCode](https://opencode.ai) — an AI coding assistant with multi-agent architecture.
+Personal configuration for [OpenCode](https://opencode.ai) — an AI coding
+assistant with a multi-agent architecture.
 
-## Overview
-
-This repository contains the configuration, custom agents, commands, skills, and themes that power my OpenCode setup. It implements a structured multi-agent workflow with strict delegation rules and customized permissions.
+Rebuilt on the **V2** config schema, strangler-fig style: `src/` is the live
+config directory and items move in from `archive/` (the V1 setup) only once
+they prove load-bearing under vanilla V2. [`LEDGER.md`](LEDGER.md) is the port
+ledger — check it before resurrecting anything from the archive.
 
 ## Installation
 
-OpenCode reads its configuration from `~/.config/opencode`. This repo's `src/` directory is designed to *be* that directory via a symlink — the repo root stays free for project-level config when hacking on this repo itself.
+OpenCode reads its configuration from `~/.config/opencode`. This repo's `src/`
+directory is designed to *be* that directory via a symlink, so the repo root
+stays free for project-level config.
 
 **One command (recommended):**
 
 ```sh
-./install.sh             # symlink + submodule init
+./install.sh             # symlink into place + oc-permissions on PATH
 ```
 
 **Manual steps:**
@@ -24,99 +28,105 @@ OpenCode reads its configuration from `~/.config/opencode`. This repo's `src/` d
    cd opencode-config
    ```
 
-2. **Initialize submodules** — the `humanizer` skill lives in a git submodule and will be
-   empty otherwise:
+2. **Symlink into place** — point OpenCode's config dir at this repo:
    ```sh
-   git submodule update --init --recursive
+   ln -s "$(pwd)/src" ~/.config/opencode
    ```
+   > If `~/.config/opencode` already exists as a real directory, move or remove
+   > it first (e.g. `mv ~/.config/opencode ~/.config/opencode.bak`).
 
-3. **Symlink into place** — point OpenCode's config dir at this repo:
-   ```sh
-    ln -s "$(pwd)/src" ~/.config/opencode
-   ```
-   > If `~/.config/opencode` already exists as a real directory, move or remove it first
-   > (e.g. `mv ~/.config/opencode ~/.config/opencode.bak`).
-
-Restart OpenCode (or start a new session) and the agents, commands, skills, and themes load
-automatically.
+Restart OpenCode (or start a new session) and the agents, commands, skills,
+plugins, and themes load automatically.
 
 ## Architecture
+
+Everything below is declared or discovered from `src/`.
 
 ### Agents
 
 | Agent | Mode | Role |
 |-------|------|------|
-| `@plan` | Primary | Planning & orchestration — reads, analyzes, and creates implementation plans |
+| `@plan` | Primary | Planning & orchestration — reads, analyzes, creates implementation plans |
 | `@build` | Primary | Implementation — executes approved plans and writes code |
-| `@explore` | Subagent | File search & discovery — finds code, reads files, maps structure |
-| `@coder` | Subagent | Code editing — targeted single-purpose code modifications |
-| `@lint` | Subagent | Code quality — runs linting & verification after changes |
-| `@commit` | Subagent | Git commits — creates atomic, well-formatted commits |
-| `@task-rabbit` | Subagent | Task execution — runs scripts & lightweight chores, skill-use specialist |
+| `@explore` | Subagent | Structure-only code discovery — code-index first, no edits, no semantics |
+| `@test` | Subagent | Runs the project's test command and reports raw output — read and edit denied, so it cannot assert from inspection |
+| `@commit` | Subagent | The exclusive staging/commit route — atomic commits, fenced shell allowlist |
+
+`title` (hidden) generates session titles. Model picks live in
+`src/opencode.jsonc` and change often.
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| `/analyze-usage` | Analyze OpenCode model and agent usage patterns from logs |
 | `/commit-delegate` | Delegate to the @commit subagent to create a git commit |
-| `/oc-docs` | Browse and read OpenCode documentation via helper script |
-| `/reflect-questions` | Reflect on previous questions and categorize as decided/recommended/user choice |
-| `/retry` | Retry after provider interruption |
-| `/search-session` | Find a session by searching its title, content, or description |
-| `/tdd-continue` | Continue TDD cycle after stop gate |
+| `/oc-permissions` | List and remove OpenCode's saved ("always allow") permissions |
+| `/reflect-questions` | Categorize previous questions as decided / recommended / user choice |
 
 ### Skills
 
 | Skill | Description |
 |-------|-------------|
-| `analyze-usage` | Interpret model and agent usage to recommend cost-saving configurations |
-| `codeberg-integration` | Interact with Codeberg (Forgejo/Gitea) repositories |
-| `git-commit` | Guidelines for creating atomic, well-formatted commits |
-| `humanizer` | Detect AI writing patterns and rewrite text with voice profiles |
-| `lint-format` | Lint and format code. Python supported. Falls back to pre-commit |
-| `magic-context-release-notes` | Release highlights for the Magic Context project |
-| `nono-sandbox` | Diagnose and resolve permission denials in the nono sandbox |
-| `opencode-docs` | Offline documentation for OpenCode features and configuration |
-| `opencode-release-notes` | Release highlights for the OpenCode project |
-| `opencode-skill-creator` | Create, test, evaluate, optimize, and package OpenCode skills |
-| `test-audit` | Audit test suites for quality issues and flakiness patterns |
+| `git-commit` | Atomic, well-formatted commits — the commit agent's rulebook |
+| `test-audit` | Audit test suites for missing assertions, swallowed exceptions, flakiness |
+| `nono-sandbox` | Diagnose nono sandbox denials |
+| `nono-troubleshoot` | Host-side triage for nono problems |
+
+The two `nono-*` skills and `plugins/nono-sandbox.ts` are installed and updated
+by the nono utility; the repo preserves them in place but does not version them.
 
 ### Themes
 
-- **cyberpunk** — Neon-themed UI with cyan, pink, and green accents
-- **korp-net** — Dystopian corporate terminal with void-black backgrounds and aggressive red accents
+- **korp-net** — dystopian corporate terminal, void-black with aggressive red accents (live)
+- **cyberpunk** — neon UI with cyan, pink, and green accents
 
 ### Plugins
 
-`src/plugins/` contains `agent-rules-reminder.ts` and `nono-sandbox.ts`, loaded via `@opencode-ai/plugin` (`src/package.json`).
+Declared in `src/opencode.jsonc`:
 
-## Configuration Highlights
+- **Magic Context** — anti-compaction with persistent, searchable memory
+- **opencode-cmd-provider** — the CommandCode provider integration
+- **open-codebase-index** — semantic code search (needs a local `ollama`)
 
-- **Permissions**: Bash defaults to `deny` (allowlisted commands only), `edit` and `external_directory` default to `ask`
-- **Compaction**: Built-in auto-compaction and pruning disabled (`auto: false`, `prune: false`); dynamic context compression via DCP (`dcp.jsonc`)
-- **File Watcher**: Ignores `node_modules`, `dist`, `build`, `.git`, and log files
-- **Pre-commit**: Trailing whitespace, EOF fixer, JSON/YAML validation, and more
+Auto-discovered from `src/plugins/`:
 
-## Project Structure
+- **session-history** — per-session up-arrow prompt recall (the built-in
+  history is one global stack shared by every session and project)
+
+`src/plugins-disabled/` holds parked plugins that do not load — currently
+`matrix-rain`.
+
+## Configuration highlights
+
+- **Permissions**: shell asks by default; git reads are allowlisted while a
+  `git *` ask catch-all makes every other subcommand prompt. Redirect writes and
+  `sed`/`perl`/`awk` are denied outright (edits go through the edit tool).
+  Config files and agent `.md` files are edit-denied **by filename** everywhere,
+  with a carve-out for this repo in the root `opencode.jsonc` so the migration
+  can edit its own config. `oc-permissions` audits the saved-approval store.
+- **Compaction**: native auto-compaction is off — Magic Context owns the
+  context window.
+- **Project rules**: the repo-root `opencode.jsonc` loads after the global
+  config and wins on last match; that is how the carve-out above works.
+- **Pre-commit**: trailing whitespace, EOF fixer, and JSON/JSON5 validation.
+
+## Project structure
 
 ```
-├── AGENTS.md            # Project dev setup (Bun/lint/typecheck)
-├── eslint.config.mjs
-├── tsconfig.json
+├── src/                  # → ~/.config/opencode (live config)
+│   ├── opencode.jsonc    # models, agents + wiring, permissions, plugins, providers
+│   ├── cli.json          # TUI settings (theme, notifications, tabs)
+│   ├── agents/ commands/ skills/ themes/
+│   ├── plugins/          # auto-discovered live plugins
+│   ├── plugins-disabled/ # parked plugins, not loaded
+│   └── scripts/          # oc-permissions.py
+├── archive/              # V1 config, kept for reference (see LEDGER.md)
+├── scripts/              # ts-parse.ts (syntax check), refresh-models.sh
+├── docs/ notes/          # working notes (e.g. phase-ratchet prototype)
+├── opencode.jsonc        # project-local rules for hacking on this repo
 ├── install.sh
-├── src/
-│   ├── AGENTS.md        # Global agent instructions
-│   ├── opencode.jsonc
-│   ├── agents/
-│   ├── commands/
-│   ├── skills/
-│   ├── plugins/
-│   ├── themes/
-│   ├── hook/
-│   ├── tui.json
-│   └── ...
-└── ...
+├── LEDGER.md             # V1 → V2 port ledger
+└── LICENSE
 ```
 
 ## License
