@@ -37,6 +37,8 @@
         { "action": "shell", "resource": "./src/plugins-disabled/matrix-rain/dev/rain-view.ts", "effect": "allow" },
         { "action": "shell", "resource": "./src/plugins-disabled/matrix-rain/dev/motion-classify.ts *", "effect": "allow" },
         { "action": "shell", "resource": "./src/plugins-disabled/matrix-rain/dev/motion-classify.ts", "effect": "allow" },
+        //TODO: delete when finished testing.
+        { "action": "edit", "resource": "/private/var/folders/d4/2v43w97j6nb7l56kvm59ngmw0000gq/opencode/ratchet-prototype/opencode.jsonc", "effect": "allow" }
       ]
     }
   },
