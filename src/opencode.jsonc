@@ -84,6 +84,31 @@
       ]
     },
 
+    // Workflow reviewer (Phase 1, 2026-11-10): independent advisory review of
+    // current work against an agreed design and workflow. Fresh context via a
+    // subagent. Pin the model at its default reasoning level; the low variant
+    // missed core process and contract findings in the 2026-11-13 comparison.
+    // The fence is a deny-everything backdrop with local discovery re-allowed:
+    // read evidence, but never edit, shell, delegate, browse, or load skills.
+    // Behavioral contract lives in src/agents/workflow-reviewer.md; this fence
+    // survives a prose rewrite that drops the rules above.
+    "workflow-reviewer": {
+      "mode": "subagent",
+      "model": "opencode/deepseek-v4.1-flash-free",
+      "steps": 20,
+      "permissions": [
+        { "action": "*", "resource": "*", "effect": "deny" },
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        // Preserve the global secret-file posture: the broad read allow above
+        // would otherwise outrank the base ask on environment files.
+        { "action": "read", "resource": "*.env", "effect": "ask" },
+        { "action": "read", "resource": "*.env.*", "effect": "ask" },
+        { "action": "read", "resource": "*.env.example", "effect": "allow" }
+      ]
+    },
+
     // The exclusive commit route. OpenCode wiring only: mode, cheap permuting
     // model, step bound, and the permission fence live here — the agent's
     // Markdown (src/agents/commit.md) is harness-agnostic and carries none of
