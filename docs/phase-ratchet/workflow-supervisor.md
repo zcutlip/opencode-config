@@ -2,7 +2,7 @@
 
 Source: drafted on 2026-11-07 from the user's request for an independent background reviewer that critiques and steers other agents, using the OpenCode V2 documentation linked below. Implementation phasing was added on 2026-11-09 from the follow-up staged-rollout discussion. Per-project activation and scope were added on 2026-11-10 from the follow-up opt-in discussion. Related prior work: [Phase Ratchet Prototype](ratchet-prototype.md).
 
-Status: design note for later planning and implementation experiments. No supervisor implementation exists yet.
+Status: Phase 1 (on-demand reviewer agent and command) implemented 2026-11-11. The supervisor plugin and automatic phases do not exist yet.
 
 ## Goal
 
@@ -164,7 +164,7 @@ Build in order: `review → observe → steer → enforce → harden`. Each phas
 
 The smallest useful slice requires no plugin:
 
-- add a read-only `workflow-reviewer` subagent with its own model and fresh context
+- add a read-only `workflow-reviewer` subagent with fresh context and, optionally, a distinct model
 - add a `/workflow-review` command using `subagent: true`
 - keep the command globally available; manual review does not activate automatic supervision
 - supply the agreed design, current diff, and relevant test output
