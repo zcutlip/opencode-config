@@ -165,7 +165,7 @@ Build in order: `review → observe → steer → enforce → harden`. Each phas
 The smallest useful slice requires no plugin:
 
 - add a read-only `workflow-reviewer` subagent with fresh context and, optionally, a distinct model
-- add a `/workflow-review` command using `subagent: true`
+- add a `/workflow-review` command that orchestrates evidence collection and launches the reviewer with a minimal envelope; use `checkpoint` mode by default and `full` only when explicitly requested
 - keep the command globally available; manual review does not activate automatic supervision
 - supply the agreed design, current diff, and relevant test output
 - require evidence-backed findings and corrections; prohibit the reviewer from implementing fixes
