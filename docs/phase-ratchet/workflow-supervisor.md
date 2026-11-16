@@ -1,8 +1,8 @@
 # Background Workflow Supervisor
 
-Source: drafted on 2026-11-07 from the user's request for an independent background reviewer that critiques and steers other agents, using the OpenCode V2 documentation linked below. Implementation phasing was added on 2026-11-09 from the follow-up staged-rollout discussion. Per-project activation and scope were added on 2026-11-10 from the follow-up opt-in discussion. Related prior work: [Phase Ratchet Prototype](ratchet-prototype.md).
+Source: drafted on 2026-11-07 from the user's request for an independent background reviewer that critiques and steers other agents, using the OpenCode V2 documentation linked below. Implementation phasing was added on 2026-11-09 from the follow-up staged-rollout discussion. Per-project activation and scope were added on 2026-11-10 from the follow-up opt-in discussion. The Phase 2 contract and parentless-reviewer host probe were added on 2026-11-15. Related prior work: [Phase Ratchet Prototype](ratchet-prototype.md).
 
-Status: Phase 1 (on-demand reviewer agent and command) implemented 2026-11-11. The supervisor plugin and automatic phases do not exist yet.
+Status: Phase 1 (on-demand reviewer agent and command) implemented 2026-11-11. The revised Phase 2 implementation contract is ready for review; the supervisor plugin and automatic phases do not exist yet.
 
 ## Goal
 
@@ -27,7 +27,8 @@ A project policy can look like:
   "enabled": true,
   "mode": "advisory", // off | advisory | steer | enforce
   "workflow": "contract-tests-lock-verify",
-  "version": 1
+  "version": 1, // policy schema version, not workflow progress
+  "contract": "docs/sync-logging-spec.md" // active design, relative to the target worktree root
 }
 ```
 
@@ -37,6 +38,8 @@ Modes map onto the implementation phases:
 - `advisory`: automatic reviews and a review ledger, with no messages or gates.
 - `steer`: attributed findings are injected and reasserted; phase gates remain advisory.
 - `enforce`: findings and deterministic phase/test locks can block transitions.
+
+Before steering and enforcement are implemented, every non-off mode still activates observation but has `effectiveMode: "advisory"`. Ledger entries distinguish that effective behavior from `requestedMode`; future capabilities are neither claimed nor silently selected.
 
 Policy may be committed for a project-wide posture or ignored for a personal opt-in. Committed policy makes clones inherit the posture; runtime state stays local to each checkout and worktree.
 
@@ -177,6 +180,8 @@ Limit: this reviews the supplied evidence; it cannot prove tests-first ordering 
 
 ### Phase 2 — Automatic observation, passive reporting
 
+Detailed contract: [Phase 2 implementation contract](workflow-supervisor-phase-2.md), revised after independent review and a successful parentless-reviewer host probe.
+
 Introduce a small globally installed server plugin that is inert unless the target session's project policy enables `advisory` or stronger:
 
 - resolve and validate the target project's policy before doing any automatic work
@@ -269,6 +274,8 @@ The recommended first experiment is Phase 1's reviewer agent and command. Phase 
 - [Agents](https://opencode.ai/docs/agents/)
 - [Commands — background child sessions](https://opencode.ai/docs/commands/#background)
 - [Server plugins — sessions, events, hooks, permissions, and tools](https://opencode.ai/docs/build/plugins/server/)
+- [Plugin RPC](https://opencode.ai/docs/build/plugins/rpc/)
+- [TUI plugins — configuration-error toasts](https://opencode.ai/docs/build/plugins/cli/#dialogs-and-toasts)
 - [Permissions](https://opencode.ai/docs/permissions/)
 - [JavaScript client — event-stream behavior](https://opencode.ai/docs/build/client/#stream-events)
 - [API and experimental Schedules API](https://opencode.ai/docs/api/)
