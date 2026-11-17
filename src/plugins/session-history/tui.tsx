@@ -98,6 +98,9 @@ export default Plugin.define({
       // straight away instead of waiting on a sync that cannot change it.
       if (history.length === 0) {
         if (direction === -1) return false
+        // A draft is not history: move the caret now rather than after a sync
+        // that cannot change the answer.
+        if (target.plainText.length > 0) return moveCaret(target, direction)
         void context.data.session.message
           .sync(sessionID)
           .then(() => {
@@ -108,6 +111,24 @@ export default Plugin.define({
         return
       }
       return step(target, sessionID, direction, history)
+    }
+
+    /**
+     * Caret movement for a draft the plugin must not overwrite. Consumed, so
+     * the key never reaches session.parent / session.child.first.
+     */
+    function moveCaret(target: Composer, direction: 1 | -1): undefined {
+      const text = target.plainText
+      const multiLine = text.includes("\n")
+      if (direction === 1) {
+        if (multiLine && typeof target.moveCursorUp === "function") target.moveCursorUp()
+        else target.cursorOffset = 0
+      } else if (multiLine && typeof target.moveCursorDown === "function") {
+        target.moveCursorDown()
+      } else {
+        target.cursorOffset = text.length
+      }
+      return
     }
 
     /** Apply one history step; `undefined` means the key was consumed. */
@@ -125,18 +146,7 @@ export default Plugin.define({
       // the arrows move the caret and the key is consumed here, because falling
       // through would land on session.parent / session.child.first and open a
       // menu instead of doing nothing.
-      if (!recalled && text.length > 0) {
-        const multiLine = text.includes("\n")
-        if (direction === 1) {
-          if (multiLine && typeof target.moveCursorUp === "function") target.moveCursorUp()
-          else target.cursorOffset = 0
-        } else if (multiLine && typeof target.moveCursorDown === "function") {
-          target.moveCursorDown()
-        } else {
-          target.cursorOffset = text.length
-        }
-        return
-      }
+      if (!recalled && text.length > 0) return moveCaret(target, direction)
 
       // Cleared or submitted since the last recall: the draft is current again.
       if (text.length === 0 && cursor.index !== 0) {
