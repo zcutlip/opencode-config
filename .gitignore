@@ -405,6 +405,7 @@ Temporary Items
 /notes
 .ponytail-active
 .opencode/index/
+.opencode/workflow-review
 opencode-notifier-state.json
 package.json
 .cortexkit/
