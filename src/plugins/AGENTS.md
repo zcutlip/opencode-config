@@ -7,6 +7,32 @@
   `src/plugins-disabled/matrix-rain/` — see that directory's `AGENTS.md` for
   its architecture and dev harnesses.
 
+## auto-approve/
+
+Per-session runtime toggle for permission auto-accept — the built-in
+"auto accept" is a cli.json `session.permissions` edit; this keeps the toggle
+in memory so it dies with the TUI and the configured starting mode always
+wins after restart.
+
+- `<leader>tab` (palette: "Toggle auto-approve", group Permissions) flips the
+  focused tab's root session between prompt and autoaccept; children follow
+  their root, mirroring the built-in autoaccept's session + family walk
+- In autoaccept the plugin answers `permission.asked` with
+  `decision: "once"` — no "always" approval is ever saved, deny rules stay
+  final, and nothing is written to cli.json or the db
+- Footer badge via `prompt.footer.status` shows each tab's effective mode
+- Reply surface (verified 2.3.0): `data.session.permission.reply` — the TUI
+  data layer the built-in autoaccept itself calls; the generated
+  `client.session.permission` namespace does not exist. tui.tsx probes that
+  first with `client.permission` fallbacks and logs every outcome to
+  `~/.local/share/opencode/auto-approve-debug.log` — read that before
+  assuming the toggle logic broke after an upgrade
+- Starting mode is read from cli.json on disk (no API serves CLI settings to
+  plugins), refreshed on each toggle; `OPENCODE_CLI_CONFIG_CONTENT` wins over
+  the file while set; unparseable input falls back to "prompt"
+- Mode resolution lives in `mode.ts` (pure, no SDK imports);
+  `bun test src/plugins/auto-approve` covers it (delegate to the test agent)
+
 ## nono-sandbox.ts
 
 - Untouched by this repo's change flow: installed and updated by the nono
