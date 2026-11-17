@@ -1,8 +1,29 @@
 # Workflow supervisor — Phase 2 implementation contract
 
-Status: revised proposal ready for user approval before tests and implementation. Two independent contract audits are incorporated; the parentless-reviewer host probe has passed and no plugin implementation exists.
+Status: base contract approved 2026-11-15 (commit 336387e); amendment A1 accepted and the RED test suite locked 2026-11-15, before implementation. Two independent contract audits are incorporated, the parentless-reviewer host probe has passed, and the final independent RED audit found no remaining technical blockers. No plugin implementation exists.
 
 Source: drafted 2026-11-15 from the agreed Phase 2 plan in `workflow-supervisor.md`, the Phase 1 experiments, an independent `workflow-reviewer` contract audit, official OpenCode documentation, and the installed OpenCode v2.3.0 OpenAPI schema and host probe below.
+
+## Locked test baseline
+
+Locked 2026-11-15 after A1 acceptance. Any change requires a recorded amendment.
+
+- `contract.test.ts` — SHA-256 `30915f4c5bf5be998e234519c4d798f05e9b553e5e1cf122489a64ad25d5d49e`
+- `contract-support.ts` — SHA-256 `4d023d152e4b7e4372950c39715c5de0c36170241982e6e9d70621f23317efce`
+- `permission-probe.ts` — SHA-256 `45da1e4ffa9cab602ab9d8ca3e29d7c55eeedd8180434a83c66ce7933aa7398c`
+
+## Amendments
+
+### A1 — pre-lock test harness and permission verification
+
+Status: accepted 2026-11-15 after the independent RED-test audit and user acceptance; behavioral requirements unchanged. The tests are locked.
+
+- Original item 15: "Agent edit probes deny workflow policy and runtime-state modifications without changing unrelated project files."
+- Amended item 15: "`session.permission.create` evaluates `edit` on the workflow policy and runtime-state paths as `deny` for the `build` agent, a control path already denied by standing filename rules as `deny`, and an unrelated project file as `allow`; no file is modified."
+- Harness change: the original single `bun test` command becomes 18 pure unit tests plus one live permission probe.
+- Reviewer mocks: the assumed `client.session.*` call and response shapes are enumerated in the harness section, with their generated-client basis and a first-implementation-step verification commitment.
+- Reason: inspecting rule strings from `opencode debug agents` can pass while the glob fails to protect the path, and it does not exercise permission evaluation. The public `session.permission.create` API evaluates the active `build` fence without writing a file. Pure module tests stay fast; the live probe owns host access. The control path proves the endpoint can return `deny`, so a missing workflow fence is distinguishable from an endpoint that ignores the request.
+- Scope: verification mechanism only. Policy and runtime state remain denied, and unrelated project files remain allowed.
 
 ## Scope and authority
 
@@ -113,7 +134,16 @@ The explicit checkpoint tool returns only a checkpoint ID and state path, or `di
 
 Use host-provided `@opencode/plugin` and runtime built-ins, with no bundled runtime dependency or package installation. Use the archived `bun:test` precedent without restoring the V1 plugin or its dependencies.
 
-Run contract tests with `bun test src/plugins/workflow-supervisor` through the test subagent. Parse-check with `./scripts/ts-parse.ts src/plugins/workflow-supervisor`. Update root `AGENTS.md` with the test command and `src/plugins/AGENTS.md` with the live plugin architecture.
+The suite is 18 pure unit tests plus one live permission probe. Run the unit tests with `bun test src/plugins/workflow-supervisor` and the probe with `bun src/plugins/workflow-supervisor/permission-probe.ts`, both through the test subagent. Parse-check with `./scripts/ts-parse.ts src/plugins/workflow-supervisor`. Update root `AGENTS.md` with both commands and `src/plugins/AGENTS.md` with the live plugin architecture.
+
+The plugin client call and response shapes used by the reviewer mocks are explicit assumptions from the generated `@opencode/client` contract, which the client guide defines as generated from the same HTTP contract as the installed v2.3.0 OpenAPI schema:
+
+- `session.create` receives `{ agent, location: { directory } }` and returns `{ id }`.
+- `session.prompt` and `session.wait` receive `{ sessionID }`; `session.context` returns ordered messages whose assistant text parts carry `content`.
+- `session.get` returns the session record with `outcome`, `tokens`, `cost`, and `time`; elapsed time is `time.updated - time.created`.
+- `session.interrupt` receives `{ sessionID, resume }`, mapped to the API's `resume` query parameter; the timeout probe expects `resume: false`.
+
+The first implementation step confirms these against the installed plugin types and a host call; corrections at that point are recorded as a test amendment rather than silent rewrites.
 
 ## Contract tests before implementation
 
@@ -131,7 +161,7 @@ Run contract tests with `bun test src/plugins/workflow-supervisor` through the t
 12. Reviewer failure and timeout persist failed checkpoints; timeout interrupts only the reviewer.
 13. The runtime state directory is absent from `git status` after initialization.
 14. Configuration notifications are location-filtered and fingerprint-deduplicated; no notification contains findings.
-15. Agent edit probes deny workflow policy and runtime-state modifications without changing unrelated project files.
+15. `session.permission.create` evaluates `edit` on the workflow policy and runtime-state paths as `deny` for the `build` agent, a control path already denied by standing filename rules as `deny`, and an unrelated project file as `allow`; no file is modified.
 16. `steer` and `enforce` policies each produce an observation checkpoint whose `checkpoint.json` records the actual `requestedMode` and `effectiveMode: "advisory"`.
 17. Automatic `evidence.json` contains the session-turn diff, current working-tree diff and status, contract content and path, requested/effective modes, and complete evidence provenance.
 18. A completed checkpoint records the reviewer session ID, tokens, cost, and elapsed time.
