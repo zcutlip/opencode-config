@@ -13,8 +13,11 @@ see `LEDGER.md` (the port ledger) before resurrecting anything from it.
   subagent (`src/agents/commit.md`)
 - Pre-commit hooks enforce trailing-whitespace, end-of-file, and JSON/JSON5
   checks — fix what they flag rather than bypassing them
-- No build/lint/test toolchain at present; it is parked in `archive/` with the
-  V1 plugins — revive it there when authoring a V2 plugin
+- Plugin tests use Bun's built-in `bun:test` runner; the V1 dependencies stay
+  parked in `archive/`. Workflow-supervisor contract tests:
+  `bun test src/plugins/workflow-supervisor`; the live permission fence probe
+  is `bun src/plugins/workflow-supervisor/permission-probe.ts` (delegate both
+  to the test agent). No general build/lint toolchain is restored.
 - `./scripts/ts-parse.ts <path>...` parse-checks TS/TSX — syntax only, it does
   not typecheck; `--git` also parses each file's HEAD version to separate new
   breakage from old
