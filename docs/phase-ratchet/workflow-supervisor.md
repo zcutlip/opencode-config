@@ -2,7 +2,7 @@
 
 Source: drafted on 2026-11-07 from the user's request for an independent background reviewer that critiques and steers other agents, using the OpenCode V2 documentation linked below. Implementation phasing was added on 2026-11-09 from the follow-up staged-rollout discussion. Per-project activation and scope were added on 2026-11-10 from the follow-up opt-in discussion. The Phase 2 contract and parentless-reviewer host probe were added on 2026-11-15. Related prior work: [Phase Ratchet Prototype](ratchet-prototype.md).
 
-Status: Phase 1 (on-demand reviewer agent and command) implemented 2026-11-11. The Phase 2 implementation contract is approved, amendment A1 is accepted, and the RED tests are locked 2026-11-15; the supervisor plugin and automatic phases do not exist yet.
+Status: Phase 1 (on-demand reviewer agent and command) implemented 2026-11-11. Phase 2 (automatic observation and passive reporting) implemented 2026-11-17 after 16 completed real checkpoints. Phase 3 (automatic soft steering) implemented 2026-11-17 with amendment A2 accepted; deterministic gates remain Phase 4.
 
 ## Goal
 
