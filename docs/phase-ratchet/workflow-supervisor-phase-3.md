@@ -25,6 +25,7 @@ Phase 3 adds automatic soft steering for projects whose policy requests `steer` 
 ## Evidence changes
 
 - Automatic evidence now records the latest assistant text from the observed session.
+- Automatic reviewer envelopes surface the observed session’s latest user request verbatim and a one-line changed-files summary, so the reviewer receives the same scope cue as a manual checkpoint instead of an open-ended audit brief.
 - The session-turn diff remains unavailable because the installed plugin context exposes no `session.diff`; provenance records that limitation.
 - The working-tree diff and status remain the authoritative change-set evidence.
 
