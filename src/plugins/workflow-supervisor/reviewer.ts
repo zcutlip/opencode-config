@@ -28,12 +28,20 @@ function envelope(input: {
   eventsPath: string
   provenance: Record<string, any>
   explicit?: boolean
+  latestUserRequest?: string
+  changedFiles?: string[]
 }): string {
   const request = input.explicit
     ? "User request: explicit checkpoint requested by the calling session; no automatic trigger."
-    : "User request: none — automatic execution-completion checkpoint; no transition requested."
+    : typeof input.latestUserRequest === "string" && input.latestUserRequest.trim() !== ""
+      ? `User request: ${input.latestUserRequest.trim()}`
+      : "User request: none — automatic execution-completion checkpoint; no transition requested."
+  const changedFiles = Array.isArray(input.changedFiles) && input.changedFiles.length > 0
+    ? `Changed files: ${Array.from(new Set(input.changedFiles.filter((file) => typeof file === "string"))).join(", ")}`
+    : undefined
   return [
     request,
+    ...(changedFiles === undefined ? [] : ["", changedFiles]),
     "",
     "Mode: checkpoint",
     "",
@@ -53,6 +61,8 @@ export async function runReviewer(input: {
   provenance: Record<string, any>
   timeoutMs: number
   explicit?: boolean
+  latestUserRequest?: string
+  changedFiles?: string[]
 }): Promise<{ sessionID: string; report: string; usage: any }> {
   const session = await input.client.session.create({
     agent: "workflow-reviewer",

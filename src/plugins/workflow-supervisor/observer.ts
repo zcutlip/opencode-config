@@ -217,6 +217,10 @@ export class WorkflowObserver {
         provenance: evidence.provenance,
         timeoutMs: this.timeoutMs,
         explicit: trigger === "explicit",
+        latestUserRequest: evidence.latestUserRequest,
+        changedFiles: evidence.workingDiff
+          .map((item: any) => (typeof item?.file === "string" ? item.file : undefined))
+          .filter((file: any): file is string => typeof file === "string"),
       })
       await this.ledger.complete(id, result)
       if (trigger === "explicit") {
