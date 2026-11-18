@@ -1,6 +1,6 @@
 # Workflow supervisor — Phase 2 implementation contract
 
-Status: base contract approved 2026-11-15 (commit 336387e); amendment A1 accepted and the RED test suite locked 2026-11-15, before implementation. Two independent contract audits are incorporated, the parentless-reviewer host probe has passed, and the final independent RED audit found no remaining technical blockers. No plugin implementation exists.
+Status: base contract approved 2026-11-15 (commit 336387e); amendment A1 accepted and the RED test suite locked 2026-11-15, before implementation. Phase 2 implementation completed 2026-11-17. Amendment A2 accepted 2026-11-17 for Phase 3: `steer` now records `effectiveMode: "steer"`; `enforce` remains `"advisory"` until Phase 4.
 
 Source: drafted 2026-11-15 from the agreed Phase 2 plan in `workflow-supervisor.md`, the Phase 1 experiments, an independent `workflow-reviewer` contract audit, official OpenCode documentation, and the installed OpenCode v2.3.0 OpenAPI schema and host probe below.
 
@@ -8,8 +8,8 @@ Source: drafted 2026-11-15 from the agreed Phase 2 plan in `workflow-supervisor.
 
 Locked 2026-11-15 after A1 acceptance. Any change requires a recorded amendment.
 
-- `contract.test.ts` — SHA-256 `30915f4c5bf5be998e234519c4d798f05e9b553e5e1cf122489a64ad25d5d49e`
-- `contract-support.ts` — SHA-256 `4d023d152e4b7e4372950c39715c5de0c36170241982e6e9d70621f23317efce`
+- `contract.test.ts` — SHA-256 `7f45ff8c3b6da77f17216486714eefc9a855a21e2df536b7832a5e6dd0742677`
+- `contract-support.ts` — SHA-256 `6b8a03a146854119c0402a83dc289109b3ff5a2321a2408af1247401a20f21c8`
 - `permission-probe.ts` — SHA-256 `45da1e4ffa9cab602ab9d8ca3e29d7c55eeedd8180434a83c66ce7933aa7398c`
 
 ## Amendments
@@ -24,6 +24,17 @@ Status: accepted 2026-11-15 after the independent RED-test audit and user accept
 - Reviewer mocks: the assumed `client.session.*` call and response shapes are enumerated in the harness section, with their generated-client basis and a first-implementation-step verification commitment.
 - Reason: inspecting rule strings from `opencode debug agents` can pass while the glob fails to protect the path, and it does not exercise permission evaluation. The public `session.permission.create` API evaluates the active `build` fence without writing a file. Pure module tests stay fast; the live probe owns host access. The control path proves the endpoint can return `deny`, so a missing workflow fence is distinguishable from an endpoint that ignores the request.
 - Scope: verification mechanism only. Policy and runtime state remain denied, and unrelated project files remain allowed.
+
+### A2 — Phase 3 effective-mode semantics
+
+Status: accepted 2026-11-17 after Phase 2 completed 16 real checkpoints.
+
+- Original test 16 wording: “steer/enforce record requested mode with advisory effective behavior.”
+- Amended test 16 wording: “steer records steering effective behavior and enforce remains advisory.”
+- Original test 17 expectation: a `steer` policy records `effectiveMode: "advisory"`.
+- Amended test 17 expectation: a `steer` policy records `effectiveMode: "steer"`.
+- Reason: Phase 3 implements soft steering, so the recorded effective behavior must match the capability actually in effect. `enforce` remains advisory because deterministic gates are Phase 4.
+- Scope: mode recording only. Policy schema, activation boundaries, reviewer independence, and permission fences are unchanged.
 
 ## Scope and authority
 
