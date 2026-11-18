@@ -36,6 +36,17 @@ Status: accepted 2026-11-17 after Phase 2 completed 16 real checkpoints.
 - Reason: Phase 3 implements soft steering, so the recorded effective behavior must match the capability actually in effect. `enforce` remains advisory because deterministic gates are Phase 4.
 - Scope: mode recording only. Policy schema, activation boundaries, reviewer independence, and permission fences are unchanged.
 
+### A3 — Reviewer session hygiene
+
+Status: accepted 2026-11-18 after the filament session-list review.
+
+- Original test 6 expectation: `runReviewer` leaves the reviewer session unmodified, so `calls.update` stays empty.
+- Amended test 6 expectation: `runReviewer` archives the reviewer session exactly once with `time.archived`, so `calls.update` records one `{ sessionID, time: { archived } }` call.
+- Original test 12 expectation: a reviewer timeout interrupts the session and leaves `calls.update` empty.
+- Amended test 12 expectation: a reviewer timeout interrupts the session and still archives it exactly once with `time.archived`.
+- Reason: reviewer sessions are internal bookkeeping, not user work. Archiving keeps them out of the TUI session list while preserving the transcript for audit; the reviewer agent is also marked `hidden` so it never appears in agent pickers.
+- Scope: session hygiene only. Reviewer independence, evidence capture, steering, and permission fences are unchanged.
+
 ## Scope and authority
 
 Build a globally installed server plugin that automatically observes only projects that opt into a non-off workflow mode. Phase 2 behavior is always passive advisory observation, regardless of the requested future mode.
