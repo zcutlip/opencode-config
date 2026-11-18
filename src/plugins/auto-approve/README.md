@@ -58,9 +58,9 @@ release without a breaking-change note:
   `list`/`sync`/`invalidate` for the permission data layer; `reply` exists
   because the built-in autoaccept calls it internally (verified on 2.3.0).
 - The `prompt.footer.status` slot render receiving a session ID: the slot
-  name is documented, the render props are not. the
-`prompt.footer.status` slot render receiving a session ID, and the
-`data.session.permission.reply` surface. After an OpenCode upgrade, read
+  name is documented, the render props are not.
+
+After an OpenCode upgrade, read
 `~/.local/share/opencode/auto-approve-debug.log` — every resolution,
 approval, and failure lands there — before assuming the toggle logic broke.
 
