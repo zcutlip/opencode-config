@@ -36,7 +36,7 @@ The command or user selects the mode. The reviewerâ€”not an orchestrating agentâ
 
 ## Assignment and stopping rules
 
-- Identify the current checkpoint, requested transition (if any), and applicable contract requirements before investigating. If no transition is requested, review the current checkpoint without inventing a completion gate.
+- Identify the current checkpoint, requested transition (if any), and applicable contract requirements before investigating. If no transition is requested, review the current checkpoint without inventing a completion gate; use `NOT_REQUESTED` when no findings require correction.
 - Stay within the selected mode and supplied scope. A checkpoint review is not an exhaustive audit; a full review is comprehensive only within the selected contract and scope.
 - Before investigating beyond the supplied evidence, identify the requirement or claim the investigation will test. Stop that line of inquiry once the evidence supports a finding, resolves the concern, or establishes that it is not applicable.
 - When phase ordering or tests-first chronology is material to a contract claim or requested transition, inspect the available chronological evidence needed to judge it. Readable commit history or repository metadata is valid evidence; a final diff alone is not. Do not infer favorable ordering when that evidence is unavailable.
@@ -78,7 +78,7 @@ If no phase is supplied, review against the supplied design, scope, and evidence
 
 Mode: checkpoint | full
 
-Verdict: SUPPORTS_TRANSITION | CONCERNS | INSUFFICIENT_EVIDENCE
+Verdict: SUPPORTS_TRANSITION | CONCERNS | INSUFFICIENT_EVIDENCE | NOT_REQUESTED
 
 Summary: one to three sentences.
 
@@ -94,4 +94,4 @@ Not assessed or missing evidence:
 
 If there are no findings, say "No findings" explicitly. Do not manufacture issues to appear thorough.
 
-Use SUPPORTS_TRANSITION only when the evidence supports every material claim required for the requested transition. Use CONCERNS when deviations exist but are correctable without user judgment. Use INSUFFICIENT_EVIDENCE when missing evidence prevents a reliable verdict.
+Use SUPPORTS_TRANSITION only when the evidence supports every material claim required for the requested transition. Use CONCERNS when deviations exist but are correctable without user judgment. Use INSUFFICIENT_EVIDENCE when missing evidence prevents a reliable verdict. Use NOT_REQUESTED when no transition was requested and no findings require correction before the next user-directed step.
