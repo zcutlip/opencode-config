@@ -1,6 +1,6 @@
 # Workflow supervisor — Phase 3 implementation contract
 
-Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. The Phase 3 contract suite passes 24/24 tests.
+Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. The Phase 3 contract suite passes 24/24 tests.
 
 Source: Phase 2 evidence from the filament exercise, the Phase 2 closeout review, the reviewer no-transition probe note, and the approved Phase 3 plan in `workflow-supervisor.md`.
 
@@ -21,6 +21,8 @@ Phase 3 adds automatic soft steering for projects whose policy requests `steer` 
 - Steering attempts are bounded per session; after the limit, no further synthetic messages are sent and the coordinator returns an escalation decision.
 - Explicit checkpoints remain report-only; they do not steer.
 - The reviewer gets a `NOT_REQUESTED` verdict for checkpoints with no requested transition, so clean no-transition checkpoints no longer force a transition verdict.
+- `workflow-reviewer` is registered as a hidden agent, so it never appears in agent pickers.
+- Reviewer sessions are archived through `session.update` after the report is written or the run fails; archived sessions stay out of the TUI session list while remaining retrievable by ID.
 
 ## Evidence changes
 
