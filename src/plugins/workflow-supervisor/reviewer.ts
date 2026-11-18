@@ -70,43 +70,50 @@ export async function runReviewer(input: {
   })
   const sessionID = session.id
 
-  await input.client.session.prompt({
-    sessionID,
-    text: envelope(input),
-  })
-
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new ReviewerTimeoutError()), input.timeoutMs)
-  })
-
   try {
-    await Promise.race([input.client.session.wait({ sessionID }), timeout])
-  } catch (error) {
-    if (error instanceof ReviewerTimeoutError) {
-      await input.client.session.interrupt({ sessionID, resume: false })
+    await input.client.session.prompt({
+      sessionID,
+      text: envelope(input),
+    })
+
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new ReviewerTimeoutError()), input.timeoutMs)
+    })
+
+    try {
+      await Promise.race([input.client.session.wait({ sessionID }), timeout])
+    } catch (error) {
+      if (error instanceof ReviewerTimeoutError) {
+        await input.client.session.interrupt({ sessionID, resume: false })
+        throw error
+      }
       throw error
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
     }
-    throw error
+
+    const record = await input.client.session.get({ sessionID })
+    if (record?.outcome !== "succeeded") {
+      throw new ReviewerFailedError(`Reviewer outcome was ${record?.outcome ?? "unknown"}`)
+    }
+
+    const report = reportFrom(await input.client.session.context({ sessionID }))
+    if (report === "") throw new ReviewerFailedError("Reviewer returned an empty report")
+
+    return {
+      sessionID,
+      report,
+      usage: {
+        tokens: record.tokens,
+        cost: record.cost,
+        elapsedMs: (record.time?.updated ?? 0) - (record.time?.created ?? 0),
+      },
+    }
   } finally {
-    if (timer !== undefined) clearTimeout(timer)
-  }
-
-  const record = await input.client.session.get({ sessionID })
-  if (record?.outcome !== "succeeded") {
-    throw new ReviewerFailedError(`Reviewer outcome was ${record?.outcome ?? "unknown"}`)
-  }
-
-  const report = reportFrom(await input.client.session.context({ sessionID }))
-  if (report === "") throw new ReviewerFailedError("Reviewer returned an empty report")
-
-  return {
-    sessionID,
-    report,
-    usage: {
-      tokens: record.tokens,
-      cost: record.cost,
-      elapsedMs: (record.time?.updated ?? 0) - (record.time?.created ?? 0),
-    },
+    await input.client.session.update({
+      sessionID,
+      time: { archived: Date.now() },
+    }).catch(() => {})
   }
 }

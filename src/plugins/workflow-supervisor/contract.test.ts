@@ -238,7 +238,9 @@ describe("Phase 2 ownership, claims, and explicit checkpoints", () => {
     expect(calls.wait.every((call) => call.sessionID === "ses_reviewer")).toBe(true)
     expect(calls.interrupt).toHaveLength(0)
     expect(calls.synthetic).toHaveLength(0)
-    expect(calls.update).toHaveLength(0)
+    expect(calls.update).toEqual([
+      { sessionID: "ses_reviewer", time: { archived: expect.any(Number) } },
+    ])
 
     const harness = await observerHarness()
     const result = await harness.observer.handleExecutionSucceeded("ses_observed")
@@ -415,7 +417,9 @@ describe("Phase 2 evidence and reviewer lifecycle", () => {
     await expect(runReviewer(reviewerInput(client, { timeoutMs: 5 }))).rejects.toBeInstanceOf(ReviewerTimeoutError)
     expect(calls.interrupt).toEqual([{ sessionID: "ses_reviewer", resume: false }])
     expect(calls.synthetic).toHaveLength(0)
-    expect(calls.update).toHaveLength(0)
+    expect(calls.update).toEqual([
+      { sessionID: "ses_reviewer", time: { archived: expect.any(Number) } },
+    ])
   })
 
   test("17. automatic evidence contains both diffs, status, contract, modes, and provenance", async () => {
