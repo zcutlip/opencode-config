@@ -52,7 +52,8 @@ so an idle session used to walk prompts from every other session and project.
   subagent picker keeps working exactly as it does without the plugin. The
   same applies while the transcript is still empty or not yet loaded — the
   cold-start sync path must not swallow it, which is what made ↓ inert in a
-  fresh session whose only prompt was a slash command
+  fresh session whose only prompt was a slash command. In that same cold
+  state ↑ with a typed draft moves the caret rather than syncing
 - History comes from `data.session.message.list(sessionID)` (user messages with
   `text`), so nothing is stored by the plugin and a new session starts empty
 - Reaches the composer through `renderer.currentFocusedRenderable` and the
