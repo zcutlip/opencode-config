@@ -194,13 +194,14 @@ describe("Phase 2 policy and activation", () => {
 // Contract test 15 lives in permission-probe.ts: it uses the documented
 // session.permission.create evaluation API rather than inspecting rule strings.
 
-  test("16. steer/enforce record requested mode with advisory effective behavior", async () => {
-    for (const mode of ["steer", "enforce"]) {
+  test("16. steer records steering effective behavior and enforce remains advisory", async () => {
+    const effectiveModes = { steer: "steer", enforce: "advisory" } as const
+    for (const [mode, effectiveMode] of Object.entries(effectiveModes)) {
       const harness = await observerHarness({ resolution: resolution("/project/A", { requestedMode: mode }) })
       expect((await harness.observer.handleExecutionSucceeded("ses_observed")).status).toBe("completed")
       const metadata = [...harness.ledger.claims.values()][0]
       expect(metadata.requestedMode).toBe(mode)
-      expect(metadata.effectiveMode).toBe("advisory")
+      expect(metadata.effectiveMode).toBe(effectiveMode)
       expect(harness.reviewerCalls).toHaveLength(1)
     }
   })
@@ -436,7 +437,7 @@ describe("Phase 2 evidence and reviewer lifecycle", () => {
     expect(value.contractPath).toBe(policy.contractPath)
     expect(value.contractContent).toBe("Agreed contract")
     expect(value.requestedMode).toBe("steer")
-    expect(value.effectiveMode).toBe("advisory")
+    expect(value.effectiveMode).toBe("steer")
     expect(value.provenance.source).toBe("session.execution.succeeded")
 
     const harness = await observerHarness({ evidence: value })

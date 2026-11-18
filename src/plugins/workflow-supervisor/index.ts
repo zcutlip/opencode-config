@@ -4,6 +4,7 @@ import { FileLedger } from "./ledger.ts"
 import { WorkflowObserver, checkpointInputSchema } from "./observer.ts"
 import { resolveWorkflowPolicy } from "./policy.ts"
 import { runReviewer } from "./reviewer.ts"
+import { SteeringCoordinator } from "./steering.ts"
 import { WorkflowSupervisorRpc } from "./rpc.ts"
 
 const observedEventTypes = [
@@ -37,11 +38,24 @@ function latestUserRequest(messages: any[]): string {
   return "User request unavailable"
 }
 
+function latestAssistantText(messages: any[]): string | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message?.type !== "assistant") continue
+    if (typeof message.text === "string" && message.text.trim() !== "") return message.text
+    for (const part of message.content ?? []) {
+      if (part?.type === "text" && typeof part.text === "string" && part.text.trim() !== "") return part.text
+    }
+  }
+  return undefined
+}
+
 export default Plugin.define({
   id: "local.workflow-supervisor",
   async setup(ctx) {
     const rpc = await ctx.rpc.register(WorkflowSupervisorRpc, {})
     const observers = new Map<string, WorkflowObserver>()
+    const steering = new SteeringCoordinator({ limit: 3 })
 
     const resolveForSession = async (sessionID: string) => {
       const session = await ctx.session.get({ sessionID })
@@ -73,16 +87,16 @@ export default Plugin.define({
           const session = await ctx.session.get({ sessionID })
           const messages = await ctx.session.context({ sessionID })
           const request = latestUserRequest(messages)
+          const assistantText = latestAssistantText(messages)
           const location = { directory: session.location?.directory ?? directory }
           const status = dataOf(await ctx.vcs.status({ location }))
           const workingDiff = dataOf(await ctx.vcs.diff({ location, mode: "working" }))
-          const turnDiff = trigger === "execution"
-            ? dataOf(await (ctx.session as any).diff({ sessionID }))
-            : undefined
+          const turnDiff = undefined
           const common = {
             session: policy.session,
             policy,
             latestUserRequest: request,
+            latestAssistantText: assistantText,
             workingDiff,
             status,
             provenance: {
@@ -91,6 +105,9 @@ export default Plugin.define({
               source: trigger === "execution"
                 ? "session.execution.succeeded"
                 : "workflow.checkpoint",
+              turnDiff: trigger === "execution"
+                ? "unavailable: plugin context exposes no session.diff"
+                : undefined,
             },
           }
           if (trigger === "explicit") {
@@ -148,6 +165,12 @@ export default Plugin.define({
       })
     })
 
+    const contextHook = await ctx.session.hook("context", (event: any) => {
+      const text = steering.context(event.sessionID)
+      if (text === undefined) return
+      event.system.push({ type: "text", text })
+    })
+
     const controller = new AbortController()
     void (async () => {
       for await (const event of ctx.event.subscribe({
@@ -159,8 +182,37 @@ export default Plugin.define({
         const directory = (event as any).location?.directory ?? ctx.location.directory
         const observer = observerFor(directory)
         if ((event as any).type === "session.execution.succeeded") {
-          void observer.recordEvent(event).then((owned) => {
-            if (owned) void observer.handleExecutionSucceeded(sessionID)
+          void observer.recordEvent(event).then(async (owned) => {
+            if (!owned) return
+            const result = await observer.handleExecutionSucceeded(sessionID)
+            if (result?.status !== "completed" || result.trigger !== "execution") return
+            const decision = steering.consider({
+              sessionID,
+              requestedMode: result.requestedMode,
+              checkpointID: result.checkpointID,
+              report: result.report,
+              contractPath: result.contractPath,
+              reportPath: result.reportPath,
+            })
+            if (decision.action === "steer") {
+              await ctx.session.synthetic({
+                sessionID,
+                text: decision.text,
+                delivery: "queue",
+                resume: false,
+                metadata: {
+                  workflowSupervisor: true,
+                  checkpointID: result.checkpointID,
+                },
+              })
+              return
+            }
+            if (decision.action === "escalate") {
+              console.warn(
+                "[workflow-supervisor] steering limit reached",
+                { sessionID, checkpointID: result.checkpointID, attempts: decision.attempts },
+              )
+            }
           })
         } else {
           await observer.recordEvent(event)
@@ -171,6 +223,9 @@ export default Plugin.define({
       console.error("[workflow-supervisor] event stream failed", error)
     })
 
-    return () => controller.abort()
+    return () => {
+      void contextHook.dispose()
+      controller.abort()
+    }
   },
 })

@@ -38,7 +38,7 @@ export function resolution(root: string, overrides: Record<string, any> = {}): R
     worktree: root,
     mainRepository: root,
     requestedMode,
-    effectiveMode: "advisory",
+    effectiveMode: requestedMode === "steer" ? "steer" : "advisory",
     policy: {
       enabled: true,
       mode: requestedMode,

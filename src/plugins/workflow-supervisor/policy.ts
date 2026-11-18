@@ -23,7 +23,7 @@ export interface ResolvedWorkflowPolicy {
   worktree: string
   mainRepository: string
   requestedMode: Exclude<WorkflowMode, "off">
-  effectiveMode: "advisory"
+  effectiveMode: "advisory" | "steer"
   policy: WorkflowPolicy
   contractPath: string
   contractContent: string
@@ -272,7 +272,7 @@ export async function resolveWorkflowPolicy(
     worktree: repository.worktree,
     mainRepository: repository.mainRepository,
     requestedMode: policy.mode as Exclude<WorkflowMode, "off">,
-    effectiveMode: "advisory",
+    effectiveMode: policy.mode === "steer" ? "steer" : "advisory",
     policy,
     contractPath,
     contractContent,

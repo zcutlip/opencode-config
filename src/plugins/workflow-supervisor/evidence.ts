@@ -16,6 +16,7 @@ export interface EvidenceCompleteness {
 export interface WorkflowEvidence {
   hash: string
   latestUserRequest: string
+  latestAssistantText?: string
   turnDiff?: any[]
   workingDiff: any[]
   status: any[]
@@ -25,7 +26,7 @@ export interface WorkflowEvidence {
   contractPath: string
   contractContent: string
   requestedMode: string
-  effectiveMode: "advisory"
+  effectiveMode: "advisory" | "steer"
   provenance: Record<string, any>
 }
 
@@ -41,6 +42,7 @@ function eventsComplete(events: any[] | undefined): boolean {
 export function evidenceHash(value: Omit<WorkflowEvidence, "hash">): string {
   const stable = {
     latestUserRequest: value.latestUserRequest,
+    latestAssistantText: value.latestAssistantText,
     turnDiff: value.turnDiff,
     workingDiff: value.workingDiff,
     status: value.status,
@@ -56,6 +58,7 @@ export function evidenceHash(value: Omit<WorkflowEvidence, "hash">): string {
 export function buildAutomaticEvidence(input: {
   session: any
   latestUserRequest: string
+  latestAssistantText?: string
   turnDiff?: any[]
   workingDiff?: any[]
   status?: any[]
@@ -70,10 +73,11 @@ export function buildAutomaticEvidence(input: {
 
   const turnDiff = input.turnDiff ?? []
   const events = input.events ?? []
-  const turnDiffComplete = !truncated(turnDiff)
+  const turnDiffComplete = input.turnDiff !== undefined && !truncated(turnDiff)
   const eventsAreComplete = eventsComplete(events)
   const value = {
     latestUserRequest: input.latestUserRequest,
+    latestAssistantText: input.latestAssistantText,
     turnDiff,
     workingDiff,
     status: input.status ?? [],
@@ -87,7 +91,7 @@ export function buildAutomaticEvidence(input: {
     contractPath: input.policy.contractPath,
     contractContent: input.policy.contractContent,
     requestedMode: input.policy.requestedMode,
-    effectiveMode: "advisory" as const,
+    effectiveMode: (input.policy.effectiveMode ?? "advisory") as "advisory" | "steer",
     provenance: input.provenance,
   }
   return { hash: evidenceHash(value), ...value }
@@ -97,6 +101,7 @@ export function buildExplicitEvidence(input: {
   session: any
   policy: any
   latestUserRequest: string
+  latestAssistantText?: string
   workingDiff?: any[]
   status?: any[]
   turnDiff?: any[]
@@ -111,6 +116,7 @@ export function buildExplicitEvidence(input: {
 
   const value = {
     latestUserRequest: input.latestUserRequest,
+    latestAssistantText: input.latestAssistantText,
     workingDiff,
     status: input.status ?? [],
     completeness: {
@@ -122,7 +128,7 @@ export function buildExplicitEvidence(input: {
     contractPath: input.policy.contractPath,
     contractContent: input.policy.contractContent,
     requestedMode: input.policy.requestedMode,
-    effectiveMode: "advisory" as const,
+    effectiveMode: (input.policy.effectiveMode ?? "advisory") as "advisory" | "steer",
     provenance: {
       ...input.provenance,
       phase: input.input?.phase,

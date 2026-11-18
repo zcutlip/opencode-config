@@ -222,7 +222,16 @@ export class WorkflowObserver {
       if (trigger === "explicit") {
         return { status: "completed", checkpointID: id, statePath: this.ledger.path(id) }
       }
-      return { status: "completed", checkpointID: id }
+      return {
+        status: "completed",
+        checkpointID: id,
+        trigger,
+        requestedMode: policy.requestedMode,
+        effectiveMode: policy.effectiveMode,
+        contractPath: evidence.contractPath,
+        report: result.report,
+        reportPath: join(this.ledger.path(id), "report.md"),
+      }
     } catch (error) {
       await this.ledger.fail(id, error)
       return { status: "failed", checkpointID: id }
