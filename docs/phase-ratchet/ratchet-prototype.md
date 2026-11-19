@@ -1,7 +1,5 @@
 # Phase Ratchet Prototype — Write-up
 
-Source: designed and tested interactively with the user in this session (2026-10-25 – 2026-10-27). Prototype lives in scratch dir `/private/var/folders/d4/2v43w97j6nb7l56kvm59ngmw0000gq/opencode/ratchet-prototype` (temp — re-creatable from this note).
-
 ## Idea
 
 A one-way phase gate for OpenCode work: FOO → BAR → BAZ (linear; branching deferred as unbounded complexity). The agent path moves forward only. The user ("god" — owns the machine, drives the agent) keeps a manual override outside tool permissions for emergencies (e.g. blocking FOO work discovered during BAR).

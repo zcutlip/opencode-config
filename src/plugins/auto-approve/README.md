@@ -69,9 +69,3 @@ approval, and failure lands there — before assuming the toggle logic broke.
 `bun test src/plugins/auto-approve` (delegate runs to the test agent) covers
 the mode resolution in `mode.ts`: inheritance, override precedence, toggle
 inversion, and unknown-value fallback.
-
----
-
-Written 2026-11-17 with OpenCode (agent session); requirements and design
-decisions from the Nov 15–17 working sessions (scope, keybind, palette
-naming, badge surface, test coverage).

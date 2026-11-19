@@ -90,11 +90,3 @@ upgrade, open a session with at least two prompts and check four things:
 3. From the empty draft, ↓ opens the subagent picker (and `escape` closes it) —
    the key must still reach its normal owner.
 4. In a brand-new session, ↑ does nothing and ↓ still opens the picker.
-
----
-
-Written 2026-11-06 with OpenCode (agent session), from the prompt "is the way
-up-arrow history works in opencode configurable?" and the follow-up request to
-build per-session recall. Follow-up fixes for the ↓ fall-through and the
-cold-start release the same day; behaviour re-verified on OpenCode 2.3.0,
-2026-11-17.

@@ -2,8 +2,6 @@
 
 Status: base contract approved 2026-11-15 (commit 336387e); amendment A1 accepted and the RED test suite locked 2026-11-15, before implementation. Phase 2 implementation completed 2026-11-17. Amendment A2 accepted 2026-11-17 for Phase 3: `steer` now records `effectiveMode: "steer"`; `enforce` remains `"advisory"` until Phase 4.
 
-Source: drafted 2026-11-15 from the agreed Phase 2 plan in `workflow-supervisor.md`, the Phase 1 experiments, an independent `workflow-reviewer` contract audit, official OpenCode documentation, and the installed OpenCode v2.3.0 OpenAPI schema and host probe below.
-
 ## Locked test baseline
 
 Locked 2026-11-15 after A1 acceptance. Any change requires a recorded amendment.

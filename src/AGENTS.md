@@ -50,9 +50,6 @@
 - Any other shell command falls through to the global ask gate and prompts
   the user — that is a normal approval, not a policy failure.
 
-_Source: user request 2026-11-13 (global AGENTS.md), cross-checked against the
-permission rules in `src/opencode.jsonc` and live denial probes._
-
 ## Test Execution
 
 - When a task calls for running tests, delegate to the **test subagent**

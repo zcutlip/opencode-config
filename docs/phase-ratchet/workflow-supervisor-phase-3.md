@@ -2,8 +2,6 @@
 
 Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. The Phase 3 contract suite passes 24/24 tests.
 
-Source: Phase 2 evidence from the filament exercise, the Phase 2 closeout review, the reviewer no-transition probe note, and the approved Phase 3 plan in `workflow-supervisor.md`.
-
 ## Locked test baseline
 
 - `steering.test.ts` — SHA-256 `65b26072ba69c4dc3e7de289a783341ee0462275c335794727ecf1eee17f43a5`

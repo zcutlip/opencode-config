@@ -94,8 +94,3 @@ and its read-only permission fence in `src/opencode.jsonc`.
 - `docs/phase-ratchet/workflow-supervisor.md` — overall plan and phase status.
 - `docs/phase-ratchet/workflow-supervisor-phase-2.md` — observation contract.
 - `docs/phase-ratchet/workflow-supervisor-phase-3.md` — steering contract.
-
----
-
-Written 2026-11-18 with OpenCode (agent session), from the Phase 1–3 working
-sessions and the filament exercise.
