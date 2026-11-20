@@ -110,4 +110,15 @@ export class SteeringCoordinator {
       state.report,
     ].join("\n")
   }
+
+  /** Read-only view for badge/panel rendering: attempts, limit, unresolved state. */
+  view(sessionID: string): { attempts: number; limit: number; hasUnresolved: boolean } | undefined {
+    const state = this.states.get(sessionID)
+    if (!state) return undefined
+    return {
+      attempts: state.attempts,
+      limit: this.limit,
+      hasUnresolved: Boolean(state.report && state.checkpointID),
+    }
+  }
 }
