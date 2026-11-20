@@ -1,10 +1,18 @@
 import { Plugin } from "@opencode/plugin"
+import { join } from "node:path"
 import { buildAutomaticEvidence, buildExplicitEvidence } from "./evidence.ts"
 import { FileLedger } from "./ledger.ts"
 import { WorkflowObserver, checkpointInputSchema } from "./observer.ts"
 import { resolveWorkflowPolicy } from "./policy.ts"
 import { runReviewer } from "./reviewer.ts"
 import { SteeringCoordinator } from "./steering.ts"
+import {
+  buildSupervisionState,
+  listCheckpoints,
+  readReportText,
+  SteeringLog,
+  supervisionBadgeFromPolicy,
+} from "./supervision.ts"
 import { WorkflowSupervisorRpc } from "./rpc.ts"
 
 const observedEventTypes = [
@@ -53,7 +61,53 @@ function latestAssistantText(messages: any[]): string | undefined {
 export default Plugin.define({
   id: "local.workflow-supervisor",
   async setup(ctx) {
-    const rpc = await ctx.rpc.register(WorkflowSupervisorRpc, {})
+    const rpc = await ctx.rpc.register(WorkflowSupervisorRpc, {
+      supervisionBadge: async (input: any) => {
+        const sessionID = typeof input?.sessionID === "string" ? input.sessionID : ""
+        if (sessionID === "") return supervisionBadgeFromPolicy({ sessionID, policy: null })
+        try {
+          const policy = await resolveForSession(sessionID)
+          return supervisionBadgeFromPolicy({ sessionID, policy, view: steering.view(sessionID) })
+        } catch {
+          return supervisionBadgeFromPolicy({ sessionID, policy: null })
+        }
+      },
+      supervisionState: async (input: any) => {
+        const sessionID = typeof input?.sessionID === "string" ? input.sessionID : ""
+        if (sessionID === "") return { active: false }
+        try {
+          const resolved = await resolveForSession(sessionID)
+          if (!resolved) return { active: false }
+          const directory = resolved.worktree
+          const [deliveries, checkpoints] = await Promise.all([
+            new SteeringLog(directory).list(sessionID),
+            listCheckpoints(directory, 10),
+          ])
+          let latestReport: { path: string; text: string; truncated: boolean } | null = null
+          for (let index = checkpoints.length - 1; index >= 0; index -= 1) {
+            const summary = checkpoints[index]
+            if (summary.status !== "completed") continue
+            const path = join(directory, ".opencode", "workflow-state", "checkpoints", summary.id, "report.md")
+            const report = await readReportText(path)
+            if (report) {
+              latestReport = { path, ...report }
+              break
+            }
+          }
+          return buildSupervisionState({
+            sessionID,
+            policy: resolved,
+            view: steering.view(sessionID),
+            reassertion: steering.context(sessionID),
+            steering: deliveries,
+            checkpoints,
+            latestReport,
+          })
+        } catch {
+          return { active: false }
+        }
+      },
+    })
     const observers = new Map<string, WorkflowObserver>()
     const steering = new SteeringCoordinator({ limit: 3 })
 
@@ -152,6 +206,21 @@ export default Plugin.define({
           const result = await observerFor(directory).explicitCheckpoint(context.sessionID, input)
           if (result.status === "disabled") return { content: "disabled" }
           if (result.status === "error") return { content: "configuration_error" }
+          if (result.status === "completed") {
+            const resolved = await resolveForSession(context.sessionID).catch(() => null)
+            if (resolved) {
+              await rpc.events
+                .emit(
+                  "stateUpdated",
+                  supervisionBadgeFromPolicy({
+                    sessionID: context.sessionID,
+                    policy: resolved,
+                    view: steering.view(context.sessionID),
+                  }),
+                )
+                .catch(() => {})
+            }
+          }
           if (result.checkpointID) {
             return {
               content: JSON.stringify({
@@ -195,6 +264,13 @@ export default Plugin.define({
               reportPath: result.reportPath,
             })
             if (decision.action === "steer") {
+              await new SteeringLog(directory).record({
+                sessionID,
+                checkpointID: result.checkpointID,
+                text: decision.text,
+                attempts: decision.attempts,
+                time: Date.now(),
+              })
               await ctx.session.synthetic({
                 sessionID,
                 text: decision.text,
@@ -205,14 +281,22 @@ export default Plugin.define({
                   checkpointID: result.checkpointID,
                 },
               })
-              return
-            }
-            if (decision.action === "escalate") {
+            } else if (decision.action === "escalate") {
               console.warn(
                 "[workflow-supervisor] steering limit reached",
                 { sessionID, checkpointID: result.checkpointID, attempts: decision.attempts },
               )
             }
+            await rpc.events
+              .emit(
+                "stateUpdated",
+                supervisionBadgeFromPolicy({
+                  sessionID,
+                  policy: { active: true, effectiveMode: result.effectiveMode },
+                  view: steering.view(sessionID),
+                }),
+              )
+              .catch(() => {})
           })
         } else {
           await observer.recordEvent(event)
