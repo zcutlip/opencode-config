@@ -191,48 +191,44 @@ export default Plugin.define({
       if (!state.active) {
         return <text fg={base}>Workflow supervisor is not enabled for this project.</text>
       }
-      const children: any[] = [
-        <text fg={base}>
-          mode: {state.mode ?? "advisory"} · contract: {state.contractPath ?? "unavailable"} · steering{" "}
-          {state.attempts ?? 0}/{state.limit ?? 3}
-          {state.hasUnresolved ? " · unresolved findings" : " · no unresolved findings"} · esc/q closes
-        </text>,
+
+      // One <text> element, not one per block: the host panel gives each
+      // top-level child its own scroll region, so multiple children render as
+      // indistinguishable side-by-side subpanels. A single element is a
+      // single scroll region; separator banners mark message boundaries.
+      const lines: string[] = [
+        `mode: ${state.mode ?? "advisory"} · contract: ${state.contractPath ?? "unavailable"} · steering ${state.attempts ?? 0}/${state.limit ?? 3}${state.hasUnresolved ? " · unresolved findings" : " · no unresolved findings"} · esc/q closes`,
       ]
       if (state.reassertion) {
-        children.push(<text fg={base}> </text>)
-        children.push(<text fg={base}>Reasserted on every model call:</text>)
-        children.push(<text fg={base}>{state.reassertion}</text>)
+        lines.push("", "──────── reasserted on every model call ────────", state.reassertion)
       }
       for (const delivery of (state.steering ?? []).slice(-3)) {
-        children.push(<text fg={base}> </text>)
-        children.push(
-          <text fg={base}>
-            — delivered to builder · checkpoint {delivery.checkpointID} · attempt {delivery.attempts} ·{" "}
-            {timeLabel(delivery.time)}
-          </text>,
+        lines.push(
+          "",
+          `══════ delivered to builder · checkpoint ${delivery.checkpointID.slice(0, 12)} · attempt ${delivery.attempts} · ${timeLabel(delivery.time)} ══════`,
+          delivery.text,
         )
-        children.push(<text fg={base}>{delivery.text}</text>)
       }
-      children.push(<text fg={base}> </text>)
-      children.push(<text fg={base}>Recent checkpoints:</text>)
+      lines.push("", "──────── recent checkpoints ────────")
       for (const checkpoint of state.checkpoints ?? []) {
-        children.push(
-          <text fg={base}>
-            · {checkpoint.id.slice(0, 12)} {checkpoint.status}
-            {checkpoint.verdict ? ` · ${checkpoint.verdict}` : ""}
-            {checkpoint.effectiveMode ? ` · ${checkpoint.effectiveMode}` : ""} · {timeLabel(checkpoint.time)}
-          </text>,
+        lines.push(
+          `· ${checkpoint.id.slice(0, 12)} ${checkpoint.status}${checkpoint.verdict ? ` · ${checkpoint.verdict}` : ""}${checkpoint.effectiveMode ? ` · ${checkpoint.effectiveMode}` : ""} · ${timeLabel(checkpoint.time)}`,
         )
       }
       if (state.latestReport) {
-        children.push(<text fg={base}> </text>)
-        children.push(<text fg={base}>Latest report: {state.latestReport.path}</text>)
-        children.push(<text fg={base}>{state.latestReport.text}</text>)
-        if (state.latestReport.truncated) {
-          children.push(<text fg={base}>[report truncated for display — open the file above for the rest]</text>)
+        lines.push("", `──────── latest report · ${state.latestReport.path} ────────`)
+        if (state.hasUnresolved && state.reassertion) {
+          // The reassertion above already carries the unresolved report
+          // verbatim — printing it twice doubles the panel for nothing.
+          lines.push("[full text shown above in the reassertion — open the file for the raw report]")
+        } else {
+          lines.push(state.latestReport.text)
+          if (state.latestReport.truncated) {
+            lines.push("[report truncated for display — open the file above for the rest]")
+          }
         }
       }
-      return <box>{children}</box>
+      return <text fg={base}>{lines.join("\n")}</text>
     }
 
     context.ui.slot({
