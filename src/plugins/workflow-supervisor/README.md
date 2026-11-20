@@ -31,6 +31,12 @@ enabled project. Explicit checkpoints are available through the `checkpoint`
 tool in the `workflow` namespace; the tool returns a checkpoint ID and state
 path, not the report itself.
 
+In the TUI, supervised sessions show a `ws:<mode>` footer badge (with
+steering attempts when unresolved findings exist). Click the badge or run
+`/ws` to open the supervisor panel: the reasserted context, the steering
+texts delivered to the builder verbatim, recent checkpoints with verdicts,
+and the latest report.
+
 ## Semantics
 
 - **Per-project opt-in.** Policy is read from the main repository so worktrees
@@ -62,8 +68,10 @@ path, not the report itself.
 - `evidence.ts` — evidence capture (working diff, status, request, events).
 - `reviewer.ts` — independent reviewer session creation and archiving.
 - `steering.ts` — steering coordinator and dedup.
+- `supervision.ts` — steering log, checkpoint summaries, and badge/panel state assembly.
 - `ledger.ts` — checkpoint persistence.
-- `rpc.ts` / `tui.tsx` — configuration-error surface.
+- `rpc.ts` / `tui.tsx` — configuration-error surface, plus the footer badge
+  and supervisor panel.
 
 The reviewer's behavioral contract lives in `src/agents/workflow-reviewer.md`
 and its read-only permission fence in `src/opencode.jsonc`.
@@ -71,9 +79,36 @@ and its read-only permission fence in `src/opencode.jsonc`.
 ## State on disk
 
 - `.opencode/workflow-state/index.jsonl` — checkpoint ledger.
+- `.opencode/workflow-state/steering.jsonl` — steering messages delivered,
+  verbatim.
 - `.opencode/workflow-state/checkpoints/<id>/` — `checkpoint.json`,
   `evidence.json`, `events.json`, and `report.md` per checkpoint.
 - `.opencode/workflow-state/.gitignore` — self-ignores runtime state.
+
+## Fragility notes
+
+The badge and panel depend on surfaces where only some behavior is verified:
+
+- `session.panel` render is **not reliably reactive** over store updates
+  (verified live 2026-11-19: the panel sat at "Loading…" while the RPC
+  returned correct state and the footer badge updated normally). The panel
+  therefore prefetches its data and opens only after the fetch lands, so the
+  first render is final. If a future OpenCode makes the slot reactive, the
+  backstop fetch inside the render is harmless.
+- `prompt.footer.status` render receiving a `sessionID` prop: the slot name is
+  documented, the render props are not (same assumption the auto-approve
+  badge makes).
+- Mouse events in footer slot content: `onMouseDown` works in
+  `sidebar.content` (probe-verified 2.3.0), but the footer variant is
+  unverified. `/ws` or the palette command is the reliable opener.
+- Panel scrolling for long report text is host-owned and unverified with
+  long content; the report is capped at 20,000 characters and its file path
+  is shown so the full text stays reachable.
+- Only documented theme tokens are used (`theme.text.base`).
+
+Every fetch, event, and failure is logged to
+`~/.local/share/opencode/workflow-supervisor-debug.log` — read that before
+assuming this part broke after an OpenCode upgrade.
 
 ## Limits
 
