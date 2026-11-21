@@ -1,10 +1,11 @@
 # Workflow supervisor — Phase 3 implementation contract
 
-Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 are proposed 2026-11-21 from the steering-loop diagnosis in a supervised spec-revision session; they are not yet reviewed, accepted, or locked.
+Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings) and is locked by hash below.
 
 ## Locked test baseline
 
 - `steering.test.ts` — SHA-256 `65b26072ba69c4dc3e7de289a783341ee0462275c335794727ecf1eee17f43a5`
+- `routing.test.ts` — SHA-256 `9aaca2b543b023721a391dfb5704259ccb485f5dc140cafc77c1549b0f117795` — locked 2026-11-21 after the Phase 3.1 gate review returned SUPPORTS_TRANSITION with no findings; any change requires a recorded amendment.
 
 ## Scope
 
@@ -22,7 +23,7 @@ Phase 3 adds automatic soft steering for projects whose policy requests `steer` 
 - `workflow-reviewer` is registered as a hidden agent, so it never appears in agent pickers.
 - Reviewer sessions are archived through `session.update` after the report is written or the run fails; archived sessions stay out of the TUI session list while remaining retrievable by ID.
 
-## Routing model (proposed A4–A8)
+## Routing model (A4–A8)
 
 Proposed 2026-11-21. Steering queues with `delivery: "queue"` and
 `resume: false`, so a steering message is only ever consumed alongside the
@@ -52,11 +53,11 @@ inside the deterministic routing path); quiet-window timers (solve a mode
 that does not exist until steering gains `resume: true` autonomous
 continuation).
 
-## Amendments (A4–A8, proposed)
+## Amendments (A4–A8)
 
 ### A4 — one-turn influence window
 
-Status: proposed 2026-11-21; not yet accepted.
+Status: accepted 2026-11-21 after independent review.
 
 - Original behavior: the `session.context` hook reasserts the unresolved
   report on every model call for the steered session until a later clean
@@ -65,7 +66,12 @@ Status: proposed 2026-11-21; not yet accepted.
   user turn after delivery — the turn that consumes it — and demotes at the
   next prompt admission. Mechanism: a one-ride counter armed when steering
   delivers; each prompt admission consumes the ride, and the admission after
-  that clears the unresolved state before the new turn's model calls.
+  that clears the unresolved state before the new turn's model calls. API
+  basis: the prompt-admission signal is the documented
+  `ctx.session.hook("prompt")` server-plugin hook (Hooks → Sessions →
+  Prompt admission); implementation step 1 registers it and confirms it
+  fires on prompt admission in the installed host, with a recorded
+  amendment if it does not.
 - Reason: a report that survives past the turn it was consumed with competes
   with every later user direction; an overnight pause compounds yesterday's
   snapshot into every model call of the next session.
@@ -74,13 +80,18 @@ Status: proposed 2026-11-21; not yet accepted.
 
 ### A5 — visible escalation
 
-Status: proposed 2026-11-21; not yet accepted.
+Status: accepted 2026-11-21 after independent review.
 
 - Original behavior: limit-reached returns an escalate decision that
   `index.ts` records with `console.warn` in the host log only.
-- Amended behavior: limit-reached also emits the existing `stateUpdated` RPC
-  event carrying an escalation payload, and the TUI surfaces it as a toast
-  naming the session, attempts, and latest checkpoint.
+- Amended behavior: limit-reached also emits a new `escalationRaised` RPC
+  event carrying `{sessionID, checkpointID, attempts}`, and the TUI surfaces
+  it as a toast naming the session, attempts, and latest checkpoint — the
+  same toast pattern as `configurationError`. The event is separate from
+  `stateUpdated`, whose schema is badge-shaped (`additionalProperties:
+  false`, required `active`/`hasUnresolved`/`limit`) and cannot carry an
+  escalation payload; recorded at gate review 2026-11-21 when the originally
+  drafted `stateUpdated` carriage was found schema-incompatible.
 - Reason: escalation is the user's cue to intercede — the absorbing state of
   the steering loop is the user, so the signal must reach the user, not the
   host log.
@@ -90,7 +101,7 @@ Status: proposed 2026-11-21; not yet accepted.
 
 ### A6 — steering log as reviewer evidence
 
-Status: proposed 2026-11-21; not yet accepted.
+Status: accepted 2026-11-21 after independent review.
 
 - Original behavior: each review is blind to previously delivered steering;
   a fresh reviewer re-litigates its own influence.
@@ -100,7 +111,11 @@ Status: proposed 2026-11-21; not yet accepted.
   one obligation: findings that repeat previously delivered steering are
   reported as "previously steered, still unresolved" rather than as new.
   An unreadable state root omits the log and provenance records the
-  omission — the same rule as the session-turn diff limitation.
+  omission — the same rule as the session-turn diff limitation. The
+  steering log is context, not evidence identity: it does not feed the
+  evidence hash, so a delivery on an otherwise unchanged tree still
+  deduplicates, and the log reaches the reviewer on the next evidence
+  change.
 - Reason: the observed loop ran three consecutive reviews over one contract
   amendment; each revision reworded the findings so content-dedup never
   fired, and each fresh-context review manufactured fresh findings on its
@@ -115,7 +130,7 @@ Status: proposed 2026-11-21; not yet accepted.
 
 ### A7 — contract-file routing proxy
 
-Status: proposed 2026-11-21; not yet accepted.
+Status: accepted 2026-11-21 after independent review.
 
 - Original behavior: every findings report in `steer` mode queues one
   attributed synthetic message to the builder.
@@ -123,7 +138,10 @@ Status: proposed 2026-11-21; not yet accepted.
   file in it is the policy's `contract` file, the report routes to the user
   channel (panel and ledger) and no synthetic message is queued; an empty
   or mixed diff queues as before — the routing rationale (user-authored
-  shaping) applies only to actual contract-file edits.
+  shaping) applies only to actual contract-file edits. Path forms:
+  `vcs.diff` returns worktree-relative files and the policy contract path
+  is absolute (both verified from live checkpoint evidence), so the routing
+  key normalizes each diff file against the worktree before comparison.
 - Reason: findings about the artifact the user is actively shaping compete
   with the user's own authorship; findings about housekeeping and
   implementation artifacts are additive. The routing key is the diff's file
@@ -134,7 +152,7 @@ Status: proposed 2026-11-21; not yet accepted.
 
 ### A8 — collab/delegate episode override
 
-Status: proposed 2026-11-21; not yet accepted.
+Status: accepted 2026-11-21 after independent review.
 
 - New behavior: a user-held runtime per-session toggle, `collab`/`delegate`,
   following the auto-approve pattern — in-memory, badge-visible, dies with
@@ -158,7 +176,7 @@ Status: proposed 2026-11-21; not yet accepted.
 ## Evidence changes
 
 - Automatic evidence now records the latest assistant text from the observed session.
-- Proposed A6: automatic evidence also carries the observed session's delivered steering log (`steering.jsonl`).
+- Amendment A6: automatic evidence also carries the observed session's delivered steering log (`steering.jsonl`).
 - Automatic reviewer envelopes surface the observed session’s latest user request verbatim and a one-line changed-files summary, so the reviewer receives the same scope cue as a manual checkpoint instead of an open-ended audit brief.
 - The session-turn diff remains unavailable because the installed plugin context exposes no `session.diff`; provenance records that limitation.
 - The working-tree diff and status remain the authoritative change-set evidence.
@@ -182,8 +200,14 @@ locked test. The new routing suite (one-ride demotion, escalation event,
 steering-log evidence, contract-file proxy, collab/delegate toggle) pins
 that lifetime in both directions; its one-ride tests fake the
 prompt-admission signal, which no current code path consumes (the context
-hook at `index.ts` fires per model call with no lifetime state). Those
-tests are written and locked only after A4–A8 are accepted.
+hook at `index.ts` fires per model call with no lifetime state) but which
+has a documented API basis (A4). Not unit-testable — pinned by inspection
+and live runs instead: A5's `escalationRaised` RPC registration, emission
+wiring, and TUI toast branch; A6's reviewer-instruction obligation in
+`src/agents/workflow-reviewer.md`; A8's badge episode-mode display,
+in-memory toggle lifetime, and absence of any builder-facing toggle
+surface. The routing suite is the Phase 3.1 RED gate; lock follows the
+gate review.
 
 The Phase 2 suite remains locked except for amendment A2:
 
