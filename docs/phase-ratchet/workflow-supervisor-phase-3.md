@@ -85,7 +85,8 @@ Status: proposed 2026-11-21; not yet accepted.
   the steering loop is the user, so the signal must reach the user, not the
   host log.
 - Scope: notification surface only. The limit (3 distinct reports per
-  session) is unchanged.
+  session) is unchanged. The toast notifies the user in-TUI only — it is
+  not a session-to-session relay, which stays excluded (Phase 5 scope).
 
 ### A6 — steering log as reviewer evidence
 
@@ -98,12 +99,17 @@ Status: proposed 2026-11-21; not yet accepted.
   whenever the state root is readable, and the reviewer instruction gains
   one obligation: findings that repeat previously delivered steering are
   reported as "previously steered, still unresolved" rather than as new.
+  An unreadable state root omits the log and provenance records the
+  omission — the same rule as the session-turn diff limitation.
 - Reason: the observed loop ran three consecutive reviews over one contract
   amendment; each revision reworded the findings so content-dedup never
   fired, and each fresh-context review manufactured fresh findings on its
   own influence. The log gives reviews a convergence path without breaking
   fresh-context discipline — it is evidence about the session, like the
-  diff.
+  diff. Deliberate consequence: a reworded repeat still burns an attempt
+  and escalates at the limit — a repeat means steering failed, and the
+  user, not another review round, is the absorbing state (made visible by
+  A5).
 - Scope: evidence contents and reviewer instructions only. The coordinator's
   dedup and limit rules are unchanged.
 
@@ -113,10 +119,11 @@ Status: proposed 2026-11-21; not yet accepted.
 
 - Original behavior: every findings report in `steer` mode queues one
   attributed synthetic message to the builder.
-- Amended behavior: if every file in the checkpoint's working diff is the
-  policy's `contract` file, the report routes to the user channel (panel and
-  ledger) and no synthetic message is queued; any other diff shape queues as
-  before.
+- Amended behavior: if the checkpoint's working diff is nonempty and every
+  file in it is the policy's `contract` file, the report routes to the user
+  channel (panel and ledger) and no synthetic message is queued; an empty
+  or mixed diff queues as before — the routing rationale (user-authored
+  shaping) applies only to actual contract-file edits.
 - Reason: findings about the artifact the user is actively shaping compete
   with the user's own authorship; findings about housekeeping and
   implementation artifacts are additive. The routing key is the diff's file
@@ -135,6 +142,9 @@ Status: proposed 2026-11-21; not yet accepted.
 - `collab` on: the session behaves user-driven regardless of stage — no
   per-turn automatic review (explicit checkpoints remain available and their
   findings route to the panel), no synthetic steering, no reassertion.
+  Switching to `collab` is prospective: a message already queued still rides
+  the next prompt — the user is present to override it — and any armed A4
+  ride is disarmed.
 - `delegate` (default): the stage's declared behavior; until stage
   declarations exist, the current per-turn review and queue-ride behavior.
 - Manual-on; automatic-off at each stage transition once transitions exist
@@ -164,7 +174,16 @@ Status: proposed 2026-11-21; not yet accepted.
 5. Distinct reports are bounded, then escalate.
 6. Verdict extraction and finding detection are independent.
 
-A4–A8 require a Phase 3.1 RED gate before implementation: amendments to any locked test that asserts persistent reassertion, plus a new routing suite (one-ride demotion, escalation event, steering-log evidence, contract-file proxy, collab/delegate toggle). Those tests are written and locked only after A4–A8 are accepted.
+A4–A8 require a Phase 3.1 RED gate before implementation. The locked
+suite pins no reassertion lifetime — `steering.test.ts` asserts only that
+reassertion exists immediately after a steer, so the current
+persists-until-clean-review lifetime is untested behavior and A4 amends no
+locked test. The new routing suite (one-ride demotion, escalation event,
+steering-log evidence, contract-file proxy, collab/delegate toggle) pins
+that lifetime in both directions; its one-ride tests fake the
+prompt-admission signal, which no current code path consumes (the context
+hook at `index.ts` fires per model call with no lifetime state). Those
+tests are written and locked only after A4–A8 are accepted.
 
 The Phase 2 suite remains locked except for amendment A2:
 
@@ -176,7 +195,7 @@ The Phase 2 suite remains locked except for amendment A2:
 - No automatic remediation.
 - No interruption based on reviewer prose.
 - No deterministic phase gates.
-- No cross-session escalation UI.
+- No session-to-session escalation relay; in-TUI user notification (proposed A5) is not a relay.
 - No change to the workflow policy schema.
 - No wall-clock presence inference in routing.
 - No prompt-content classification in the routing path.
