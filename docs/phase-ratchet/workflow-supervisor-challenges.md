@@ -108,10 +108,11 @@ never delivery.
 queued until the user spoke; an idle builder with findings waiting stayed
 idle, and nothing told the user a nudge was needed. *Resolution:*
 delivery-at-completion (previous entry) plus the waiting marker — the
-builder is live-delivered when active; when idle, the badge names the
-findings waiting and the marker clears at prompt admission. The user's next
-prompt is no longer the delivery pump. Autonomous wake remains
-deliberately deferred.
+builder is live-delivered when active. An idle delegate-mode builder is
+woken to act on its findings the moment they land: the deferral ended
+when the repeat-based budget made the wake-loop bounded — fix the
+findings and the next review goes clean; repeat them and the budget burns
+to escalation. Collab never wakes; its findings belong to the user.
 
 **Hide the sessions, not the activity.** Reviewer sessions were hidden to
 stop workspace flooding — right call — but the activity itself became
@@ -155,6 +156,17 @@ consequence-keyed rubric — blocking is a wrongly-granted gate or a
 violated lock; major misleads a gate decision or forces rework; minor is
 everything else. A benign instance of a dangerous behavior pattern is
 minor unless it could mislead a gate.
+
+**Prose-signal parsers must tolerate the producer's drift.** A CONCERNS
+report with bold section markers evaded findings detection and
+dead-lettered silently — no delivery, no marker, no incident — while the
+verdict parser a few lines away already accepted bold. Half the parsing
+tolerated the reviewer's formatting drift; half did not, and the sweep
+caught the gap only because a finding failed to arrive. *Resolution:*
+findings detection accepts the same bold and plain variants the verdict
+parser does, with regression tests pinning both forms. Deeper lesson for
+the report format: the more the supervisor depends on reading reviewer
+prose, the more the report needs a machine-readable header.
 
 ## Open
 
