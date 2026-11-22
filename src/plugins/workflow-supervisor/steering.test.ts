@@ -110,5 +110,11 @@ describe("workflow supervisor steering", () => {
     expect(verdictOf(cleanReport)).toBe("NOT_REQUESTED")
     expect(hasFindings(report)).toBe(true)
     expect(hasFindings(cleanReport)).toBe(false)
+    // Bold section markers must not evade detection (sweep finding).
+    const boldFindings = report.replace("Findings:", "**Findings:**").replace("Not assessed or missing evidence:", "**Not assessed or missing evidence:**")
+    const boldClean = cleanReport.replace("Findings:", "**Findings:**")
+    expect(verdictOf(boldFindings)).toBe("CONCERNS")
+    expect(hasFindings(boldFindings)).toBe(true)
+    expect(hasFindings(boldClean)).toBe(false)
   })
 })

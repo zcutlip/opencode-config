@@ -12,11 +12,14 @@ export function verdictOf(report: string): string {
 }
 
 export function hasFindings(report: string): boolean {
-  const match = report.match(/Findings:\s*\n([\s\S]*?)(?=\n\nNot assessed|$)/i)
+  // The reviewer's section markers drift between plain and bold forms
+  // (sweep finding 2026-11-22: a CONCERNS report with **Findings:** evaded
+  // detection and dead-lettered). Accept both.
+  const match = report.match(/(?:\*\*)?Findings:(?:\*\*)?\s*\n([\s\S]*?)(?=\n\n(?:\*\*)?Not assessed(?:\*\*)?|$)/i)
   if (!match) return false
   const body = match[1].trim()
   if (body === "") return false
-  return !/^-\s*No findings$/im.test(body)
+  return !/^-\s*(?:\*\*)?No findings(?:\*\*)?$/im.test(body)
 }
 
 /**
