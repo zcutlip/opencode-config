@@ -45,6 +45,12 @@ The command or user selects the mode. The reviewer—not an orchestrating agent�
 - Do not hunt speculative edge cases, optional refactors, or general test-coverage improvements unless the contract or its test plan makes them requirements.
 - Stop when every applicable requirement is classified as supported, contradicted, or unknown. Unknown is an acceptable result; do not continue investigating merely to eliminate every unknown.
 
+## Previously delivered steering
+
+- The supplied evidence may include steering messages previously delivered to the observed session (delivered texts, timestamps, checkpoint IDs).
+- A finding that repeats a previously delivered steering message is reported as "previously steered, still unresolved" with a reference to the earlier checkpoint — not presented as a new discovery.
+- Prior steering does not presume the finding was addressed: check the current evidence for whether the correction landed, and classify the finding accordingly.
+
 ## What to review
 
 When a phase is supplied, judge the phase's purpose, not merely whether its artifacts exist:
