@@ -140,6 +140,7 @@ export interface BadgeState {
   hasUnresolved: boolean
   attempts: number
   limit: number
+  episodeMode: "collab" | "delegate"
 }
 
 /** Badge data for one session: policy-derived mode plus coordinator view. */
@@ -147,13 +148,16 @@ export function supervisionBadgeFromPolicy(input: {
   sessionID: string
   policy: any
   view?: { attempts: number; limit: number; hasUnresolved: boolean }
+  episodeMode?: "collab" | "delegate"
 }): BadgeState {
   const view = input.view
+  const episodeMode = input.episodeMode ?? "delegate"
   const common = {
     sessionID: input.sessionID,
     hasUnresolved: view?.hasUnresolved ?? false,
     attempts: view?.attempts ?? 0,
     limit: view?.limit ?? 3,
+    episodeMode,
   }
   if (!input.policy?.active) return { ...common, active: false }
   return {
@@ -168,6 +172,7 @@ export function buildSupervisionState(input: {
   sessionID: string
   policy: any
   view?: { attempts: number; limit: number; hasUnresolved: boolean }
+  episodeMode?: "collab" | "delegate"
   reassertion?: string
   steering: SteeringDelivery[]
   checkpoints: CheckpointSummary[]
@@ -177,6 +182,7 @@ export function buildSupervisionState(input: {
   return {
     active: true,
     mode: typeof input.policy.effectiveMode === "string" ? input.policy.effectiveMode : "advisory",
+    episodeMode: input.episodeMode ?? "delegate",
     contractPath: typeof input.policy.contractPath === "string" ? input.policy.contractPath : "",
     hasUnresolved: input.view?.hasUnresolved ?? false,
     attempts: input.view?.attempts ?? 0,

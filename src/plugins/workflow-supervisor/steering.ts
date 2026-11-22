@@ -32,9 +32,24 @@ function steeringText(input: {
   return `Workflow supervisor checkpoint ${input.checkpointID} review:\n\n${input.report}`
 }
 
+/**
+ * A5 — payload for the `escalationRaised` RPC event. A dedicated event: the
+ * `stateUpdated` schema is badge-shaped (`additionalProperties: false`) and
+ * cannot carry an escalation payload.
+ */
+export function escalationEvent(input: {
+  sessionID: string
+  checkpointID: string
+  attempts: number
+}): { sessionID: string; checkpointID: string; attempts: number } {
+  return { sessionID: input.sessionID, checkpointID: input.checkpointID, attempts: input.attempts }
+}
+
 interface SteeringState {
   attempts: number
   fingerprints: Set<string>
+  /** A4 one-ride window: 1 while a delivered report is active for its consuming turn. */
+  ride: number
   contractPath?: string
   reportPath?: string
   report?: string
@@ -64,6 +79,7 @@ export class SteeringCoordinator {
     const state: SteeringState = this.states.get(input.sessionID) ?? {
       attempts: 0,
       fingerprints: new Set<string>(),
+      ride: 0,
     }
     this.states.set(input.sessionID, state)
     state.contractPath = input.contractPath
@@ -72,6 +88,7 @@ export class SteeringCoordinator {
     if (!hasFindings(input.report)) {
       state.report = undefined
       state.checkpointID = undefined
+      state.ride = 0
       return { action: "none", reason: "no-findings" }
     }
 
@@ -87,12 +104,42 @@ export class SteeringCoordinator {
     state.fingerprints.add(fingerprint)
     state.report = input.report
     state.checkpointID = input.checkpointID
+    state.ride = 1
     return {
       action: "steer",
       text: steeringText(input),
       fingerprint,
       attempts: state.attempts,
     }
+  }
+
+  /**
+   * A4 — one-ride window. The first admission after a delivery consumes the
+   * ride and keeps the report active through that turn; the admission after
+   * that demotes the report to the panel. Unknown sessions are a no-op.
+   */
+  promptAdmitted(sessionID: string): void {
+    const state = this.states.get(sessionID)
+    if (!state) return
+    if (state.ride > 0) {
+      state.ride -= 1
+      return
+    }
+    state.report = undefined
+    state.checkpointID = undefined
+  }
+
+  /**
+   * A8 — collab disarm. Clears the unresolved report and any armed ride for
+   * the session without touching attempts or fingerprints: a delivered
+   * message's ledger record and dedup history survive the override.
+   */
+  disarm(sessionID: string): void {
+    const state = this.states.get(sessionID)
+    if (!state) return
+    state.ride = 0
+    state.report = undefined
+    state.checkpointID = undefined
   }
 
   context(sessionID: string): string | undefined {

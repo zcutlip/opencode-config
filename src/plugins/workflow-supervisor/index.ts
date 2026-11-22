@@ -5,7 +5,8 @@ import { FileLedger } from "./ledger.ts"
 import { WorkflowObserver, checkpointInputSchema } from "./observer.ts"
 import { resolveWorkflowPolicy } from "./policy.ts"
 import { runReviewer } from "./reviewer.ts"
-import { SteeringCoordinator } from "./steering.ts"
+import { escalationEvent, SteeringCoordinator } from "./steering.ts"
+import { automaticReviewAllowed, EpisodeState, routeReport } from "./routing.ts"
 import {
   buildSupervisionState,
   listCheckpoints,
@@ -67,9 +68,9 @@ export default Plugin.define({
         if (sessionID === "") return supervisionBadgeFromPolicy({ sessionID, policy: null })
         try {
           const policy = await resolveForSession(sessionID)
-          return supervisionBadgeFromPolicy({ sessionID, policy, view: steering.view(sessionID) })
+          return supervisionBadgeFromPolicy({ sessionID, policy, view: steering.view(sessionID), episodeMode: episodes.mode(sessionID) })
         } catch {
-          return supervisionBadgeFromPolicy({ sessionID, policy: null })
+          return supervisionBadgeFromPolicy({ sessionID, policy: null, episodeMode: episodes.mode(sessionID) })
         }
       },
       supervisionState: async (input: any) => {
@@ -98,6 +99,7 @@ export default Plugin.define({
             sessionID,
             policy: resolved,
             view: steering.view(sessionID),
+            episodeMode: episodes.mode(sessionID),
             reassertion: steering.context(sessionID),
             steering: deliveries,
             checkpoints,
@@ -107,9 +109,33 @@ export default Plugin.define({
           return { active: false }
         }
       },
+      supervisionEpisode: async (input: any) => {
+        const sessionID = typeof input?.sessionID === "string" ? input.sessionID : ""
+        const mode = input?.mode === "collab" ? "collab" : "delegate"
+        if (sessionID !== "") {
+          if (mode === "collab") {
+            episodes.setCollab(sessionID)
+            // A8 — collab disarms any armed ride; attempts and fingerprints
+            // survive so the delivered-message ledger and dedup stay intact.
+            steering.disarm(sessionID)
+          } else {
+            episodes.setDelegate(sessionID)
+          }
+        }
+        let badge: any
+        try {
+          const policy = sessionID === "" ? null : await resolveForSession(sessionID)
+          badge = supervisionBadgeFromPolicy({ sessionID, policy, view: steering.view(sessionID), episodeMode: episodes.mode(sessionID) })
+        } catch {
+          badge = supervisionBadgeFromPolicy({ sessionID, policy: null, episodeMode: episodes.mode(sessionID) })
+        }
+        await rpc.events.emit("stateUpdated", badge).catch(() => {})
+        return { sessionID, mode: episodes.mode(sessionID) }
+      },
     })
     const observers = new Map<string, WorkflowObserver>()
     const steering = new SteeringCoordinator({ limit: 3 })
+    const episodes = new EpisodeState()
 
     const resolveForSession = async (sessionID: string) => {
       const session = await ctx.session.get({ sessionID })
@@ -171,6 +197,9 @@ export default Plugin.define({
             ...common,
             turnDiff,
             events: observer.bufferedEvents(sessionID),
+            // A6 — previously delivered steering for this observed session;
+            // the reviewer uses it to mark repeats instead of re-litigating.
+            steeringLog: await new SteeringLog(directory).list(sessionID),
           })
         },
         runReviewer: (input) => runReviewer({ ...input, client: ctx }),
@@ -240,6 +269,16 @@ export default Plugin.define({
       event.system.push({ type: "text", text })
     })
 
+    // A4 — one-ride demotion. Prompt admission is the signal; synthetic
+    // steering messages never run this hook, so the ride is consumed only by
+    // the user's genuine next prompt (documented server-plugin hook,
+    // Hooks → Sessions → Prompt admission).
+    const promptHook = await ctx.session.hook("prompt", (event: any) => {
+      const sessionID = event?.sessionID
+      if (typeof sessionID !== "string") return
+      steering.promptAdmitted(sessionID)
+    })
+
     const controller = new AbortController()
     void (async () => {
       for await (const event of ctx.event.subscribe({
@@ -253,39 +292,64 @@ export default Plugin.define({
         if ((event as any).type === "session.execution.succeeded") {
           void observer.recordEvent(event).then(async (owned) => {
             if (!owned) return
+            // A8 — collab suspends the per-turn automatic trigger; explicit
+            // checkpoints are user-requested and unaffected.
+            if (!automaticReviewAllowed(episodes.mode(sessionID))) return
             const result = await observer.handleExecutionSucceeded(sessionID)
             if (result?.status !== "completed" || result.trigger !== "execution") return
-            const decision = steering.consider({
-              sessionID,
-              requestedMode: result.requestedMode,
-              checkpointID: result.checkpointID,
-              report: result.report,
+            // A7/A8 — route before steering. A user-channel report never
+            // reaches the builder inbox, consumes no attempt, and sets no
+            // reassertion; the ledger and panel already carry it.
+            const routing = routeReport({
+              episodeMode: episodes.mode(sessionID),
+              workingDiff: result.workingDiff ?? [],
               contractPath: result.contractPath,
-              reportPath: result.reportPath,
+              worktree: result.worktree,
             })
-            if (decision.action === "steer") {
-              await new SteeringLog(directory).record({
+            if (routing.channel === "builder") {
+              const decision = steering.consider({
                 sessionID,
+                requestedMode: result.requestedMode,
                 checkpointID: result.checkpointID,
-                text: decision.text,
-                attempts: decision.attempts,
-                time: Date.now(),
+                report: result.report,
+                contractPath: result.contractPath,
+                reportPath: result.reportPath,
               })
-              await ctx.session.synthetic({
-                sessionID,
-                text: decision.text,
-                delivery: "queue",
-                resume: false,
-                metadata: {
-                  workflowSupervisor: true,
+              if (decision.action === "steer") {
+                await new SteeringLog(directory).record({
+                  sessionID,
                   checkpointID: result.checkpointID,
-                },
-              })
-            } else if (decision.action === "escalate") {
-              console.warn(
-                "[workflow-supervisor] steering limit reached",
-                { sessionID, checkpointID: result.checkpointID, attempts: decision.attempts },
-              )
+                  text: decision.text,
+                  attempts: decision.attempts,
+                  time: Date.now(),
+                })
+                await ctx.session.synthetic({
+                  sessionID,
+                  text: decision.text,
+                  delivery: "queue",
+                  resume: false,
+                  metadata: {
+                    workflowSupervisor: true,
+                    checkpointID: result.checkpointID,
+                  },
+                })
+              } else if (decision.action === "escalate") {
+                console.warn(
+                  "[workflow-supervisor] steering limit reached",
+                  { sessionID, checkpointID: result.checkpointID, attempts: decision.attempts },
+                )
+                // A5 — user-facing escalation; the TUI toasts it.
+                await rpc.events
+                  .emit(
+                    "escalationRaised",
+                    escalationEvent({
+                      sessionID,
+                      checkpointID: result.checkpointID,
+                      attempts: decision.attempts,
+                    }),
+                  )
+                  .catch(() => {})
+              }
             }
             await rpc.events
               .emit(
@@ -294,6 +358,7 @@ export default Plugin.define({
                   sessionID,
                   policy: { active: true, effectiveMode: result.effectiveMode },
                   view: steering.view(sessionID),
+                  episodeMode: episodes.mode(sessionID),
                 }),
               )
               .catch(() => {})
@@ -309,6 +374,7 @@ export default Plugin.define({
 
     return () => {
       void contextHook.dispose()
+      void promptHook.dispose()
       controller.abort()
     }
   },

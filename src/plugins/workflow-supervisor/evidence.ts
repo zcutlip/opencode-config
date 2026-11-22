@@ -11,6 +11,7 @@ export interface EvidenceCompleteness {
   workingDiff: boolean
   turnDiff: boolean
   events: boolean
+  steeringLog: boolean
 }
 
 export interface WorkflowEvidence {
@@ -21,6 +22,7 @@ export interface WorkflowEvidence {
   workingDiff: any[]
   status: any[]
   events?: any[]
+  steeringLog?: any[]
   completeness: EvidenceCompleteness
   chronologyAllowed: boolean
   contractPath: string
@@ -63,6 +65,7 @@ export function buildAutomaticEvidence(input: {
   workingDiff?: any[]
   status?: any[]
   events?: any[]
+  steeringLog?: any[]
   policy: any
   provenance: Record<string, any>
 }): WorkflowEvidence {
@@ -75,6 +78,11 @@ export function buildAutomaticEvidence(input: {
   const events = input.events ?? []
   const turnDiffComplete = input.turnDiff !== undefined && !truncated(turnDiff)
   const eventsAreComplete = eventsComplete(events)
+  // A6 — the steering log is context, not evidence identity: it never feeds
+  // the evidence hash. Unavailable means the caller could not read it, not
+  // that no deliveries exist; provenance records the omission either way.
+  const steeringLog = input.steeringLog ?? []
+  const steeringLogComplete = input.steeringLog !== undefined
   const value = {
     latestUserRequest: input.latestUserRequest,
     latestAssistantText: input.latestAssistantText,
@@ -82,17 +90,21 @@ export function buildAutomaticEvidence(input: {
     workingDiff,
     status: input.status ?? [],
     events,
+    steeringLog,
     completeness: {
       workingDiff: true,
       turnDiff: turnDiffComplete,
       events: eventsAreComplete,
+      steeringLog: steeringLogComplete,
     },
     chronologyAllowed: turnDiffComplete && eventsAreComplete,
     contractPath: input.policy.contractPath,
     contractContent: input.policy.contractContent,
     requestedMode: input.policy.requestedMode,
     effectiveMode: (input.policy.effectiveMode ?? "advisory") as "advisory" | "steer",
-    provenance: input.provenance,
+    provenance: steeringLogComplete
+      ? input.provenance
+      : { ...input.provenance, steeringLog: "unavailable" },
   }
   return { hash: evidenceHash(value), ...value }
 }

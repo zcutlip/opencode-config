@@ -129,12 +129,22 @@ describe("workflow supervisor session visibility", () => {
       hasUnresolved: true,
       attempts: 2,
       limit: 3,
+      episodeMode: "delegate",
     })
+
+    const collab = supervisionBadgeFromPolicy({
+      sessionID: "ses_observed",
+      policy,
+      view: undefined,
+      episodeMode: "collab",
+    })
+    expect(collab.episodeMode).toBe("collab")
 
     const fresh = supervisionBadgeFromPolicy({ sessionID: "ses_observed", policy, view: undefined })
     expect(fresh.hasUnresolved).toBe(false)
     expect(fresh.attempts).toBe(0)
     expect(fresh.limit).toBe(3)
+    expect(fresh.episodeMode).toBe("delegate")
 
     expect(supervisionBadgeFromPolicy({ sessionID: "ses_observed", policy: null, view: undefined })).toEqual({
       sessionID: "ses_observed",
@@ -142,6 +152,7 @@ describe("workflow supervisor session visibility", () => {
       hasUnresolved: false,
       attempts: 0,
       limit: 3,
+      episodeMode: "delegate",
     })
   })
 
@@ -169,6 +180,7 @@ describe("workflow supervisor session visibility", () => {
     })
     expect(active.active).toBe(true)
     expect(active.mode).toBe("steer")
+    expect(active.episodeMode).toBe("delegate")
     expect(active.contractPath).toBe("/project/A/docs/contract.md")
     expect(active.hasUnresolved).toBe(true)
     expect(active.reassertion).toContain("Active contract")

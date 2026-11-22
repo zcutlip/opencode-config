@@ -33,11 +33,13 @@ interface BadgeState {
   hasUnresolved: boolean
   attempts: number
   limit: number
+  episodeMode?: "collab" | "delegate"
 }
 
 interface SupervisionDetail {
   active: boolean
   mode?: string
+  episodeMode?: "collab" | "delegate"
   contractPath?: string
   hasUnresolved?: boolean
   attempts?: number
@@ -161,6 +163,18 @@ export default Plugin.define({
       })
     })
 
+    // A5 — user-facing escalation toast; the badge alone does not interrupt.
+    const stopEscalation = rpc.events.on("escalationRaised", (event: any) => {
+      const data = event?.data
+      if (typeof data?.sessionID !== "string") return
+      debug(`escalationRaised ${data.sessionID}: attempts=${data.attempts} checkpoint=${String(data.checkpointID).slice(0, 12)}`)
+      context.ui.toast.show({
+        title: "Workflow supervisor escalation",
+        message: `Steering limit reached (${data.attempts} distinct unresolved reports). Latest checkpoint ${String(data.checkpointID).slice(0, 12)} — open /ws to review and decide.`,
+        variant: "error",
+      })
+    })
+
     const SupervisorPanel = (props: { sessionID?: string; close?: () => void }) => {
       const sessionID = props.sessionID
       // Panel-owned keys: active only while the panel owns input.
@@ -197,7 +211,7 @@ export default Plugin.define({
       // indistinguishable side-by-side subpanels. A single element is a
       // single scroll region; separator banners mark message boundaries.
       const lines: string[] = [
-        `mode: ${state.mode ?? "advisory"} · contract: ${state.contractPath ?? "unavailable"} · steering ${state.attempts ?? 0}/${state.limit ?? 3}${state.hasUnresolved ? " · unresolved findings" : " · no unresolved findings"} · esc/q closes`,
+        `mode: ${state.mode ?? "advisory"} · episode: ${state.episodeMode ?? "delegate"} · contract: ${state.contractPath ?? "unavailable"} · steering ${state.attempts ?? 0}/${state.limit ?? 3}${state.hasUnresolved ? " · unresolved findings" : " · no unresolved findings"} · esc/q closes`,
       ]
       if (state.reassertion) {
         lines.push("", "──────── reasserted on every model call ────────", state.reassertion)
@@ -254,6 +268,28 @@ export default Plugin.define({
             void openPanel(sessionID)
           },
         },
+        {
+          id: "local.workflow-supervisor.toggle-collab",
+          title: "Toggle workflow supervisor collab mode",
+          group: "Workflow",
+          palette: true,
+          slash: { name: "ws-collab" },
+          run: () => {
+            const sessionID = context.ui.router.current()?.sessionID
+            if (!sessionID) return
+            // User-held episode override (A8): collab routes findings to the
+            // user channel and suspends the per-turn automatic review; the
+            // server disarms any armed reassertion ride on the flip.
+            const next = badges[sessionID]?.episodeMode === "collab" ? "delegate" : "collab"
+            void rpc
+              .supervisionEpisode({ sessionID, mode: next })
+              .then((result: any) => {
+                debug(`episode ${sessionID}: ${result?.mode ?? next}`)
+                void refreshBadge(sessionID)
+              })
+              .catch((error) => debug(`episode ${sessionID} failed: ${String(error)}`))
+          },
+        },
       ],
     }))
 
@@ -268,9 +304,10 @@ export default Plugin.define({
           return null
         }
         if (!badge.active) return null
+        const collab = badge.episodeMode === "collab" ? " ·collab" : ""
         const label = badge.hasUnresolved
-          ? `ws:${badge.mode} ${badge.attempts}/${badge.limit}`
-          : `ws:${badge.mode}`
+          ? `ws:${badge.mode} ${badge.attempts}/${badge.limit}${collab}`
+          : `ws:${badge.mode}${collab}`
         return (
           <box onMouseDown={() => void openPanel(sessionID)}>
             <text fg={base}>{label}</text>
@@ -282,6 +319,7 @@ export default Plugin.define({
     return () => {
       stopConfig()
       stopUpdated()
+      stopEscalation()
     }
   },
 })

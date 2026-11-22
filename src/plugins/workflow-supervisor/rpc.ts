@@ -19,8 +19,9 @@ export const WorkflowSupervisorRpc = Rpc.define({
           hasUnresolved: { type: "boolean" },
           attempts: { type: "number" },
           limit: { type: "number" },
+          episodeMode: { type: "string", enum: ["collab", "delegate"] },
         },
-        required: ["sessionID", "active", "hasUnresolved", "attempts", "limit"],
+        required: ["sessionID", "active", "hasUnresolved", "attempts", "limit", "episodeMode"],
         additionalProperties: false,
       },
     },
@@ -88,6 +89,26 @@ export const WorkflowSupervisorRpc = Rpc.define({
         additionalProperties: false,
       },
     },
+    supervisionEpisode: {
+      input: {
+        type: "object",
+        properties: {
+          sessionID: { type: "string" },
+          mode: { type: "string", enum: ["collab", "delegate"] },
+        },
+        required: ["sessionID", "mode"],
+        additionalProperties: false,
+      },
+      output: {
+        type: "object",
+        properties: {
+          sessionID: { type: "string" },
+          mode: { type: "string", enum: ["collab", "delegate"] },
+        },
+        required: ["sessionID", "mode"],
+        additionalProperties: false,
+      },
+    },
   },
   events: {
     configurationError: {
@@ -112,8 +133,21 @@ export const WorkflowSupervisorRpc = Rpc.define({
           hasUnresolved: { type: "boolean" },
           attempts: { type: "number" },
           limit: { type: "number" },
+          episodeMode: { type: "string", enum: ["collab", "delegate"] },
         },
-        required: ["sessionID", "active", "hasUnresolved", "attempts", "limit"],
+        required: ["sessionID", "active", "hasUnresolved", "attempts", "limit", "episodeMode"],
+        additionalProperties: false,
+      },
+    },
+    escalationRaised: {
+      schema: {
+        type: "object",
+        properties: {
+          sessionID: { type: "string" },
+          checkpointID: { type: "string" },
+          attempts: { type: "number" },
+        },
+        required: ["sessionID", "checkpointID", "attempts"],
         additionalProperties: false,
       },
     },

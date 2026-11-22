@@ -233,6 +233,8 @@ export class WorkflowObserver {
         requestedMode: policy.requestedMode,
         effectiveMode: policy.effectiveMode,
         contractPath: evidence.contractPath,
+        worktree: policy.worktree,
+        workingDiff: evidence.workingDiff,
         report: result.report,
         reportPath: join(this.ledger.path(id), "report.md"),
       }
