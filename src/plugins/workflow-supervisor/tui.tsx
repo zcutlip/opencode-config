@@ -290,6 +290,24 @@ export default Plugin.define({
               .catch((error) => debug(`episode ${sessionID} failed: ${String(error)}`))
           },
         },
+        {
+          id: "local.workflow-supervisor.review-now",
+          title: "Request workflow supervisor review now",
+          group: "Workflow",
+          palette: true,
+          slash: { name: "ws-review" },
+          run: () => {
+            const sessionID = context.ui.router.current()?.sessionID
+            if (!sessionID) return
+            // User-held review trigger: same checkpoint machinery, no prompt
+            // spent, no agent in the loop. Fire-and-forget — the badge shows
+            // the reviewing state and the verdict lands on disk.
+            void rpc
+              .supervisionCheckpoint({ sessionID })
+              .then((result: any) => debug(`checkpoint requested ${sessionID}: accepted=${result?.accepted}`))
+              .catch((error) => debug(`checkpoint request ${sessionID} failed: ${String(error)}`))
+          },
+        },
       ],
     }))
 
@@ -304,10 +322,12 @@ export default Plugin.define({
           return null
         }
         if (!badge.active) return null
-        const collab = badge.episodeMode === "collab" ? " ·collab" : ""
-        const label = badge.hasUnresolved
-          ? `ws:${badge.mode} ${badge.attempts}/${badge.limit}${collab}`
-          : `ws:${badge.mode}${collab}`
+        const parts = [`ws:${badge.mode}`]
+        if (badge.hasUnresolved) parts.push(`${badge.attempts}/${badge.limit}`)
+        if (badge.episodeMode === "collab") parts.push("collab")
+        if (badge.reviewing) parts.push("reviewing")
+        if (badge.findingsWaiting) parts.push("findings")
+        const label = parts.join(" ")
         return (
           <box onMouseDown={() => void openPanel(sessionID)}>
             <text fg={base}>{label}</text>

@@ -30,6 +30,7 @@ function envelope(input: {
   explicit?: boolean
   latestUserRequest?: string
   changedFiles?: string[]
+  steeringHistory?: { count: number; latest?: string }
 }): string {
   const request = input.explicit
     ? "User request: explicit checkpoint requested by the calling session; no automatic trigger."
@@ -39,6 +40,9 @@ function envelope(input: {
   const changedFiles = Array.isArray(input.changedFiles) && input.changedFiles.length > 0
     ? `Changed files: ${Array.from(new Set(input.changedFiles.filter((file) => typeof file === "string"))).join(", ")}`
     : undefined
+  const history = (input.steeringHistory?.count ?? 0) > 0
+    ? `Previously delivered steering: ${input.steeringHistory?.count} message(s), latest ${input.steeringHistory?.latest}. Findings repeating them are reported as "previously steered, still unresolved" — never as new.`
+    : "Previously delivered steering: none in the evidence."
   return [
     request,
     ...(changedFiles === undefined ? [] : ["", changedFiles]),
@@ -47,6 +51,8 @@ function envelope(input: {
     "",
     `Evidence: ${input.evidencePath}`,
     `Chronological events: ${input.eventsPath}`,
+    "",
+    history,
     "",
     `Provenance: ${JSON.stringify(input.provenance)}`,
   ].join("\n")
@@ -63,6 +69,7 @@ export async function runReviewer(input: {
   explicit?: boolean
   latestUserRequest?: string
   changedFiles?: string[]
+  steeringHistory?: { count: number; latest?: string }
 }): Promise<{ sessionID: string; report: string; usage: any }> {
   const session = await input.client.session.create({
     agent: "workflow-reviewer",

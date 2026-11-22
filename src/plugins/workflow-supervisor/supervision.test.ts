@@ -130,6 +130,8 @@ describe("workflow supervisor session visibility", () => {
       attempts: 2,
       limit: 3,
       episodeMode: "delegate",
+      reviewing: false,
+      findingsWaiting: false,
     })
 
     const collab = supervisionBadgeFromPolicy({
@@ -153,6 +155,8 @@ describe("workflow supervisor session visibility", () => {
       attempts: 0,
       limit: 3,
       episodeMode: "delegate",
+      reviewing: false,
+      findingsWaiting: false,
     })
   })
 
@@ -202,7 +206,7 @@ describe("workflow supervisor session visibility", () => {
       reportPath: "/project/A/.opencode/workflow-state/checkpoints/cp-1/report.md",
     })
     const view = steering.view("ses_observed")
-    expect(view).toEqual({ attempts: 1, limit: 2, hasUnresolved: true })
+    expect(view).toEqual({ attempts: 0, limit: 2, hasUnresolved: true })
 
     steering.consider({
       sessionID: "ses_clean",

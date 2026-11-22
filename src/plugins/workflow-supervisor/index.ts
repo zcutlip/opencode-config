@@ -1,6 +1,7 @@
 import { Plugin } from "@opencode/plugin"
 import { join } from "node:path"
 import { buildAutomaticEvidence, buildExplicitEvidence } from "./evidence.ts"
+import { IncidentLog } from "./incidents.ts"
 import { FileLedger } from "./ledger.ts"
 import { WorkflowObserver, checkpointInputSchema } from "./observer.ts"
 import { resolveWorkflowPolicy } from "./policy.ts"
@@ -69,7 +70,14 @@ export default Plugin.define({
         if (sessionID === "") return supervisionBadgeFromPolicy({ sessionID, policy: null })
         try {
           const policy = await resolveForSession(sessionID)
-          return supervisionBadgeFromPolicy({ sessionID, policy, view: steering.view(sessionID), episodeMode: episodes.mode(sessionID) })
+          return supervisionBadgeFromPolicy({
+            sessionID,
+            policy,
+            view: steering.view(sessionID),
+            episodeMode: episodes.mode(sessionID),
+            reviewing: reviewing.has(sessionID),
+            findingsWaiting: waitingFindings.has(sessionID),
+          })
         } catch {
           return supervisionBadgeFromPolicy({ sessionID, policy: null, episodeMode: episodes.mode(sessionID) })
         }
@@ -101,6 +109,8 @@ export default Plugin.define({
             policy: resolved,
             view: steering.view(sessionID),
             episodeMode: episodes.mode(sessionID),
+            reviewing: reviewing.has(sessionID),
+            findingsWaiting: waitingFindings.has(sessionID),
             reassertion: steering.context(sessionID),
             steering: deliveries,
             checkpoints,
@@ -133,6 +143,44 @@ export default Plugin.define({
         await rpc.events.emit("stateUpdated", badge).catch(() => {})
         return { sessionID, mode: episodes.mode(sessionID) }
       },
+      supervisionCheckpoint: async (input: any) => {
+        const sessionID = typeof input?.sessionID === "string" ? input.sessionID : ""
+        if (sessionID === "") return { sessionID, accepted: false }
+        let directory = ctx.location.directory
+        try {
+          const session = await ctx.session.get({ sessionID })
+          directory = session.location?.directory ?? directory
+        } catch {
+          return { sessionID, accepted: false }
+        }
+        // Fire-and-forget: the badge shows the reviewing state; the verdict
+        // lands on disk and in stateUpdated when the reviewer finishes.
+        // Explicit checkpoints remain report-only — findings never steer.
+        reviewing.add(sessionID)
+        supervisedSessions.add(sessionID)
+        void observerFor(directory)
+          .explicitCheckpoint(sessionID, {})
+          .catch(() => {})
+          .finally(() => {
+            reviewing.delete(sessionID)
+            void resolveForSession(sessionID)
+              .then((policy: any) =>
+                rpc.events.emit(
+                  "stateUpdated",
+                  supervisionBadgeFromPolicy({
+                    sessionID,
+                    policy,
+                    view: steering.view(sessionID),
+                    episodeMode: episodes.mode(sessionID),
+                    reviewing: false,
+                    findingsWaiting: waitingFindings.has(sessionID),
+                  }),
+                ),
+              )
+              .catch(() => {})
+          })
+        return { sessionID, accepted: true }
+      },
     })
     const observers = new Map<string, WorkflowObserver>()
     const steering = new SteeringCoordinator({ limit: 3 })
@@ -141,6 +189,15 @@ export default Plugin.define({
     const settle = new WorkSettle()
     const pendingRuns = new Map<string, { directory: string; timer: ReturnType<typeof setTimeout> }>()
     const deferTimeoutMs = 10 * 60 * 1000
+    // A11-batch — live supervision state. activeSessions: currently
+    // executing (delivery-at-completion picks live vs queued). supervisedSessions:
+    // seen in an enabled project (standing context contract). waitingFindings:
+    // findings queued into an idle session, cleared at prompt admission.
+    // reviewing: a checkpoint, including the reviewer run, is in flight.
+    const activeSessions = new Set<string>()
+    const supervisedSessions = new Set<string>()
+    const waitingFindings = new Set<string>()
+    const reviewing = new Set<string>()
 
     const resolveForSession = async (sessionID: string) => {
       const session = await ctx.session.get({ sessionID })
@@ -269,9 +326,18 @@ export default Plugin.define({
     })
 
     const contextHook = await ctx.session.hook("context", (event: any) => {
-      const text = steering.context(event.sessionID)
-      if (text === undefined) return
-      event.system.push({ type: "text", text })
+      const sessionID = event?.sessionID
+      if (typeof sessionID !== "string") return
+      const lines: string[] = []
+      if (supervisedSessions.has(sessionID)) {
+        lines.push(
+          "Workflow supervisor: every finished turn in this project is independently reviewed; findings arrive with your next prompt. Done claims are pre-review.",
+        )
+      }
+      const reassertion = steering.context(sessionID)
+      if (reassertion !== undefined) lines.push(reassertion)
+      if (lines.length === 0) return
+      event.system.push({ type: "text", text: lines.join("\n") })
     })
 
     // A4 — one-ride demotion. Prompt admission is the signal; synthetic
@@ -282,6 +348,25 @@ export default Plugin.define({
       const sessionID = event?.sessionID
       if (typeof sessionID !== "string") return
       steering.promptAdmitted(sessionID)
+      // A11-batch — the user's prompt consumes queued findings; the badge
+      // drops the waiting marker.
+      if (waitingFindings.delete(sessionID)) {
+        void resolveForSession(sessionID)
+          .then((policy: any) =>
+            rpc.events.emit(
+              "stateUpdated",
+              supervisionBadgeFromPolicy({
+                sessionID,
+                policy,
+                view: steering.view(sessionID),
+                episodeMode: episodes.mode(sessionID),
+                reviewing: reviewing.has(sessionID),
+                findingsWaiting: false,
+              }),
+            ),
+          )
+          .catch(() => {})
+      }
     })
 
     // A9 — the post-settle checkpoint runner, shared by the immediate and
@@ -291,8 +376,39 @@ export default Plugin.define({
       // A8 — collab suspends the per-turn automatic trigger; explicit
       // checkpoints are user-requested and unaffected.
       if (!automaticReviewAllowed(episodes.mode(sessionID))) return
-      const result = await observerFor(directory).handleExecutionSucceeded(sessionID)
-      if (result?.status !== "completed" || result.trigger !== "execution") return
+      // A11-batch — the review-in-flight state is visible on the badge for
+      // the whole checkpoint, including the reviewer run.
+      reviewing.add(sessionID)
+      supervisedSessions.add(sessionID)
+      void resolveForSession(sessionID)
+        .then((policy: any) =>
+          rpc.events.emit(
+            "stateUpdated",
+            supervisionBadgeFromPolicy({
+              sessionID,
+              policy,
+              view: steering.view(sessionID),
+              episodeMode: episodes.mode(sessionID),
+              reviewing: true,
+              findingsWaiting: waitingFindings.has(sessionID),
+            }),
+          ),
+        )
+        .catch(() => {})
+      let result: any
+      try {
+        result = await observerFor(directory).handleExecutionSucceeded(sessionID)
+      } finally {
+        reviewing.delete(sessionID)
+      }
+      if (result?.status !== "completed" || result.trigger !== "execution") {
+        if (result?.status === "failed") {
+          void new IncidentLog(directory)
+            .record({ kind: "review_failed", sessionID, detail: result.checkpointID })
+            .catch(() => {})
+        }
+        return
+      }
       // A7/A8 — route before steering. A user-channel report never
       // reaches the builder inbox, consumes no attempt, and sets no
       // reassertion; the ledger and reports on disk already carry it.
@@ -319,16 +435,25 @@ export default Plugin.define({
             attempts: decision.attempts,
             time: Date.now(),
           })
+          // A11-batch — deliver the moment the review completes: live into
+          // the running turn when the builder is active, queued otherwise.
+          const live = activeSessions.has(sessionID)
           await ctx.session.synthetic({
             sessionID,
             text: decision.text,
-            delivery: "queue",
+            delivery: live ? "steer" : "queue",
             resume: false,
             metadata: {
               workflowSupervisor: true,
               checkpointID: result.checkpointID,
             },
           })
+          if (!live) {
+            waitingFindings.add(sessionID)
+            void new IncidentLog(directory)
+              .record({ kind: "findings_queued_idle", sessionID, detail: result.checkpointID })
+              .catch(() => {})
+          }
         } else if (decision.action === "escalate") {
           console.warn(
             "[workflow-supervisor] steering limit reached",
@@ -345,6 +470,9 @@ export default Plugin.define({
               }),
             )
             .catch(() => {})
+          void new IncidentLog(directory)
+            .record({ kind: "steering_escalated", sessionID, detail: `${result.checkpointID} attempts=${decision.attempts}` })
+            .catch(() => {})
         }
       }
       await rpc.events
@@ -355,6 +483,8 @@ export default Plugin.define({
             policy: { active: true, effectiveMode: result.effectiveMode },
             view: steering.view(sessionID),
             episodeMode: episodes.mode(sessionID),
+            reviewing: false,
+            findingsWaiting: waitingFindings.has(sessionID),
           }),
         )
         .catch(() => {})
@@ -375,6 +505,7 @@ export default Plugin.define({
         // A9 — work-settle bookkeeping, independent of observer dispatch.
         // Reviewer sessions are parentless and never tracked.
         if (type === "session.execution.started") {
+          activeSessions.add(sessionID)
           void ctx.session
             .get({ sessionID })
             .then((session: any) => {
@@ -386,6 +517,7 @@ export default Plugin.define({
           type === "session.execution.failed" ||
           type === "session.execution.interrupted"
         ) {
+          activeSessions.delete(sessionID)
           const settledParent = settle.childSettled(sessionID)
           if (settledParent !== undefined) {
             const pending = pendingRuns.get(settledParent)
@@ -410,6 +542,9 @@ export default Plugin.define({
                 if (pending === undefined) return
                 pendingRuns.delete(sessionID)
                 settle.clear(sessionID)
+                void new IncidentLog(pending.directory)
+                  .record({ kind: "defer_deadline_forced", sessionID })
+                  .catch(() => {})
                 void runExecutionCheckpoint(sessionID, pending.directory)
               }, deferTimeoutMs)
               pendingRuns.set(sessionID, { directory, timer })

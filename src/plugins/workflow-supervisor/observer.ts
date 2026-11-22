@@ -221,6 +221,10 @@ export class WorkflowObserver {
         changedFiles: evidence.workingDiff
           .map((item: any) => (typeof item?.file === "string" ? item.file : undefined))
           .filter((file: any): file is string => typeof file === "string"),
+        steeringHistory: {
+          count: (evidence.steeringLog ?? []).length,
+          latest: (evidence.steeringLog ?? [])[(evidence.steeringLog ?? []).length - 1]?.checkpointID,
+        },
       })
       await this.ledger.complete(id, result)
       if (trigger === "explicit") {

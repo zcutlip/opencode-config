@@ -19,6 +19,16 @@ export function hasFindings(report: string): boolean {
   return !/^-\s*No findings$/im.test(body)
 }
 
+/**
+ * A11 — true when the report itself marks findings as repeats of previously
+ * delivered steering ("previously steered, still unresolved"), the
+ * convention pinned in the reviewer instructions. The budget counts
+ * unresolved repeats, not distinct reports.
+ */
+export function hasRepeats(report: string): boolean {
+  return /\bpreviously steered\b/i.test(report)
+}
+
 function fingerprintOf(report: string): string {
   return createHash("sha256")
     .update(report.replace(/\s+/g, " ").trim().toLowerCase())
@@ -89,6 +99,9 @@ export class SteeringCoordinator {
       state.report = undefined
       state.checkpointID = undefined
       state.ride = 0
+      // A clean review is demonstrated trust: the budget fully re-arms.
+      state.attempts = 0
+      state.fingerprints.clear()
       return { action: "none", reason: "no-findings" }
     }
 
@@ -96,11 +109,19 @@ export class SteeringCoordinator {
     if (state.fingerprints.has(fingerprint)) {
       return { action: "duplicate", fingerprint, attempts: state.attempts }
     }
-    if (state.attempts >= this.limit) {
-      return { action: "escalate", reason: "limit", fingerprint, attempts: state.attempts }
+
+    // A11 — the budget counts unresolved repeats, not distinct reports.
+    // A repeat-free findings report is progress or new information and
+    // delivers freely; only findings the reviewer marks as repeating
+    // previously delivered steering burn the budget.
+    const carriesRepeats = hasRepeats(input.report)
+    if (carriesRepeats) {
+      if (state.attempts >= this.limit) {
+        return { action: "escalate", reason: "limit", fingerprint, attempts: state.attempts }
+      }
+      state.attempts += 1
     }
 
-    state.attempts += 1
     state.fingerprints.add(fingerprint)
     state.report = input.report
     state.checkpointID = input.checkpointID

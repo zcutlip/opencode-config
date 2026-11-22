@@ -28,6 +28,10 @@ Findings:
 - No findings
 `
 
+// A11 — the budget counts unresolved repeats, so burning requires the
+// reviewer's "previously steered" marking.
+const repeatReport = report + "\nPreviously steered, still unresolved.\n"
+
 function input(overrides: Record<string, any> = {}) {
   return {
     sessionID: "ses_observed",
@@ -60,7 +64,7 @@ describe("workflow supervisor steering", () => {
     const steering = new SteeringCoordinator()
     const decision = steering.consider(input())
     expect(decision.action).toBe("steer")
-    expect(decision.attempts).toBe(1)
+    expect(decision.attempts).toBe(0)
     expect(decision.text).toContain("Workflow supervisor checkpoint cp-test")
     expect(decision.text).toContain("Verdict: CONCERNS")
     expect(decision.text).toContain("Minimum correction: Revert implementation changes.")
@@ -73,17 +77,32 @@ describe("workflow supervisor steering", () => {
     expect(steering.consider(input()).action).toBe("steer")
     const duplicate = steering.consider(input({ checkpointID: "cp-duplicate" }))
     expect(duplicate.action).toBe("duplicate")
-    expect(duplicate.attempts).toBe(1)
+    expect(duplicate.attempts).toBe(0)
   })
 
-  test("distinct reports are bounded and then escalate", () => {
+  test("repeat-carrying reports are bounded and then escalate", () => {
     const steering = new SteeringCoordinator({ limit: 2 })
-    expect(steering.consider(input({ checkpointID: "cp-1" })).action).toBe("steer")
-    expect(steering.consider(input({ checkpointID: "cp-2", report: report.replace("one deviation", "another deviation") })).action).toBe("steer")
-    const escalated = steering.consider(input({ checkpointID: "cp-3", report: report.replace("one deviation", "third deviation") }))
+    expect(steering.consider(input({ checkpointID: "cp-1", report: repeatReport })).action).toBe("steer")
+    expect(steering.consider(input({ checkpointID: "cp-2", report: repeatReport.replace("one deviation", "another deviation") })).action).toBe("steer")
+    const escalated = steering.consider(input({ checkpointID: "cp-3", report: repeatReport.replace("one deviation", "third deviation") }))
     expect(escalated.action).toBe("escalate")
     expect(escalated.reason).toBe("limit")
     expect(escalated.attempts).toBe(2)
+  })
+
+  test("repeat-free reports deliver without burning the budget", () => {
+    const steering = new SteeringCoordinator({ limit: 1 })
+    expect(steering.consider(input({ checkpointID: "cp-1" })).attempts).toBe(0)
+    expect(steering.consider(input({ checkpointID: "cp-2", report: report.replace("one deviation", "another deviation") })).attempts).toBe(0)
+  })
+
+  test("a clean review fully re-arms the budget", () => {
+    const steering = new SteeringCoordinator({ limit: 2 })
+    steering.consider(input({ checkpointID: "cp-1", report: repeatReport }))
+    steering.consider(input({ checkpointID: "cp-2", report: repeatReport.replace("one deviation", "second deviation") }))
+    expect(steering.consider(input({ checkpointID: "cp-3", report: repeatReport.replace("one deviation", "third deviation") })).action).toBe("escalate")
+    steering.consider(input({ checkpointID: "cp-4", report: cleanReport }))
+    expect(steering.consider(input({ checkpointID: "cp-5", report: repeatReport.replace("one deviation", "fifth deviation") })).action).toBe("steer")
   })
 
   test("verdict and finding detection are independent", () => {

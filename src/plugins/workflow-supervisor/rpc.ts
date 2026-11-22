@@ -20,8 +20,10 @@ export const WorkflowSupervisorRpc = Rpc.define({
           attempts: { type: "number" },
           limit: { type: "number" },
           episodeMode: { type: "string", enum: ["collab", "delegate"] },
+          reviewing: { type: "boolean" },
+          findingsWaiting: { type: "boolean" },
         },
-        required: ["sessionID", "active", "hasUnresolved", "attempts", "limit", "episodeMode"],
+        required: ["sessionID", "active", "hasUnresolved", "attempts", "limit", "episodeMode", "reviewing", "findingsWaiting"],
         additionalProperties: false,
       },
     },
@@ -42,6 +44,8 @@ export const WorkflowSupervisorRpc = Rpc.define({
           attempts: { type: "number" },
           limit: { type: "number" },
           reassertion: { type: ["string", "null"] },
+          reviewing: { type: "boolean" },
+          findingsWaiting: { type: "boolean" },
           latestReport: {
             type: ["object", "null"],
             properties: {
@@ -109,6 +113,25 @@ export const WorkflowSupervisorRpc = Rpc.define({
         additionalProperties: false,
       },
     },
+    supervisionCheckpoint: {
+      input: {
+        type: "object",
+        properties: {
+          sessionID: { type: "string" },
+        },
+        required: ["sessionID"],
+        additionalProperties: false,
+      },
+      output: {
+        type: "object",
+        properties: {
+          sessionID: { type: "string" },
+          accepted: { type: "boolean" },
+        },
+        required: ["sessionID", "accepted"],
+        additionalProperties: false,
+      },
+    },
   },
   events: {
     configurationError: {
@@ -134,8 +157,10 @@ export const WorkflowSupervisorRpc = Rpc.define({
           attempts: { type: "number" },
           limit: { type: "number" },
           episodeMode: { type: "string", enum: ["collab", "delegate"] },
+          reviewing: { type: "boolean" },
+          findingsWaiting: { type: "boolean" },
         },
-        required: ["sessionID", "active", "hasUnresolved", "attempts", "limit", "episodeMode"],
+        required: ["sessionID", "active", "hasUnresolved", "attempts", "limit", "episodeMode", "reviewing", "findingsWaiting"],
         additionalProperties: false,
       },
     },

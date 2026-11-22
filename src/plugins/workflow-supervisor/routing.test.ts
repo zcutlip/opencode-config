@@ -43,6 +43,9 @@ Not assessed or missing evidence:
 - Turn diff was unavailable.
 `
 
+// A11 — budget burns only on reports the reviewer marks as repeats.
+const repeatMarkedReport = findingsReport + "\nPreviously steered, still unresolved.\n"
+
 const otherFindingsReport = findingsReport.replace("one deviation", "another deviation")
 
 const cleanReport = `Mode: checkpoint
@@ -130,8 +133,8 @@ describe("A5 — visible escalation", () => {
   test("limit escalation carries a user-facing event payload", async () => {
     const { SteeringCoordinator, escalationEvent } = await import("./steering.ts")
     const steering = new SteeringCoordinator({ limit: 1 })
-    expect(steering.consider(steeringInput({ checkpointID: "cp-1" })).action).toBe("steer")
-    const escalated = steering.consider(steeringInput({ checkpointID: "cp-2", report: otherFindingsReport }))
+    expect(steering.consider(steeringInput({ checkpointID: "cp-1", report: repeatMarkedReport })).action).toBe("steer")
+    const escalated = steering.consider(steeringInput({ checkpointID: "cp-2", report: repeatMarkedReport.replace("one deviation", "another deviation") }))
     expect(escalated.action).toBe("escalate")
     expect(escalated.attempts).toBe(1)
     const payload = escalationEvent({ sessionID: "ses_observed", checkpointID: "cp-2", attempts: escalated.attempts })
@@ -273,7 +276,7 @@ describe("A8 — collab/delegate episode override", () => {
     const { SteeringCoordinator } = await import("./steering.ts")
     const steering = new SteeringCoordinator()
     const decision = steering.consider(steeringInput())
-    expect(decision.attempts).toBe(1)
+    expect(decision.attempts).toBe(0)
     steering.disarm("ses_observed")
     expect(steering.context("ses_observed")).toContain("No unresolved findings")
     expect(steering.consider(steeringInput({ checkpointID: "cp-duplicate" })).action).toBe("duplicate")

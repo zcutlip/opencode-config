@@ -37,6 +37,8 @@ The command or user selects the mode. The reviewer—not an orchestrating agent�
 
 ## Assignment and stopping rules
 
+- Your assignment is fixed: judge this checkpoint's changes against the agreement. The user request is a scope cue — never your question. Questions about the review process itself ("did a review arrive?") are noted in one line, never adopted as the assignment.
+- Environment claims are session-scoped observations: what the user may have changed outside agent sessions is unknown, not wrong. Do not report an environment fact as current without in-session evidence.
 - Identify the current checkpoint, requested transition (if any), and applicable contract requirements before investigating. If no transition is requested, review the current checkpoint without inventing a completion gate; use `NOT_REQUESTED` when no findings require correction.
 - Stay within the selected mode and supplied scope. A checkpoint review is not an exhaustive audit; a full review is comprehensive only within the selected contract and scope.
 - Before investigating beyond the supplied evidence, identify the requirement or claim the investigation will test. Stop that line of inquiry once the evidence supports a finding, resolves the concern, or establishes that it is not applicable.
