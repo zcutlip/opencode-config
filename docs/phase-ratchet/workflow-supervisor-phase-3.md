@@ -1,6 +1,6 @@
 # Workflow supervisor — Phase 3 implementation contract
 
-Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings), is locked by hash below, and was implemented the same day — the locked suite passes 46/46 with no amendment. Amendments A9 (work-settled checkpoints) and A10 (builder read fence) were accepted and implemented 2026-11-22 from live steering evidence; A9 adds its own unlocked suite, `settle.test.ts`, and A10 amends the permission probe's contract as recorded below. Amendment A11 (live-delivery and visibility batch) was implemented 2026-11-22 under user-granted auto mode with the lock ceremony waived by the user; its changes to the previously locked `steering.test.ts` and `routing.test.ts` are recorded below.
+Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings), is locked by hash below, and was implemented the same day — the locked suite passes 46/46 with no amendment. Amendments A9 (work-settled checkpoints) and A10 (builder read fence) were accepted and implemented 2026-11-22 from live steering evidence; A9 adds its own unlocked suite, `settle.test.ts`, and A10 amends the permission probe's contract as recorded below. Amendment A11 (live-delivery and visibility batch) and A12 (wake on findings) were implemented 2026-11-22 under user-granted auto mode with the lock ceremony waived by the user; their changes to the previously locked `steering.test.ts` and `routing.test.ts` are recorded below.
 
 ## Locked test baseline
 
@@ -250,6 +250,22 @@ changes recorded here.
 - Friction incident log: `incidents.jsonl` records supervision health —
   findings queued into idle sessions, exhausted budgets, failed reviews,
   deadline-forced deferrals — for post-session sweeps.
+
+### A12 — wake on findings
+
+Status: accepted and implemented 2026-11-22; same user-granted auto-mode
+batch as A11, lock ceremony waived.
+
+The user's involvement model: present at the clean gate (review and
+commit) and at escalation — nothing in between. An idle delegate-mode
+session is woken (`resume: true`) the moment findings land, and the agent
+works them autonomously; the next review judges the fix — clean resolves
+with nothing burned, repeats burn toward escalation, which reaches the
+user as one line. Collab mode never wakes: its findings route to the user
+channel, because the user is the declared driver. The standing context
+raises the done-bar to match: stage-complete is presented only after the
+reviewer returns clean, or with the remaining findings named and why they
+stand. Wakes are incident-logged for sweeps.
 
 ## Evidence changes
 
