@@ -7,6 +7,7 @@ import { resolveWorkflowPolicy } from "./policy.ts"
 import { runReviewer } from "./reviewer.ts"
 import { escalationEvent, SteeringCoordinator } from "./steering.ts"
 import { automaticReviewAllowed, EpisodeState, routeReport } from "./routing.ts"
+import { WorkSettle } from "./settle.ts"
 import {
   buildSupervisionState,
   listCheckpoints,
@@ -136,6 +137,10 @@ export default Plugin.define({
     const observers = new Map<string, WorkflowObserver>()
     const steering = new SteeringCoordinator({ limit: 3 })
     const episodes = new EpisodeState()
+    // A9 — deferred automatic checkpoints, keyed by the observed session.
+    const settle = new WorkSettle()
+    const pendingRuns = new Map<string, { directory: string; timer: ReturnType<typeof setTimeout> }>()
+    const deferTimeoutMs = 10 * 60 * 1000
 
     const resolveForSession = async (sessionID: string) => {
       const session = await ctx.session.get({ sessionID })
@@ -279,6 +284,82 @@ export default Plugin.define({
       steering.promptAdmitted(sessionID)
     })
 
+    // A9 — the post-settle checkpoint runner, shared by the immediate and
+    // deferred paths. Collab is re-checked at run time so a flip between
+    // defer and run is honored.
+    const runExecutionCheckpoint = async (sessionID: string, directory: string): Promise<void> => {
+      // A8 — collab suspends the per-turn automatic trigger; explicit
+      // checkpoints are user-requested and unaffected.
+      if (!automaticReviewAllowed(episodes.mode(sessionID))) return
+      const result = await observerFor(directory).handleExecutionSucceeded(sessionID)
+      if (result?.status !== "completed" || result.trigger !== "execution") return
+      // A7/A8 — route before steering. A user-channel report never
+      // reaches the builder inbox, consumes no attempt, and sets no
+      // reassertion; the ledger and reports on disk already carry it.
+      const routing = routeReport({
+        episodeMode: episodes.mode(sessionID),
+        workingDiff: result.workingDiff ?? [],
+        contractPath: result.contractPath,
+        worktree: result.worktree,
+      })
+      if (routing.channel === "builder") {
+        const decision = steering.consider({
+          sessionID,
+          requestedMode: result.requestedMode,
+          checkpointID: result.checkpointID,
+          report: result.report,
+          contractPath: result.contractPath,
+          reportPath: result.reportPath,
+        })
+        if (decision.action === "steer") {
+          await new SteeringLog(directory).record({
+            sessionID,
+            checkpointID: result.checkpointID,
+            text: decision.text,
+            attempts: decision.attempts,
+            time: Date.now(),
+          })
+          await ctx.session.synthetic({
+            sessionID,
+            text: decision.text,
+            delivery: "queue",
+            resume: false,
+            metadata: {
+              workflowSupervisor: true,
+              checkpointID: result.checkpointID,
+            },
+          })
+        } else if (decision.action === "escalate") {
+          console.warn(
+            "[workflow-supervisor] steering limit reached",
+            { sessionID, checkpointID: result.checkpointID, attempts: decision.attempts },
+          )
+          // A5 — user-facing escalation; the TUI toasts it.
+          await rpc.events
+            .emit(
+              "escalationRaised",
+              escalationEvent({
+                sessionID,
+                checkpointID: result.checkpointID,
+                attempts: decision.attempts,
+              }),
+            )
+            .catch(() => {})
+        }
+      }
+      await rpc.events
+        .emit(
+          "stateUpdated",
+          supervisionBadgeFromPolicy({
+            sessionID,
+            policy: { active: true, effectiveMode: result.effectiveMode },
+            view: steering.view(sessionID),
+            episodeMode: episodes.mode(sessionID),
+          }),
+        )
+        .catch(() => {})
+    }
+
     const controller = new AbortController()
     void (async () => {
       for await (const event of ctx.event.subscribe({
@@ -289,79 +370,53 @@ export default Plugin.define({
         if (typeof sessionID !== "string") continue
         const directory = (event as any).location?.directory ?? ctx.location.directory
         const observer = observerFor(directory)
-        if ((event as any).type === "session.execution.succeeded") {
+        const type = (event as any).type as string
+
+        // A9 — work-settle bookkeeping, independent of observer dispatch.
+        // Reviewer sessions are parentless and never tracked.
+        if (type === "session.execution.started") {
+          void ctx.session
+            .get({ sessionID })
+            .then((session: any) => {
+              if (typeof session?.parentID === "string") settle.trackChild(session.parentID, sessionID)
+            })
+            .catch(() => {})
+        } else if (
+          type === "session.execution.succeeded" ||
+          type === "session.execution.failed" ||
+          type === "session.execution.interrupted"
+        ) {
+          const settledParent = settle.childSettled(sessionID)
+          if (settledParent !== undefined) {
+            const pending = pendingRuns.get(settledParent)
+            if (pending !== undefined) {
+              pendingRuns.delete(settledParent)
+              clearTimeout(pending.timer)
+              void runExecutionCheckpoint(settledParent, pending.directory)
+            }
+          }
+        }
+
+        if (type === "session.execution.succeeded") {
           void observer.recordEvent(event).then(async (owned) => {
             if (!owned) return
-            // A8 — collab suspends the per-turn automatic trigger; explicit
-            // checkpoints are user-requested and unaffected.
-            if (!automaticReviewAllowed(episodes.mode(sessionID))) return
-            const result = await observer.handleExecutionSucceeded(sessionID)
-            if (result?.status !== "completed" || result.trigger !== "execution") return
-            // A7/A8 — route before steering. A user-channel report never
-            // reaches the builder inbox, consumes no attempt, and sets no
-            // reassertion; the ledger and panel already carry it.
-            const routing = routeReport({
-              episodeMode: episodes.mode(sessionID),
-              workingDiff: result.workingDiff ?? [],
-              contractPath: result.contractPath,
-              worktree: result.worktree,
-            })
-            if (routing.channel === "builder") {
-              const decision = steering.consider({
-                sessionID,
-                requestedMode: result.requestedMode,
-                checkpointID: result.checkpointID,
-                report: result.report,
-                contractPath: result.contractPath,
-                reportPath: result.reportPath,
-              })
-              if (decision.action === "steer") {
-                await new SteeringLog(directory).record({
-                  sessionID,
-                  checkpointID: result.checkpointID,
-                  text: decision.text,
-                  attempts: decision.attempts,
-                  time: Date.now(),
-                })
-                await ctx.session.synthetic({
-                  sessionID,
-                  text: decision.text,
-                  delivery: "queue",
-                  resume: false,
-                  metadata: {
-                    workflowSupervisor: true,
-                    checkpointID: result.checkpointID,
-                  },
-                })
-              } else if (decision.action === "escalate") {
-                console.warn(
-                  "[workflow-supervisor] steering limit reached",
-                  { sessionID, checkpointID: result.checkpointID, attempts: decision.attempts },
-                )
-                // A5 — user-facing escalation; the TUI toasts it.
-                await rpc.events
-                  .emit(
-                    "escalationRaised",
-                    escalationEvent({
-                      sessionID,
-                      checkpointID: result.checkpointID,
-                      attempts: decision.attempts,
-                    }),
-                  )
-                  .catch(() => {})
-              }
+            // A9 — defer while the observed session has helpers in flight;
+            // the deferred capture then sees their posted results in the
+            // parent transcript. The deadline force-run bounds a helper
+            // that never settles.
+            if (settle.hasInFlight(sessionID)) {
+              const timer = setTimeout(() => {
+                const pending = pendingRuns.get(sessionID)
+                if (pending === undefined) return
+                pendingRuns.delete(sessionID)
+                settle.clear(sessionID)
+                void runExecutionCheckpoint(sessionID, pending.directory)
+              }, deferTimeoutMs)
+              pendingRuns.set(sessionID, { directory, timer })
+              return
             }
-            await rpc.events
-              .emit(
-                "stateUpdated",
-                supervisionBadgeFromPolicy({
-                  sessionID,
-                  policy: { active: true, effectiveMode: result.effectiveMode },
-                  view: steering.view(sessionID),
-                  episodeMode: episodes.mode(sessionID),
-                }),
-              )
-              .catch(() => {})
+            settle.clear(sessionID)
+            void runExecutionCheckpoint(sessionID, directory)
           })
         } else {
           await observer.recordEvent(event)
@@ -376,6 +431,8 @@ export default Plugin.define({
       void contextHook.dispose()
       void promptHook.dispose()
       controller.abort()
+      for (const pending of pendingRuns.values()) clearTimeout(pending.timer)
+      pendingRuns.clear()
     }
   },
 })
