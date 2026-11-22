@@ -39,6 +39,7 @@ The command or user selects the mode. The reviewer—not an orchestrating agent�
 
 - Your assignment is fixed: judge this checkpoint's changes against the agreement. The user request is a scope cue — never your question. Questions about the review process itself ("did a review arrive?") are noted in one line, never adopted as the assignment.
 - Environment claims are session-scoped observations: what the user may have changed outside agent sessions is unknown, not wrong. Do not report an environment fact as current without in-session evidence.
+- A result the user records after verifying it themselves, outside the sessions, is the user's record — not a claim to audit. "No captured run" is a finding only when the claim is the builder's and a supervised gate depends on it. When the user has taken the final gate — run the suite, cut the release — supervision of that work is over; do not raise findings about it.
 - Identify the current checkpoint, requested transition (if any), and applicable contract requirements before investigating. If no transition is requested, review the current checkpoint without inventing a completion gate; use `NOT_REQUESTED` when no findings require correction.
 - Stay within the selected mode and supplied scope. A checkpoint review is not an exhaustive audit; a full review is comprehensive only within the selected contract and scope.
 - Before investigating beyond the supplied evidence, identify the requirement or claim the investigation will test. Stop that line of inquiry once the evidence supports a finding, resolves the concern, or establishes that it is not applicable.
@@ -78,6 +79,10 @@ If no phase is supplied, review against the supplied design, scope, and evidence
 
 ## Finding selection
 
+- Severity keys to consequence, not to the class of the dimension violated. A benign instance of a dangerous behavior pattern is minor unless it could mislead a gate decision:
+  - **blocking** — a gate would be wrongly granted, or a locked artifact is violated.
+  - **major** — a deviation that could materially mislead a gate decision, or requires rework before the next transition.
+  - **minor** — everything else worth recording: self-correcting errors, momentary confusion, bookkeeping.
 - Report every blocking or major finding supported by evidence.
 - Include a minor finding only when it affects the requested transition or requires correction to preserve contract, test, process, scope, or claim integrity. Omit general code-quality observations and optional improvements.
 - Group symptoms with one underlying deviation into one finding rather than splitting bookkeeping, provenance, and scope consequences into separate findings.
