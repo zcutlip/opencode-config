@@ -1,6 +1,6 @@
 # Workflow supervisor — Phase 3 implementation contract
 
-Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings), is locked by hash below, and was implemented the same day — the locked suite passes 46/46 with no amendment.
+Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings), is locked by hash below, and was implemented the same day — the locked suite passes 46/46 with no amendment. Amendments A9 (work-settled checkpoints) and A10 (builder read fence) were accepted and implemented 2026-11-22 from live steering evidence; A9 adds its own unlocked suite, `settle.test.ts`, and A10 amends the permission probe's contract as recorded below.
 
 ## Locked test baseline
 
@@ -136,7 +136,8 @@ Status: accepted 2026-11-21 after independent review.
   attributed synthetic message to the builder.
 - Amended behavior: if the checkpoint's working diff is nonempty and every
   file in it is the policy's `contract` file, the report routes to the user
-  channel (panel and ledger) and no synthetic message is queued; an empty
+  channel (ledger and reports on disk — the panel is an optional viewer, not
+  the channel) and no synthetic message is queued; an empty
   or mixed diff queues as before — the routing rationale (user-authored
   shaping) applies only to actual contract-file edits. Path forms:
   `vcs.diff` returns worktree-relative files and the policy contract path
@@ -172,6 +173,47 @@ Status: accepted 2026-11-21 after independent review.
   absence or delegation; the only reliable signal is the user declaring it.
 - Scope: routing and automatic-trigger suppression only. The builder can
   never flip the toggle — the same authority rule as the policy-file fence.
+
+### A9 — work-settled checkpoints
+
+Status: accepted and implemented 2026-11-22, from live steering evidence
+(challenge log: "Verification evidence goes missing while work is still in
+flight").
+
+- Challenge: a turn can end while a background helper still runs the
+  command a gate depends on; the checkpoint fired at turn end, evidence
+  froze there, and the helper's output was never seen — so a gate review
+  could not see the gate's own evidence.
+- New behavior: an automatic checkpoint defers while the observed session
+  has in-flight child sessions, and runs when the last child settles or a
+  10-minute deadline passes. The deferred capture then sees the helper's
+  posted result in the parent transcript. Explicit checkpoints run
+  immediately; reviewer sessions are parentless and never block anything.
+- Scope: trigger timing only. Deferral is in-memory and best-effort — a
+  host restart mid-deferral simply skips that checkpoint; a helper that
+  never settles is bounded by the deadline force-run. `settle.test.ts` is
+  a new unlocked suite covering the pure tracking.
+
+### A10 — builder reads denied on supervisor records
+
+Status: accepted and implemented 2026-11-22, from live steering evidence
+(challenge log: "Supervisor records are about the builder, not for the
+builder").
+
+- Challenge: asked about its own review status, the builder read the
+  supervisor's internal records — past reports and attempt counts —
+  because the fence blocked edits but not reads.
+- New behavior: agent `read` on `.opencode/workflow-state/**` is denied
+  globally; `workflow-reviewer` keeps access because its agent-level read
+  allows load after global rules and win by last-match. The user's own
+  reads are unaffected — user file access never passes through agent tool
+  permissions. Escalated findings reach the user through the durable
+  channel (reports on disk plus the escalation toast); the panel is an
+  optional viewer, never the channel.
+- Probe amendment: `permission-probe.ts` now also evaluates `read` for the
+  build agent — the state path must deny and an unrelated file must allow.
+  The phase-2 lock hash for the probe records the pre-A10 baseline and is
+  superseded by this recorded amendment per the ledger convention.
 
 ## Evidence changes
 
