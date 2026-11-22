@@ -5,21 +5,20 @@ import { mkdir } from "node:fs/promises"
 import { dirname, join } from "node:path"
 
 const repository = process.cwd()
-const expected = {
-  policy: "deny",
-  state: "deny",
-  control: "deny",
-  unrelated: "allow",
-} as const
 
-const resources = {
-  policy: join(repository, ".opencode/workflow.jsonc"),
-  state: join(repository, ".opencode/workflow-state/permission-probe.txt"),
+// A10 (2026-11-22) adds the read probes: supervisor records are about the
+// builder, not for it, so build reads on workflow state must deny while an
+// unrelated file stays readable.
+const probes = [
+  { name: "policy", action: "edit", resource: join(repository, ".opencode/workflow.jsonc"), expected: "deny" },
+  { name: "state", action: "edit", resource: join(repository, ".opencode/workflow-state/permission-probe.txt"), expected: "deny" },
   // Existing filename-anchored deny, independent of the workflow fence: proves
   // the evaluation endpoint can return deny rather than always allowing.
-  control: join(repository, "docs/permission-probe/opencode.json"),
-  unrelated: join(repository, "docs/permission-probe-unrelated.txt"),
-}
+  { name: "control", action: "edit", resource: join(repository, "docs/permission-probe/opencode.json"), expected: "deny" },
+  { name: "unrelated", action: "edit", resource: join(repository, "docs/permission-probe-unrelated.txt"), expected: "allow" },
+  { name: "stateRead", action: "read", resource: join(repository, ".opencode/workflow-state/permission-probe.txt"), expected: "deny" },
+  { name: "unrelatedRead", action: "read", resource: join(repository, "docs/permission-probe-unrelated.txt"), expected: "allow" },
+] as const
 
 function api(method: string, path: string, body?: unknown): any {
   const args = ["opencode", "api", method, path]
@@ -43,23 +42,24 @@ const created = api("post", "/api/session", {
 })
 const sessionID = created.data.id as string
 
-let results: Record<keyof typeof expected, string>
+let results: Record<string, string>
 try {
   results = Object.fromEntries(
-    Object.entries(resources).map(([name, resource]) => {
+    probes.map((probe) => {
       const response = api("post", `/api/session/${sessionID}/permission`, {
-        action: "edit",
-        resources: [resource],
+        action: probe.action,
+        resources: [probe.resource],
         agent: "build",
       })
-      return [name, response.data.effect]
+      return [probe.name, response.data.effect]
     }),
-  ) as Record<keyof typeof expected, string>
+  )
 } finally {
   api("delete", `/api/session/${sessionID}`)
 }
 
-const ok = Object.entries(expected).every(([name, effect]) => results[name as keyof typeof expected] === effect)
+const ok = probes.every((probe) => results[probe.name] === probe.expected)
+const expected = Object.fromEntries(probes.map((probe) => [probe.name, probe.expected]))
 const report = JSON.stringify({ sessionID, expected, results, ok }, null, 2)
 const outputPath = process.argv[2]
 if (outputPath) {
