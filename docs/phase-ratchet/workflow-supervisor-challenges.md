@@ -131,6 +131,31 @@ pathologies — findings queued into idle sessions, exhausted budgets, failed
 reviews, deadline-forced deferrals — to an incident log; after a work
 session, one word sweeps the evidence instead of the user narrating it.
 
+**Supervision ends when the work ends.** After the user took the final
+gate — ran the suite themselves, cut the release — a review still flagged
+their out-of-band verification as an unresolved defect ("no captured
+run"): the supervisor auditing its principal's own closing ritual.
+Claim-integrity findings exist for builder-asserted results during
+supervised stages, not for facts the user verified personally once the
+work left the supervised window. *Resolution:* the reviewer treats
+out-of-band user verification as recorded fact and stops raising it; the
+user's wrap-up turns run under the "I'm driving" override, which suspends
+per-turn review entirely. *Direction:* structurally, the stage model ends
+supervision at the finish gate — no checkpoint fires for work the user
+has taken over.
+
+**Severity keys to consequence, not class.** A false state-claim to the
+user — "commit the docs set" with nothing to stage, self-correcting in
+seconds — was filed as major because claim integrity is a sensitive
+dimension and the finding repeated; the reviewer's instructions named
+three severity tiers without ever defining them. Severity is the user's
+attention-rationing signal — inflation makes major mean less, which
+degrades the channel exactly when it matters. *Resolution:* a
+consequence-keyed rubric — blocking is a wrongly-granted gate or a
+violated lock; major misleads a gate decision or forces rework; minor is
+everything else. A benign instance of a dangerous behavior pattern is
+minor unless it could mislead a gate.
+
 ## Open
 
 **One agreement slot, two layers.** Projects carry standing rules plus a
