@@ -153,7 +153,7 @@
         { "action": "shell", "resource": "grep *", "effect": "allow" },
         { "action": "shell", "resource": "wc *", "effect": "allow" },
         { "action": "shell", "resource": "pwd *", "effect": "allow" },
-        { "action": "shell", "resource": "git add *", "effect": "allow" },
+        { "action": "shell", "resource": "git add *", "effect": "ask" },
         // Index-only by git's definition (restores the index entry to HEAD;
         // never touches worktree or history). Required to split a mixed index
         // atomically — its denial is what forced 3be6e0c into one commit.
@@ -275,10 +275,17 @@
     // nor rewrite the phase/evidence ledger. Policy is user-owned config;
     // state is plugin runtime data. The user's own TUI/manual writes are
     // unaffected — they never pass through agent tool permissions.
+    // Reads on state were denied 2026-11-22 (A10): supervisor records are
+    // about the builder, not for it — feedback reaches builders through
+    // delivered messages, and the records exist for the user and reviewer.
+    // workflow-reviewer keeps access: its agent-level read allows load after
+    // global rules and win by last-match.
     { "action": "edit", "resource": ".opencode/workflow.jsonc", "effect": "deny" },
     { "action": "edit", "resource": "**/.opencode/workflow.jsonc", "effect": "deny" },
     { "action": "edit", "resource": ".opencode/workflow-state/**", "effect": "deny" },
-    { "action": "edit", "resource": "**/.opencode/workflow-state/**", "effect": "deny" }
+    { "action": "edit", "resource": "**/.opencode/workflow-state/**", "effect": "deny" },
+    { "action": "read", "resource": ".opencode/workflow-state/**", "effect": "deny" },
+    { "action": "read", "resource": "**/.opencode/workflow-state/**", "effect": "deny" }
   ],
 
   "plugins": [
