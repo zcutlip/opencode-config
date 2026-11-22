@@ -1,6 +1,6 @@
 # Workflow supervisor — Phase 3 implementation contract
 
-Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings), is locked by hash below, and was implemented the same day — the locked suite passes 46/46 with no amendment. Amendments A9 (work-settled checkpoints) and A10 (builder read fence) were accepted and implemented 2026-11-22 from live steering evidence; A9 adds its own unlocked suite, `settle.test.ts`, and A10 amends the permission probe's contract as recorded below.
+Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings), is locked by hash below, and was implemented the same day — the locked suite passes 46/46 with no amendment. Amendments A9 (work-settled checkpoints) and A10 (builder read fence) were accepted and implemented 2026-11-22 from live steering evidence; A9 adds its own unlocked suite, `settle.test.ts`, and A10 amends the permission probe's contract as recorded below. Amendment A11 (live-delivery and visibility batch) was implemented 2026-11-22 under user-granted auto mode with the lock ceremony waived by the user; its changes to the previously locked `steering.test.ts` and `routing.test.ts` are recorded below.
 
 ## Locked test baseline
 
@@ -214,6 +214,42 @@ builder").
   build agent — the state path must deny and an unrelated file must allow.
   The phase-2 lock hash for the probe records the pre-A10 baseline and is
   superseded by this recorded amendment per the ledger convention.
+
+### A11 — live-delivery and visibility batch
+
+Status: accepted and implemented 2026-11-22 under user-granted auto mode;
+the user waived the lock ceremony for this batch, and the previously locked
+`steering.test.ts` / `routing.test.ts` were amended directly with the
+changes recorded here.
+
+- Re-arm on demonstrated progress: the budget counts repeat-carrying
+  reports only — findings the reviewer marks "previously steered" burn an
+  attempt; repeat-free findings deliver freely; a clean review fully
+  re-arms (attempts and fingerprints cleared). Escalation fires only when
+  the same finding returns unresolved past the limit. Amends the bounded /
+  escalate tests to pin the repeat-based accounting.
+- Delivered-review history surfaced in the reviewer envelope: count and
+  latest checkpoint named up front; repeats must be marked, never presented
+  as new.
+- Reviewer fixed assignment and session-scoped evidence
+  (`src/agents/workflow-reviewer.md`): the user request is a scope cue,
+  never the question; meta-questions about the review process are noted,
+  not adopted; environment claims are session-scoped observations —
+  unknown, not wrong.
+- Delivery-at-completion: findings deliver the moment the review completes
+  — live into the running turn (`delivery: "steer"`) when the builder is
+  active, queued behind a "findings waiting" badge marker when idle; the
+  marker clears at prompt admission.
+- Review-state visibility: the badge shows `reviewing` for the whole
+  checkpoint including the reviewer run, then the verdict; the builder's
+  standing context states the contract — every finished turn is reviewed,
+  done claims are pre-review.
+- User-held review-now trigger: the `ws-review` palette/slash command fires
+  an explicit checkpoint for the focused session — no prompt spent, no
+  agent in the loop; report-only by design.
+- Friction incident log: `incidents.jsonl` records supervision health —
+  findings queued into idle sessions, exhausted budgets, failed reviews,
+  deadline-forced deferrals — for post-session sweeps.
 
 ## Evidence changes
 
