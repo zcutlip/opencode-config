@@ -252,6 +252,23 @@ describe("A7 — contract-file routing proxy", () => {
   })
 })
 
+describe("A12 — delivery plan", () => {
+  test("an active builder receives findings live", async () => {
+    const { deliveryPlan } = await import("./routing.ts")
+    expect(deliveryPlan({ active: true, episodeMode: "delegate" })).toEqual({ delivery: "steer", resume: false })
+  })
+
+  test("an idle delegate-mode builder is woken to act on findings", async () => {
+    const { deliveryPlan } = await import("./routing.ts")
+    expect(deliveryPlan({ active: false, episodeMode: "delegate" })).toEqual({ delivery: "queue", resume: true })
+  })
+
+  test("collab never wakes — findings wait for the user", async () => {
+    const { deliveryPlan } = await import("./routing.ts")
+    expect(deliveryPlan({ active: false, episodeMode: "collab" })).toEqual({ delivery: "queue", resume: false })
+  })
+})
+
 describe("A8 — collab/delegate episode override", () => {
   test("collab suppresses the per-turn automatic review trigger", async () => {
     const { automaticReviewAllowed } = await import("./routing.ts")

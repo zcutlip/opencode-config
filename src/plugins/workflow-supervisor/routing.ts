@@ -48,6 +48,25 @@ export function routeReport(input: {
 }
 
 /**
+ * A12 — delivery plan at review completion. An active builder receives
+ * findings live (mid-turn). An idle builder in delegate mode is WOKEN to
+ * act on them: the agent is the declared driver, so findings are its job,
+ * and the repeat-based budget bounds the loop it enters — fix the findings
+ * and the next review goes clean (nothing burns); repeat them and the
+ * budget burns to escalation. Collab mode never reaches here (its findings
+ * route to the user channel upstream).
+ */
+export function deliveryPlan(input: {
+  active: boolean
+  episodeMode: EpisodeMode
+}): { delivery: "steer" | "queue"; resume: boolean } {
+  if (input.active) return { delivery: "steer", resume: false }
+  // Collab never wakes: the user is driving, so findings wait for them.
+  if (input.episodeMode === "collab") return { delivery: "queue", resume: false }
+  return { delivery: "queue", resume: true }
+}
+
+/**
  * A8 — user-held runtime episode state, one mode per session. In-memory
  * only: never persisted to config and it dies with the server process. The
  * builder has no surface to flip it; only the TUI RPC does.

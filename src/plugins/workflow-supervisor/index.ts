@@ -7,7 +7,7 @@ import { WorkflowObserver, checkpointInputSchema } from "./observer.ts"
 import { resolveWorkflowPolicy } from "./policy.ts"
 import { runReviewer } from "./reviewer.ts"
 import { escalationEvent, SteeringCoordinator } from "./steering.ts"
-import { automaticReviewAllowed, EpisodeState, routeReport } from "./routing.ts"
+import { automaticReviewAllowed, deliveryPlan, EpisodeState, routeReport } from "./routing.ts"
 import { WorkSettle } from "./settle.ts"
 import {
   buildSupervisionState,
@@ -331,7 +331,7 @@ export default Plugin.define({
       const lines: string[] = []
       if (supervisedSessions.has(sessionID)) {
         lines.push(
-          "Workflow supervisor: every finished turn in this project is independently reviewed; findings arrive with your next prompt. Done claims are pre-review.",
+          "Workflow supervisor: every finished turn in this project is independently reviewed. Findings are delivered as soon as each review completes; an idle session is woken to act on them. Present stage-complete only after the reviewer returns clean, or name the findings that remain and why they stand.",
         )
       }
       const reassertion = steering.context(sessionID)
@@ -435,23 +435,24 @@ export default Plugin.define({
             attempts: decision.attempts,
             time: Date.now(),
           })
-          // A11-batch — deliver the moment the review completes: live into
-          // the running turn when the builder is active, queued otherwise.
-          const live = activeSessions.has(sessionID)
+          // A12 — deliver the moment the review completes: live into the
+          // running turn when the builder is active; an idle delegate-mode
+          // builder is woken to act on its findings. Collab routes to the
+          // user channel upstream and never reaches here.
+          const plan = deliveryPlan({ active: activeSessions.has(sessionID), episodeMode: episodes.mode(sessionID) })
           await ctx.session.synthetic({
             sessionID,
             text: decision.text,
-            delivery: live ? "steer" : "queue",
-            resume: false,
+            delivery: plan.delivery,
+            resume: plan.resume,
             metadata: {
               workflowSupervisor: true,
               checkpointID: result.checkpointID,
             },
           })
-          if (!live) {
-            waitingFindings.add(sessionID)
+          if (plan.resume) {
             void new IncidentLog(directory)
-              .record({ kind: "findings_queued_idle", sessionID, detail: result.checkpointID })
+              .record({ kind: "findings_wake", sessionID, detail: result.checkpointID })
               .catch(() => {})
           }
         } else if (decision.action === "escalate") {
