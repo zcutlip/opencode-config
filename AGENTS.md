@@ -5,6 +5,17 @@ see `LEDGER.md` (the port ledger) before resurrecting anything from it.
 `src/` is the V2 config, rebuilt gradually as items prove load-bearing.
 `~/.config/opencode` is a symlink to `./src` — edits in `src/` are live config.
 
+## Challenge log
+
+- Problems surfaced while building and iterating the workflow supervisor go
+  in `docs/phase-ratchet/workflow-supervisor-challenges.md` — the challenge
+  plus the resolution that worked, or the open status and direction. Add
+  entries as they emerge, not in a retrospective batch.
+- Keep entries tight and harness/technology-agnostic: no tool names, file
+  formats, or API paths — concepts only (builder/reviewer/supervisor/user).
+  The log is written for an agent rebuilding this capability on a different
+  harness, so resolutions must read as transferable principles.
+
 ## Repo conventions
 
 - Atomic commits — one logical change per commit, `file: description` subject
