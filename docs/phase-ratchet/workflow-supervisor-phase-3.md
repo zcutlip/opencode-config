@@ -1,6 +1,6 @@
 # Workflow supervisor — Phase 3 implementation contract
 
-Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings) and is locked by hash below.
+Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings), is locked by hash below, and was implemented the same day — the locked suite passes 46/46 with no amendment.
 
 ## Locked test baseline
 
