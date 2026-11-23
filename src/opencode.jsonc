@@ -95,7 +95,7 @@
     // survives a prose rewrite that drops the rules above.
     "workflow-reviewer": {
       "mode": "subagent",
-      "model": "opencode-go/deepseek-v4.1-flash",
+      "model": "opencode-go/hy4-flash-free",
       "steps": 20,
       "permissions": [
         { "action": "*", "resource": "*", "effect": "deny" },
@@ -122,7 +122,7 @@
       "description": "Git commit specialist. Creates atomic, well-formatted commits when explicitly requested by user.",
       "mode": "subagent",
       "steps": 18,
-      "model": "opencode-go/deepseek-v4.1-flash",
+      "model": "opencode-go/hy4-flash-free",
       "permissions": [
         { "action": "shell", "resource": "*", "effect": "deny" },
         { "action": "shell", "resource": "git status *", "effect": "allow" },
