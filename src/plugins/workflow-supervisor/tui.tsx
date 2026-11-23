@@ -9,7 +9,9 @@ import { WorkflowSupervisorRpc } from "./rpc.ts"
 // - prompt.footer.status badge: `ws:<mode>` plus steering attempts when the
 //   session has unresolved findings; hidden when the project is not enabled.
 //   The footer slot render is reactive over the badge store, and stateUpdated
-//   events keep it live.
+//   events keep it live. While a review is in flight the badge pulses
+//   base <-> amber on a ~1.2s toggle; the pulse store is a second store read
+//   in the same render and proved reactive too (verified live 2026-11-22).
 // - session.panel contribution "workflow-supervisor.state": mode, contract,
 //   steering texts delivered verbatim, the context-hook reassertion, recent
 //   checkpoints with verdicts, and the latest report.
@@ -34,6 +36,8 @@ interface BadgeState {
   attempts: number
   limit: number
   episodeMode?: "collab" | "delegate"
+  reviewing?: boolean
+  findingsWaiting?: boolean
 }
 
 interface SupervisionDetail {
@@ -96,6 +100,21 @@ export default Plugin.define({
     const [details, updateDetails] = context.storage.memory("local.workflow-supervisor.details", {
       initial: {} as Record<string, DetailEntry>,
     })
+    // Pulse while a review is in flight: a slow (~1.2s) toggle the footer
+    // render reads, so the reviewing badge alternates base <-> amber.
+    // Writes happen only while some badge is reviewing — no re-renders,
+    // no timer cost, when nothing is under review.
+    const PULSE_COLOR = "#fbbf24"
+    const [pulse, updatePulse] = context.storage.memory("local.workflow-supervisor.pulse", {
+      initial: { on: false },
+    })
+    const pulseTimer = setInterval(() => {
+      const anyReviewing = Object.values(badges).some((badge: any) => badge?.reviewing)
+      if (!anyReviewing) return
+      updatePulse((draft) => {
+        draft.on = !draft.on
+      })
+    }, 1200)
     const badgeInflight = new Set<string>()
     const detailInflight = new Set<string>()
 
@@ -328,9 +347,10 @@ export default Plugin.define({
         if (badge.reviewing) parts.push("reviewing")
         if (badge.findingsWaiting) parts.push("findings")
         const label = parts.join(" ")
+        const glow = badge.reviewing && pulse.on ? PULSE_COLOR : base
         return (
           <box onMouseDown={() => void openPanel(sessionID)}>
-            <text fg={base}>{label}</text>
+            <text fg={glow}>{label}</text>
           </box>
         )
       },
@@ -340,6 +360,7 @@ export default Plugin.define({
       stopConfig()
       stopUpdated()
       stopEscalation()
+      clearInterval(pulseTimer)
     }
   },
 })
