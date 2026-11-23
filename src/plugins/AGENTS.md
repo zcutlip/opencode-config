@@ -38,6 +38,32 @@ wins after restart.
 - Untouched by this repo's change flow: installed and updated by the nono
   utility, and git-ignored (see repo root AGENTS.md). Do not edit it here.
 
+## project-config/
+
+Scaffolds a stub `.opencode/opencode.jsonc` in the session's project —
+`/init-config` or the `project_config_init` tool.
+
+- Create-only: skipped while the project has any of `opencode.json(c)` or
+  `.opencode/opencode.json(c)`; the write itself uses `wx`, so a racer loses
+  rather than being clobbered. Parent-directory configs are reported as
+  `info:` lines, never treated as blockers
+- The stub stays inert (only empty containers plus commented `model` /
+  `default_agent` prompts) so creating it changes no behavior
+- Target comes from `session.location.directory`, not the server cwd
+- `/init-config` is registered in the plugin (`ctx.command.transform`), not as
+  a command file — no template discovery, no stale-template reload issue. The
+  command writes directly and reposts the result as a synthetic message, so it
+  stays visible without costing a model turn; the `project_config_init` tool
+  returns the same report inside a turn that is already running
+- The toast is the only immediate confirmation: the command emits `configInit`
+  over the plugin's RPC contract (`rpc.ts`, events only — `setup` registers it
+  with an empty methods map) and `tui.tsx` shows it (success / info / error),
+  filtered to the TUI window whose location matches the project that changed
+- No permission assert by design: one fixed template at one fixed path, so
+  the `edit` fence on `.opencode/opencode.jsonc` is not routed around it
+- Decision logic in `init.ts` (injectable fs, no SDK imports);
+  `bun test src/plugins/project-config` covers it (delegate to the test agent)
+
 ## session-history/
 
 Per-session up/down prompt recall — the built-in history is one global stack,
