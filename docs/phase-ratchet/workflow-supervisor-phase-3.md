@@ -377,8 +377,12 @@ new-behavior RED, 4 regression guards green; fresh run 88 total /
 CONCERNS with five findings → corrections applied → follow-up CONCERNS
 (four verified resolved; one minor bookkeeping item with support
 conditioned on its one-line fix) → the fix verified by checkpoint
-review, no findings. Awaiting user acceptance and lock. Scope agreed
-with the user 2026-11-22/23.
+review, no findings. Locked 2026-11-23 following the user's commits
+(96b82af RED suite, b5c7b3f docs): `gating.test.ts`
+sha256 504c26949cb9b4c7fce0833dab830fc0d52c7c159a69aecc9ec377b415c0dc3d.
+Scope agreed with the user 2026-11-22/23; implementation follows
+against the locked suite, with the wiring seams inspected at the GREEN
+gate as recorded below.
 
 From three live incidents: the RED-gate checkpoint held ten minutes on a
 delegated run that was blocked on a user-held permission prompt (the
