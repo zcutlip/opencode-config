@@ -60,7 +60,9 @@
     { "action": "edit", "resource": "src/opencode.jsonc", "effect": "allow" },
     { "action": "edit", "resource": "src/cli.json", "effect": "allow" },
     { "action": "edit", "resource": "src/agents/*.md", "effect": "allow" },
-    { "action": "edit", "resource": "src/service.json", "effect": "allow" }
+    { "action": "edit", "resource": "src/service.json", "effect": "allow" },
+    { "action": "read", "resource": ".opencode/workflow-state/**", "effect": "allow" },
+    { "action": "read", "resource": "**/.opencode/workflow-state/**", "effect": "allow" }
   ],
   "commands": {
     "config-smoke": {
