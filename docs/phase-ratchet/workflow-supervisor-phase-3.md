@@ -1,6 +1,6 @@
 # Workflow supervisor — Phase 3 implementation contract
 
-Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings), is locked by hash below, and was implemented the same day — the locked suite passes 46/46 with no amendment. Amendments A9 (work-settled checkpoints) and A10 (builder read fence) were accepted and implemented 2026-11-22 from live steering evidence; A9 adds its own unlocked suite, `settle.test.ts`, and A10 amends the permission probe's contract as recorded below. Amendments A11 (live-delivery and visibility batch), A12 (wake on findings) and A13 (follow-up scoping, wake frame, no-op review) were implemented 2026-11-22 under user-granted auto mode with the lock ceremony waived by the user; their changes to the previously locked `steering.test.ts` and `routing.test.ts` are recorded below.
+Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings), is locked by hash below, and was implemented the same day — the locked suite passes 46/46 with no amendment. Amendments A9 (work-settled checkpoints) and A10 (builder read fence) were accepted and implemented 2026-11-22 from live steering evidence; A9 adds its own unlocked suite, `settle.test.ts`, and A10 amends the permission probe's contract as recorded below. Amendments A11 (live-delivery and visibility batch), A12 (wake on findings), A13 (follow-up scoping, wake frame, no-op review), A14 (severity-gated delivery) and A15 (no-op envelope cue) were implemented 2026-11-22 under user-granted auto mode with the lock ceremony waived by the user; their changes to the previously locked `steering.test.ts`, `routing.test.ts` and `contract.test.ts` are recorded below.
 
 ## Locked test baseline
 
@@ -298,6 +298,76 @@ builder that conversed with the user instead of acting.
   question; a builder proposing to legalize its own bypass is itself a
   finding; exceptions originate only from the rule's owner, through
   config.
+
+### A14 — severity gates delivery
+
+Status: accepted and implemented 2026-11-22; same user-granted auto-mode
+batch, lock ceremony waived.
+
+From the second live wake loop (filament, RED gate, 2026-11-22): the
+A13 follow-up scoping held for the first two reviews (68-75s, the
+designed shape), but the next two still ran full depth (242s, 248s,
+66k-122k input) and each verified the corrections while minting
+minor-only findings — a missing coverage paragraph, an abridged raw
+output — which woke the builder again. The user sat at the RED gate
+unable to approve a moving target; a fifth review was starting when
+they killed the session.
+
+- Minor-only findings never steer, wake, burn the budget, or hold
+  unresolved state: they are recorded in the checkpoint ledger for the
+  gate decision (`action: "report"`, incident `minor_report_only`).
+  Blocking and major findings keep the full delivery machinery. The
+  gate must settle — an idle builder with nothing blocking or major
+  outstanding is an approvable state, not a moving target.
+- Severity markers are recognized in both plain and bold report forms
+  (same drift lesson as the findings parser).
+- The reviewer instruction pins the consequence: severity gates
+  delivery, so severities must be marked accurately.
+- Session hygiene correction (same batch): the reviewer-session archive
+  call now sends the flat `archived: true` form the host honors — the
+  nested `time.archived` body silently no-ops (verified empirically
+  2026-11-22: every reviewer session since the 11-18 hygiene work stayed
+  unarchived, which is what re-polluted the user's session list). Archive
+  failures warn instead of vanishing; the straggler sessions were
+  batch-archived the same day. Amends the A3 archive assertions in
+  locked `contract.test.ts` tests 6 and 12 (original: the nested
+  `{ sessionID, time: { archived: <number> } }` call shape; new:
+  `{ sessionID, archived: true }`; reason: the original shape never
+  reached the host's archive field). *Second correction, post-sweep:*
+  the flat form ALSO no-ops through the plugin's session wrapper — the
+  wrapper forwards whitelisted body keys only. The archive now probes
+  the raw SDK client channel (`ctx.client.session.update`, flat body
+  verbatim) when the context exposes one, falls back to the typed form,
+  then GETs the record and logs the host's actual archive state,
+  recording an incident when unverified. The mock models the SDK channel
+  as an explicit A1-style assumption, confirmed live by the probe's
+  channel log at the next reviewer run.
+
+### A15 — no-op envelope cue
+
+Status: accepted and implemented 2026-11-22; same user-granted auto-mode
+batch, lock ceremony waived.
+
+From the first post-A14 live run: a report-only turn (the user asked for
+the RED gate report; the steps changed no files) still consumed a 243s,
+89k-input review because the envelope never said it was a no-op — its
+Changed-files line listed the whole working-tree diff, which reads like a
+substantive review, and the reviewer had to reconstruct no-op-ness from
+the events after already paying for the full evidence read.
+
+- Mechanical no-op detection: the turn window starts at the last
+  `execution.started` event; `step.ended` events carry each step's
+  files. `turnChangedFiles` returns [] for a positively-established
+  no-op turn, undefined for unknown — and unknown is never treated as
+  no-op.
+- The envelope marks the no-op with its assignment ("judge only the
+  claims") and inlines the turn's claims (the latest assistant text),
+  so the review verifies claims by spot-checking the tree instead of
+  re-reading the evidence. A follow-up marker takes precedence when both
+  apply.
+- The reviewer instruction matches: a marked no-op turn is judged on its
+  inlined claims only; a silent envelope means unknown and the review
+  proceeds normally.
 
 ## Evidence changes
 

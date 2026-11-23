@@ -32,7 +32,21 @@ scope, not by clocks.
 **Internal sessions flooding the user's workspace.** Every review created a
 session in the user's list, burying their own work. *Resolution:* reviewer
 sessions are hidden from the session list and archived after use —
-invisible day-to-day, retrievable for audit.
+invisible day-to-day, retrievable for audit. *Correction:* the archive
+never actually landed — the call's nested body form was silently ignored
+by the host, and the swallowed error hid that for days; the unit test
+proved the call was made, not that the host obeyed it. A cleanup action
+whose failure mode is silent must be verified against the host's
+observable state, not against the call being made. The working form was
+found empirically and failures now warn instead of vanishing. *Second
+correction, same day:* the empirically-working REST form ALSO no-ops
+through the plugin's session wrapper — the wrapper forwards whitelisted
+body keys only, and the flat `archived` key is not among them, while the
+typed `time.archived` key reaches a server that ignores it. Both known
+call forms dead-letter. The plugin now probes the raw SDK client channel
+when the context exposes one, falls back to the typed form, GETs the
+record afterwards, and logs the host's actual archive state — recording
+an incident when unverified.
 
 **Verification evidence goes missing while work is still in flight.** A turn
 can end while a background helper is still running the very command the gate
@@ -181,6 +195,19 @@ changes, stop. Findings beyond the response's changes belong to the
 next stage checkpoint. A turn that changed nothing is judged on its
 claims alone.
 
+**The gate must settle.** A correction loop fired over prose — the
+builder's gate report lacked a coverage paragraph — waking it again
+and again while the user tried to review the gate; the tree kept
+moving, reviews kept running, and the gate could never be approved.
+Findings worthy of interrupting are findings that change the gate
+decision: severities exist precisely to ration attention, and delivery
+had never consulted them. *Resolution:* severity gates delivery —
+blocking and major findings wake the builder and steer; minor findings
+are recorded for the gate decision and never interrupt anyone. The
+loop's absorbing state is: idle builder, nothing blocking or major
+outstanding, verdict on record — an approvable gate, whatever minors
+remain.
+
 **A woken builder needs to know who woke it.** Delivered findings
 arrived as an unattributed request, so the builder treated the wake as
 a conversation — asking the user questions, proposing rulings, leaving
@@ -198,9 +225,15 @@ verdict parser a few lines away already accepted bold. Half the parsing
 tolerated the reviewer's formatting drift; half did not, and the sweep
 caught the gap only because a finding failed to arrive. *Resolution:*
 findings detection accepts the same bold and plain variants the verdict
-parser does, with regression tests pinning both forms. Deeper lesson for
-the report format: the more the supervisor depends on reading reviewer
-prose, the more the report needs a machine-readable header.
+parser does, with regression tests pinning both forms. *Second incident,
+same day:* a markdown-heading report (`## Findings`) dead-lettered a
+major while re-arming the budget — decoration drift is not a one-off,
+it is a class. *Final resolution:* all prose-signal parsing runs on a
+normalized copy (heading markers and bold stripped), verdict values are
+whitelisted rather than pattern-matched, and the regression test drives
+the full delivery decision, not just the parser. Deeper lesson
+unchanged: the more the supervisor depends on reading reviewer prose, the
+more the report needs a machine-readable header.
 
 ## Open
 
