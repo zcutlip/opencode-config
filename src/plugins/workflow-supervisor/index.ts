@@ -6,7 +6,7 @@ import { FileLedger } from "./ledger.ts"
 import { WorkflowObserver, checkpointInputSchema } from "./observer.ts"
 import { resolveWorkflowPolicy } from "./policy.ts"
 import { runReviewer } from "./reviewer.ts"
-import { escalationEvent, SteeringCoordinator } from "./steering.ts"
+import { escalationEvent, SteeringCoordinator, wakeMessage } from "./steering.ts"
 import { automaticReviewAllowed, deliveryPlan, EpisodeState, routeReport } from "./routing.ts"
 import { WorkSettle } from "./settle.ts"
 import {
@@ -428,10 +428,15 @@ export default Plugin.define({
           reportPath: result.reportPath,
         })
         if (decision.action === "steer") {
+          // A13 — a wake carries its frame: the builder knows it was woken
+          // by the supervisor, fixes, states what changed, and ends the
+          // turn without questions to the user or stage-complete claims.
+          const plan = deliveryPlan({ active: activeSessions.has(sessionID), episodeMode: episodes.mode(sessionID) })
+          const text = plan.resume ? wakeMessage(decision.text) : decision.text
           await new SteeringLog(directory).record({
             sessionID,
             checkpointID: result.checkpointID,
-            text: decision.text,
+            text,
             attempts: decision.attempts,
             time: Date.now(),
           })
@@ -439,10 +444,9 @@ export default Plugin.define({
           // running turn when the builder is active; an idle delegate-mode
           // builder is woken to act on its findings. Collab routes to the
           // user channel upstream and never reaches here.
-          const plan = deliveryPlan({ active: activeSessions.has(sessionID), episodeMode: episodes.mode(sessionID) })
           await ctx.session.synthetic({
             sessionID,
-            text: decision.text,
+            text,
             delivery: plan.delivery,
             resume: plan.resume,
             metadata: {

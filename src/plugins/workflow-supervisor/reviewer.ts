@@ -1,3 +1,5 @@
+import { isFollowUpRequest } from "./steering.ts"
+
 export class ReviewerTimeoutError extends Error {
   constructor(message = "Reviewer timed out") {
     super(message)
@@ -23,7 +25,7 @@ function reportFrom(messages: any[]): string {
   return parts.join("\n").trim()
 }
 
-function envelope(input: {
+export function envelope(input: {
   evidencePath: string
   eventsPath: string
   provenance: Record<string, any>
@@ -37,6 +39,13 @@ function envelope(input: {
     : typeof input.latestUserRequest === "string" && input.latestUserRequest.trim() !== ""
       ? `User request: ${input.latestUserRequest.trim()}`
       : "User request: none — automatic execution-completion checkpoint; no transition requested."
+  // A13 — the request under review is the supervisor's own delivered
+  // findings: this is a follow-up review, scoped to resolution and the
+  // response's own changes, never a fresh audit of the stage.
+  const followUp = !input.explicit && isFollowUpRequest(input.latestUserRequest)
+  const assignment = followUp
+    ? "Assignment: follow-up review. Verify each previously delivered finding against the current tree — resolved, unresolved, or worsened — and check the response's own changes for new defects. Do not re-audit unchanged ground; new findings beyond the response's changes belong to the next stage checkpoint, not this one."
+    : undefined
   const changedFiles = Array.isArray(input.changedFiles) && input.changedFiles.length > 0
     ? `Changed files: ${Array.from(new Set(input.changedFiles.filter((file) => typeof file === "string"))).join(", ")}`
     : undefined
@@ -48,6 +57,7 @@ function envelope(input: {
     ...(changedFiles === undefined ? [] : ["", changedFiles]),
     "",
     "Mode: checkpoint",
+    ...(assignment === undefined ? [] : ["", assignment]),
     "",
     `Evidence: ${input.evidencePath}`,
     `Chronological events: ${input.eventsPath}`,

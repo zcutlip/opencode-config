@@ -118,3 +118,41 @@ describe("workflow supervisor steering", () => {
     expect(hasFindings(boldClean)).toBe(false)
   })
 })
+
+describe("A13 — wake frame and follow-up scoping", () => {
+  test("a wake message carries the marker, the frame, and the report", async () => {
+    const { wakeMessage, WAKE_MARKER } = await import("./steering.ts")
+    const text = wakeMessage("Verdict: CONCERNS\n\nFindings:\n- one deviation")
+    expect(text.startsWith(WAKE_MARKER)).toBe(true)
+    expect(text).toContain("no questions to the user")
+    expect(text).toContain("re-reviewed automatically")
+    expect(text).toContain("Verdict: CONCERNS")
+  })
+
+  test("only wake messages are follow-up requests", async () => {
+    const { isFollowUpRequest, wakeMessage } = await import("./steering.ts")
+    expect(isFollowUpRequest(wakeMessage("report"))).toBe(true)
+    // The live-delivery text (active builder) and queued legacy text are
+    // plain reviews, not follow-up requests.
+    expect(isFollowUpRequest("Workflow supervisor checkpoint cp-1 review:\n\nreport")).toBe(false)
+    expect(isFollowUpRequest("Continue with the GREEN phase.")).toBe(false)
+    expect(isFollowUpRequest(undefined)).toBe(false)
+  })
+
+  test("the reviewer envelope scopes a follow-up review, and only a follow-up", async () => {
+    const { envelope } = await import("./reviewer.ts")
+    const { wakeMessage } = await import("./steering.ts")
+    const base = {
+      evidencePath: "/state/evidence.json",
+      eventsPath: "/state/events.json",
+      provenance: { completeness: { workingDiff: true } },
+    }
+    const followUp = envelope({ ...base, latestUserRequest: wakeMessage("report") })
+    expect(followUp).toContain("Assignment: follow-up review")
+    expect(followUp).toContain("Do not re-audit unchanged ground")
+    const normal = envelope({ ...base, latestUserRequest: "Continue with the GREEN phase." })
+    expect(normal.includes("Assignment: follow-up review")).toBe(false)
+    const explicit = envelope({ ...base, explicit: true, latestUserRequest: wakeMessage("report") })
+    expect(explicit.includes("Assignment: follow-up review")).toBe(false)
+  })
+})

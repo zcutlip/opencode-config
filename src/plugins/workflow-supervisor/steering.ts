@@ -11,6 +11,28 @@ export function verdictOf(report: string): string {
   return match?.[1] ?? "UNKNOWN"
 }
 
+/**
+ * A13 — the wake frame. The marker names the sender; the message tells a
+ * woken builder what kind of turn this is: a supervisor-driven correction,
+ * not a conversation — fix, state what changed, end the turn. Without the
+ * frame the builder conversed with the user, asked questions, and proposed
+ * rulings (sweep finding 2026-11-22).
+ */
+export const WAKE_MARKER = "Workflow supervisor follow-up"
+
+export function wakeMessage(report: string): string {
+  return [
+    `${WAKE_MARKER}: you were woken to act on the review findings below.`,
+    "Fix them, then end your turn with a brief note of what changed — no questions to the user, no stage-complete claim; your response will be re-reviewed automatically.",
+    "",
+    report,
+  ].join("\n")
+}
+
+export function isFollowUpRequest(text: unknown): boolean {
+  return typeof text === "string" && text.startsWith(WAKE_MARKER)
+}
+
 export function hasFindings(report: string): boolean {
   // The reviewer's section markers drift between plain and bold forms
   // (sweep finding 2026-11-22: a CONCERNS report with **Findings:** evaded
@@ -21,7 +43,6 @@ export function hasFindings(report: string): boolean {
   if (body === "") return false
   return !/^-\s*(?:\*\*)?No findings(?:\*\*)?$/im.test(body)
 }
-
 /**
  * A11 — true when the report itself marks findings as repeats of previously
  * delivered steering ("previously steered, still unresolved"), the
