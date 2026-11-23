@@ -157,6 +157,18 @@ violated lock; major misleads a gate decision or forces rework; minor is
 everything else. A benign instance of a dangerous behavior pattern is
 minor unless it could mislead a gate.
 
+**Builder non-compliance is not a rule referendum.** The reviewer's
+correction for a repeatedly bypassed delegation rule asked the user to
+"decide the mechanism" — run the gate command directly or keep
+delegation — after the builder itself proposed the direct-run option as
+an exception. The effect: a compliance failure became a rule
+negotiation, with the violator's preferred outcome on the menu.
+*Resolution:* specified rules apply as written. A builder ignoring a
+rule produces a deviation finding, never an open question, and a builder
+proposing to legalize its own bypass is itself a finding. Exceptions
+originate only from the rule's owner, through config — never
+mid-review, never at the builder's initiative.
+
 **Prose-signal parsers must tolerate the producer's drift.** A CONCERNS
 report with bold section markers evaded findings detection and
 dead-lettered silently — no delivery, no marker, no incident — while the
