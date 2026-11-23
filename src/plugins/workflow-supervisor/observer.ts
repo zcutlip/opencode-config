@@ -90,7 +90,13 @@ function checkpointID(sessionID: string, trigger: string, hash: string): string 
 export class WorkflowObserver {
   private readonly location: string
   private readonly resolvePolicy: (sessionID: string) => Promise<any>
-  private readonly captureEvidence: (sessionID: string, trigger: string, input: any, policy: any) => Promise<any>
+  private readonly captureEvidence: (
+    sessionID: string,
+    trigger: string,
+    input: any,
+    policy: any,
+    options?: { defer?: any },
+  ) => Promise<any>
   private readonly runReviewer: (input: any) => Promise<any>
   private readonly ledger: WorkflowLedger
   private readonly notify: (error: any) => Promise<void> | void
@@ -103,7 +109,13 @@ export class WorkflowObserver {
   constructor(options: {
     location: string
     resolvePolicy: (sessionID: string) => Promise<any>
-    captureEvidence: (sessionID: string, trigger: string, input: any, policy: any) => Promise<any>
+    captureEvidence: (
+      sessionID: string,
+      trigger: string,
+      input: any,
+      policy: any,
+      options?: { defer?: any },
+    ) => Promise<any>
     runReviewer: (input: any) => Promise<any>
     ledger: WorkflowLedger
     notify: (error: any) => Promise<void> | void
@@ -167,7 +179,12 @@ export class WorkflowObserver {
     return false
   }
 
-  private async process(sessionID: string, trigger: "execution" | "explicit", input?: any): Promise<any> {
+  private async process(
+    sessionID: string,
+    trigger: "execution" | "explicit",
+    input?: any,
+    options?: { defer?: any },
+  ): Promise<any> {
     const policy = await this.resolve(sessionID)
     if (policy?.error) return { status: "error" }
     if (!policy) return { status: "disabled" }
@@ -175,7 +192,7 @@ export class WorkflowObserver {
 
     let evidence: any
     try {
-      evidence = await this.captureEvidence(sessionID, trigger, input, policy)
+      evidence = await this.captureEvidence(sessionID, trigger, input, policy, options)
     } catch (error) {
       const id = checkpointID(sessionID, trigger, `error:${(error as Error).message}`)
       if (await this.ledger.claim(id, {
@@ -188,6 +205,21 @@ export class WorkflowObserver {
         await this.ledger.fail(id, error)
       }
       return { status: "failed", checkpointID: id }
+    }
+
+    // A16 — chore turns are not work: no files changed, and every command
+    // was git-family, so there is nothing here a reviewer would judge. The
+    // policy's reviewChoreTurns re-enables review when a project wants it.
+    // The skip is logged by the caller as a chore_turn_skipped incident so
+    // sweeps can see what was not reviewed.
+    if (trigger === "execution" && evidence?.turnClass === "chore" && policy.policy?.reviewChoreTurns !== true) {
+      return {
+        status: "skipped",
+        reason: "chore",
+        commands: (evidence.turnTools ?? [])
+          .filter((tool: any) => tool?.tool === "shell" && typeof tool.command === "string")
+          .map((tool: any) => tool.command),
+      }
     }
 
     const id = checkpointID(sessionID, trigger, evidence.hash)
@@ -229,6 +261,9 @@ export class WorkflowObserver {
             return files !== undefined && files.length === 0
           })(),
         latestAssistantText: evidence.latestAssistantText,
+        // A16 — the observed turn's own changes, distinct from the shared
+        // working tree the reviewer also sees.
+        turnFiles: evidence.turnFiles,
         changedFiles: evidence.workingDiff
           .map((item: any) => (typeof item?.file === "string" ? item.file : undefined))
           .filter((file: any): file is string => typeof file === "string"),
@@ -259,10 +294,10 @@ export class WorkflowObserver {
     }
   }
 
-  async handleExecutionSucceeded(sessionID: string): Promise<any> {
+  async handleExecutionSucceeded(sessionID: string, options?: { defer?: any }): Promise<any> {
     return this.enqueue(
       sessionID,
-      () => this.process(sessionID, "execution"),
+      () => this.process(sessionID, "execution", undefined, options),
     )
   }
 

@@ -35,6 +35,7 @@ export function envelope(input: {
   latestAssistantText?: string
   turnNoop?: boolean
   changedFiles?: string[]
+  turnFiles?: string[]
   steeringHistory?: { count: number; latest?: string }
 }): string {
   const request = input.explicit
@@ -61,15 +62,38 @@ export function envelope(input: {
     noop && typeof input.latestAssistantText === "string" && input.latestAssistantText.trim() !== ""
       ? input.latestAssistantText.trim()
       : undefined
-  const changedFiles = Array.isArray(input.changedFiles) && input.changedFiles.length > 0
-    ? `Changed files: ${Array.from(new Set(input.changedFiles.filter((file) => typeof file === "string"))).join(", ")}`
+  // A16 — attribution. The observed turn's own file changes are stated
+  // separately from the shared working tree, which includes other sessions'
+  // uncommitted work in the same folder; a no-file turn is stated, not blank.
+  const treeFiles = Array.isArray(input.changedFiles)
+    ? Array.from(new Set(input.changedFiles.filter((file) => typeof file === "string")))
+    : []
+  const turnFiles = Array.isArray(input.turnFiles)
+    ? Array.from(new Set(input.turnFiles.filter((file) => typeof file === "string")))
     : undefined
+  const attribution =
+    turnFiles === undefined
+      ? treeFiles.length > 0
+        ? [`Changed files: ${treeFiles.join(", ")}`]
+        : []
+      : [
+          `Turn changes: ${turnFiles.length > 0 ? turnFiles.join(", ") : "none"}`,
+          ...(treeFiles.length > 0 ? [`Working tree, all sessions: ${treeFiles.join(", ")}`] : []),
+        ]
+  // A16 — a capture forced before its evidence settled says why: the
+  // reviewer records an unwitnessed gate instead of judging a hollow one.
+  const defer = input.provenance?.defer
+  const deferNote =
+    defer !== undefined && defer !== null
+      ? `Defer note: checkpoint was held ${Number(defer.heldMs ?? 0)}ms with ${Number(defer.childrenInFlight ?? 0)} helper(s) in flight${defer.blockedOnPermission === true ? "; the gate evidence was blocked on a pending permission decision" : ""}.`
+      : undefined
   const history = (input.steeringHistory?.count ?? 0) > 0
     ? `Previously delivered steering: ${input.steeringHistory?.count} message(s), latest ${input.steeringHistory?.latest}. Findings repeating them are reported as "previously steered, still unresolved" — never as new.`
     : "Previously delivered steering: none in the evidence."
   return [
     request,
-    ...(changedFiles === undefined ? [] : ["", changedFiles]),
+    ...(attribution.length === 0 ? [] : ["", ...attribution]),
+    ...(deferNote === undefined ? [] : ["", deferNote]),
     "",
     "Mode: checkpoint",
     ...(assignment === undefined ? [] : ["", assignment]),
@@ -103,6 +127,7 @@ export async function runReviewer(input: {
   latestAssistantText?: string
   turnNoop?: boolean
   changedFiles?: string[]
+  turnFiles?: string[]
   steeringHistory?: { count: number; latest?: string }
 }): Promise<{ sessionID: string; report: string; usage: any }> {
   const session = await input.client.session.create({

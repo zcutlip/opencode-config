@@ -11,6 +11,11 @@ export interface WorkflowPolicy {
   workflow?: string
   version?: number
   contract?: string
+  // A16 — optional per-project knobs. reviewChoreTurns re-enables review of
+  // turns that only ran git-family commands; muteTitles mutes sessions whose
+  // title matches a glob pattern (utility sessions such as commit agents).
+  reviewChoreTurns?: boolean
+  muteTitles?: string[]
 }
 
 export interface RepositoryResolution {
@@ -158,7 +163,15 @@ export function parseWorkflowPolicy(contents: string): WorkflowPolicy {
 
   if (!isRecord(parsed)) throw policyError("invalid_policy", "Workflow policy must be an object", contents)
 
-  const allowed = new Set(["enabled", "mode", "workflow", "version", "contract"])
+  const allowed = new Set([
+    "enabled",
+    "mode",
+    "workflow",
+    "version",
+    "contract",
+    "reviewChoreTurns",
+    "muteTitles",
+  ])
   for (const key of Object.keys(parsed)) {
     if (!allowed.has(key)) throw policyError("invalid_policy", `Unknown policy field: ${key}`, contents)
   }
@@ -168,6 +181,16 @@ export function parseWorkflowPolicy(contents: string): WorkflowPolicy {
   }
   if (typeof parsed.mode !== "string" || !workflowModes.includes(parsed.mode as WorkflowMode)) {
     throw policyError("invalid_policy", "Policy field mode must be off, advisory, steer, or enforce", contents)
+  }
+  if (parsed.reviewChoreTurns !== undefined && typeof parsed.reviewChoreTurns !== "boolean") {
+    throw policyError("invalid_policy", "Policy field reviewChoreTurns must be a boolean", contents)
+  }
+  if (
+    parsed.muteTitles !== undefined &&
+    (!Array.isArray(parsed.muteTitles) ||
+      parsed.muteTitles.some((pattern) => typeof pattern !== "string" || pattern.trim() === ""))
+  ) {
+    throw policyError("invalid_policy", "Policy field muteTitles must be an array of nonempty strings", contents)
   }
 
   const enabled = parsed.enabled
@@ -196,7 +219,30 @@ export function parseWorkflowPolicy(contents: string): WorkflowPolicy {
     workflow: parsed.workflow,
     version: parsed.version,
     contract: parsed.contract,
+    // A16 — chore muting is a policy default: a project that wants its
+    // commit turns reviewed sets reviewChoreTurns: true.
+    reviewChoreTurns: parsed.reviewChoreTurns === true,
+    ...(parsed.muteTitles === undefined ? {} : { muteTitles: parsed.muteTitles as string[] }),
   }
+}
+
+/**
+ * A16 — glob title match for utility sessions declared in the policy.
+ * `*` matches any run of characters; everything else is literal. A missing
+ * pattern list never mutes anything.
+ */
+export function titleMuted(patterns: string[] | undefined, title: unknown): boolean {
+  if (!Array.isArray(patterns) || patterns.length === 0) return false
+  if (typeof title !== "string") return false
+  for (const pattern of patterns) {
+    if (typeof pattern !== "string") continue
+    const source = pattern
+      .split("*")
+      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join(".*")
+    if (new RegExp(`^${source}$`).test(title)) return true
+  }
+  return false
 }
 
 export async function resolveRepository(directory: string): Promise<RepositoryResolution> {

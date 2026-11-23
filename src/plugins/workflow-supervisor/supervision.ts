@@ -143,6 +143,11 @@ export interface BadgeState {
   episodeMode: "collab" | "delegate"
   reviewing: boolean
   findingsWaiting: boolean
+  // A16 — a helper blocked on a user-held permission decision is named on
+  // the badge instead of looking like reviewer work.
+  blocked: boolean
+  blockedOn: string[]
+  muted: boolean
 }
 
 /** Badge data for one session: policy-derived mode plus coordinator view. */
@@ -153,9 +158,12 @@ export function supervisionBadgeFromPolicy(input: {
   episodeMode?: "collab" | "delegate"
   reviewing?: boolean
   findingsWaiting?: boolean
+  blockedOn?: string[]
+  muted?: boolean
 }): BadgeState {
   const view = input.view
   const episodeMode = input.episodeMode ?? "delegate"
+  const blockedOn = Array.isArray(input.blockedOn) ? input.blockedOn.filter((line) => typeof line === "string") : []
   const common = {
     sessionID: input.sessionID,
     hasUnresolved: view?.hasUnresolved ?? false,
@@ -164,6 +172,9 @@ export function supervisionBadgeFromPolicy(input: {
     episodeMode,
     reviewing: input.reviewing ?? false,
     findingsWaiting: input.findingsWaiting ?? false,
+    blocked: blockedOn.length > 0,
+    blockedOn,
+    muted: input.muted === true,
   }
   if (!input.policy?.active) return { ...common, active: false }
   return {
@@ -181,18 +192,24 @@ export function buildSupervisionState(input: {
   episodeMode?: "collab" | "delegate"
   reviewing?: boolean
   findingsWaiting?: boolean
+  blockedOn?: string[]
+  muted?: boolean
   reassertion?: string
   steering: SteeringDelivery[]
   checkpoints: CheckpointSummary[]
   latestReport: { path: string; text: string; truncated: boolean } | null
 }): any {
   if (!input.policy?.active) return { active: false }
+  const blockedOn = Array.isArray(input.blockedOn) ? input.blockedOn.filter((line) => typeof line === "string") : []
   return {
     active: true,
     mode: typeof input.policy.effectiveMode === "string" ? input.policy.effectiveMode : "advisory",
     episodeMode: input.episodeMode ?? "delegate",
     reviewing: input.reviewing ?? false,
     findingsWaiting: input.findingsWaiting ?? false,
+    blocked: blockedOn.length > 0,
+    blockedOn,
+    muted: input.muted === true,
     contractPath: typeof input.policy.contractPath === "string" ? input.policy.contractPath : "",
     hasUnresolved: input.view?.hasUnresolved ?? false,
     attempts: input.view?.attempts ?? 0,

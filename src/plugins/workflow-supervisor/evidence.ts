@@ -70,6 +70,55 @@ function eventsComplete(events: any[] | undefined): boolean {
   return list.every((event, index) => event?.durable?.seq === index + 1)
 }
 
+/**
+ * A16 — the turn's tool calls with their names and shell commands, joined
+ * mechanically: tool.called events carry the call input, the assistant
+ * message parts carry the tool name for the same call id. A call whose
+ * name cannot be established is reported as "unknown", which classifies
+ * as work — never as a chore.
+ */
+export function turnTools(
+  events: any[] | undefined,
+  messages: any[],
+): Array<{ tool: string; command?: string }> {
+  const list = events ?? []
+  let start = -1
+  for (let index = list.length - 1; index >= 0; index -= 1) {
+    const event = list[index]
+    if (event?.type === "session.execution.started" && typeof event?.data?.sessionID === "string") {
+      start = index
+      break
+    }
+  }
+
+  const byCall = new Map<string, { tool: string; command?: string }>()
+  for (const message of messages ?? []) {
+    if (message?.type !== "assistant") continue
+    for (const part of message.content ?? []) {
+      if (part?.type !== "tool" || typeof part?.id !== "string") continue
+      if (typeof part.name !== "string" || part.name === "") continue
+      const command =
+        typeof part?.state?.input?.command === "string" ? part.state.input.command : undefined
+      byCall.set(part.id, { tool: part.name, command })
+    }
+  }
+
+  const tools: Array<{ tool: string; command?: string }> = []
+  for (const event of list.slice(start === -1 ? list.length : start)) {
+    if (event?.type !== "session.tool.called") continue
+    const id = event?.data?.id
+    const known = typeof id === "string" ? byCall.get(id) : undefined
+    if (known !== undefined) {
+      tools.push(known)
+      continue
+    }
+    const command =
+      typeof event?.data?.input?.command === "string" ? event.data.input.command : undefined
+    tools.push({ tool: "unknown", command })
+  }
+  return tools
+}
+
 export function evidenceHash(value: Omit<WorkflowEvidence, "hash">): string {
   const stable = {
     latestUserRequest: value.latestUserRequest,

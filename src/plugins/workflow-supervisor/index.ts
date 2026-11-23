@@ -1,14 +1,22 @@
 import { Plugin } from "@opencode/plugin"
-import { join } from "node:path"
-import { buildAutomaticEvidence, buildExplicitEvidence } from "./evidence.ts"
+import { join, resolve } from "node:path"
+import { buildAutomaticEvidence, buildExplicitEvidence, turnChangedFiles, turnTools } from "./evidence.ts"
 import { IncidentLog } from "./incidents.ts"
 import { FileLedger } from "./ledger.ts"
 import { WorkflowObserver, checkpointInputSchema } from "./observer.ts"
-import { resolveWorkflowPolicy } from "./policy.ts"
+import { resolveWorkflowPolicy, titleMuted } from "./policy.ts"
 import { runReviewer } from "./reviewer.ts"
 import { escalationEvent, SteeringCoordinator, wakeMessage } from "./steering.ts"
-import { automaticReviewAllowed, deliveryPlan, EpisodeState, routeReport } from "./routing.ts"
-import { WorkSettle } from "./settle.ts"
+import {
+  automaticReviewAllowed,
+  classifyTurn,
+  deliveryPlan,
+  EpisodeState,
+  HeldWakes,
+  MuteState,
+  routeReport,
+} from "./routing.ts"
+import { deferRecord, WorkSettle } from "./settle.ts"
 import {
   buildSupervisionState,
   listCheckpoints,
@@ -29,6 +37,10 @@ const observedEventTypes = [
   "session.tool.called",
   "session.tool.success",
   "session.tool.failed",
+  // A16 — a helper's user-held permission prompt is a named wait, not
+  // reviewer work: the badge says what is blocked and settlement pauses.
+  "permission.v2.asked",
+  "permission.v2.replied",
 ] as any[]
 
 function dataOf(result: any): any[] {
@@ -77,9 +89,16 @@ export default Plugin.define({
             episodeMode: episodes.mode(sessionID),
             reviewing: reviewing.has(sessionID),
             findingsWaiting: waitingFindings.has(sessionID),
+            muted: mutedFor(sessionID, policy),
+            blockedOn: settle.deferState(sessionID).blockedOn,
           })
         } catch {
-          return supervisionBadgeFromPolicy({ sessionID, policy: null, episodeMode: episodes.mode(sessionID) })
+          return supervisionBadgeFromPolicy({
+            sessionID,
+            policy: null,
+            episodeMode: episodes.mode(sessionID),
+            muted: mutes.isMuted(sessionID),
+          })
         }
       },
       supervisionState: async (input: any) => {
@@ -111,6 +130,8 @@ export default Plugin.define({
             episodeMode: episodes.mode(sessionID),
             reviewing: reviewing.has(sessionID),
             findingsWaiting: waitingFindings.has(sessionID),
+            blockedOn: settle.deferState(sessionID).blockedOn,
+            muted: mutedFor(sessionID, resolved),
             reassertion: steering.context(sessionID),
             steering: deliveries,
             checkpoints,
@@ -142,6 +163,33 @@ export default Plugin.define({
         }
         await rpc.events.emit("stateUpdated", badge).catch(() => {})
         return { sessionID, mode: episodes.mode(sessionID) }
+      },
+      supervisionMute: async (input: any) => {
+        const sessionID = typeof input?.sessionID === "string" ? input.sessionID : ""
+        const muted = input?.muted === true
+        if (sessionID !== "") {
+          // A16 — user-held mute lever; in-memory, dies with the server.
+          if (muted) mutes.mute(sessionID)
+          else mutes.unmute(sessionID)
+        }
+        let badge: any
+        try {
+          const policy = sessionID === "" ? null : await resolveForSession(sessionID)
+          badge = supervisionBadgeFromPolicy({
+            sessionID,
+            policy,
+            view: steering.view(sessionID),
+            episodeMode: episodes.mode(sessionID),
+            reviewing: reviewing.has(sessionID),
+            findingsWaiting: waitingFindings.has(sessionID),
+            muted: sessionID === "" ? muted : mutedFor(sessionID, policy),
+            blockedOn: sessionID === "" ? [] : settle.deferState(sessionID).blockedOn,
+          })
+        } catch {
+          badge = supervisionBadgeFromPolicy({ sessionID, policy: null, episodeMode: episodes.mode(sessionID), muted })
+        }
+        await rpc.events.emit("stateUpdated", badge).catch(() => {})
+        return { sessionID, muted: badge?.muted === true }
       },
       supervisionCheckpoint: async (input: any) => {
         const sessionID = typeof input?.sessionID === "string" ? input.sessionID : ""
@@ -187,7 +235,11 @@ export default Plugin.define({
     const episodes = new EpisodeState()
     // A9 — deferred automatic checkpoints, keyed by the observed session.
     const settle = new WorkSettle()
-    const pendingRuns = new Map<string, { directory: string; timer: ReturnType<typeof setTimeout> }>()
+    const pendingRuns = new Map<string, {
+      directory: string
+      timer: ReturnType<typeof setTimeout>
+      paused: boolean
+    }>()
     const deferTimeoutMs = 10 * 60 * 1000
     // A11-batch — live supervision state. activeSessions: currently
     // executing (delivery-at-completion picks live vs queued). supervisedSessions:
@@ -198,6 +250,46 @@ export default Plugin.define({
     const supervisedSessions = new Set<string>()
     const waitingFindings = new Set<string>()
     const reviewing = new Set<string>()
+    // A16 — user-held mute lever, wakes held while a folder is busy, and
+    // the folder each active session belongs to. All in-memory: they die
+    // with the server, like the episode override.
+    const mutes = new MuteState()
+    const heldWakes = new HeldWakes()
+    const heldWakeTexts = new Map<string, { text: string; directory: string; checkpointID: string }>()
+    const sessionDirs = new Map<string, string>()
+
+    const mutedFor = (sessionID: string, policy: any): boolean =>
+      mutes.isMuted(sessionID) || titleMuted(policy?.policy?.muteTitles, policy?.session?.title)
+
+    const siblingActiveIn = (directory: string, exclude: string): boolean => {
+      for (const id of activeSessions) {
+        if (id === exclude) continue
+        const dir = sessionDirs.get(id)
+        if (dir === undefined) return true
+        if (resolve(dir) === resolve(directory)) return true
+      }
+      return false
+    }
+
+    const emitBadge = (sessionID: string): void => {
+      void resolveForSession(sessionID)
+        .then((policy: any) =>
+          rpc.events.emit(
+            "stateUpdated",
+            supervisionBadgeFromPolicy({
+              sessionID,
+              policy,
+              view: steering.view(sessionID),
+              episodeMode: episodes.mode(sessionID),
+              reviewing: reviewing.has(sessionID),
+              findingsWaiting: waitingFindings.has(sessionID),
+              muted: mutedFor(sessionID, policy),
+              blockedOn: settle.deferState(sessionID).blockedOn,
+            }),
+          ),
+        )
+        .catch(() => {})
+    }
 
     const resolveForSession = async (sessionID: string) => {
       const session = await ctx.session.get({ sessionID })
@@ -212,6 +304,9 @@ export default Plugin.define({
           agent: session.agent,
           location: directory,
           metadata: session.metadata,
+          // A16 — session title is the declaration the optional muteTitles
+          // patterns match (utility sessions such as commit agents).
+          title: session.title,
         },
       }
     }
@@ -225,7 +320,7 @@ export default Plugin.define({
       observer = new WorkflowObserver({
         location: directory,
         resolvePolicy: resolveForSession,
-        captureEvidence: async (sessionID, trigger, input, policy) => {
+        captureEvidence: async (sessionID, trigger, input, policy, options) => {
           const session = await ctx.session.get({ sessionID })
           const messages = await ctx.session.context({ sessionID })
           const request = latestUserRequest(messages)
@@ -234,6 +329,14 @@ export default Plugin.define({
           const status = dataOf(await ctx.vcs.status({ location }))
           const workingDiff = dataOf(await ctx.vcs.diff({ location, mode: "working" }))
           const turnDiff = undefined
+          // A16 — the turn's own file writes and tool calls come from the
+          // captured step/tool events plus the assistant's message parts;
+          // classification is mechanical, never a model call.
+          const events = trigger === "execution" ? observer.bufferedEvents(sessionID) : undefined
+          const turnFiles = trigger === "execution" ? turnChangedFiles(events) : undefined
+          const tools = trigger === "execution" ? turnTools(events, messages) : []
+          const turnClass =
+            trigger === "execution" ? classifyTurn({ turnFiles, tools }) : undefined
           const common = {
             session: policy.session,
             policy,
@@ -250,19 +353,30 @@ export default Plugin.define({
               turnDiff: trigger === "execution"
                 ? "unavailable: plugin context exposes no session.diff"
                 : undefined,
+              ...(options?.defer === undefined ? {} : { defer: options.defer }),
             },
           }
           if (trigger === "explicit") {
-            return buildExplicitEvidence({ ...common, input, turnDiff, events: undefined })
+            return {
+              ...buildExplicitEvidence({ ...common, input, turnDiff, events: undefined }),
+              turnFiles,
+              turnClass,
+              turnTools: tools,
+            }
           }
-          return buildAutomaticEvidence({
-            ...common,
-            turnDiff,
-            events: observer.bufferedEvents(sessionID),
-            // A6 — previously delivered steering for this observed session;
-            // the reviewer uses it to mark repeats instead of re-litigating.
-            steeringLog: await new SteeringLog(directory).list(sessionID),
-          })
+          return {
+            ...buildAutomaticEvidence({
+              ...common,
+              turnDiff,
+              events,
+              // A6 — previously delivered steering for this observed session;
+              // the reviewer uses it to mark repeats instead of re-litigating.
+              steeringLog: await new SteeringLog(directory).list(sessionID),
+            }),
+            turnFiles,
+            turnClass,
+            turnTools: tools,
+          }
         },
         runReviewer: (input) => runReviewer({ ...input, client: ctx }),
         ledger,
@@ -372,34 +486,54 @@ export default Plugin.define({
     // A9 — the post-settle checkpoint runner, shared by the immediate and
     // deferred paths. Collab is re-checked at run time so a flip between
     // defer and run is honored.
-    const runExecutionCheckpoint = async (sessionID: string, directory: string): Promise<void> => {
+    const runExecutionCheckpoint = async (
+      sessionID: string,
+      directory: string,
+      defer?: any,
+    ): Promise<void> => {
       // A8 — collab suspends the per-turn automatic trigger; explicit
       // checkpoints are user-requested and unaffected.
       if (!automaticReviewAllowed(episodes.mode(sessionID))) return
+      // A16 — a muted session (user lever or declared title) skips the
+      // automatic trigger entirely; skips are logged for sweeps. Explicit
+      // checkpoints bypass this path and are never muted.
+      try {
+        const policy = await resolveForSession(sessionID)
+        if (mutedFor(sessionID, policy)) {
+          void new IncidentLog(directory)
+            .record({ kind: "muted_turn_skipped", sessionID })
+            .catch(() => {})
+          return
+        }
+      } catch {
+        // Configuration errors surface through the observer's own path.
+      }
       // A11-batch — the review-in-flight state is visible on the badge for
       // the whole checkpoint, including the reviewer run.
       reviewing.add(sessionID)
       supervisedSessions.add(sessionID)
-      void resolveForSession(sessionID)
-        .then((policy: any) =>
-          rpc.events.emit(
-            "stateUpdated",
-            supervisionBadgeFromPolicy({
-              sessionID,
-              policy,
-              view: steering.view(sessionID),
-              episodeMode: episodes.mode(sessionID),
-              reviewing: true,
-              findingsWaiting: waitingFindings.has(sessionID),
-            }),
-          ),
-        )
-        .catch(() => {})
+      emitBadge(sessionID)
       let result: any
       try {
-        result = await observerFor(directory).handleExecutionSucceeded(sessionID)
+        result = await observerFor(directory).handleExecutionSucceeded(
+          sessionID,
+          defer === undefined ? undefined : { defer },
+        )
       } finally {
         reviewing.delete(sessionID)
+      }
+      // A16 — chore turns (no writes, git-family commands only) are not
+      // work; the observer skips them before any reviewer is created. The
+      // skip is logged so sweeps can see what was not reviewed.
+      if (result?.status === "skipped") {
+        void new IncidentLog(directory)
+          .record({
+            kind: "chore_turn_skipped",
+            sessionID,
+            detail: (result.commands ?? []).join(" | "),
+          })
+          .catch(() => {})
+        return
       }
       if (result?.status !== "completed" || result.trigger !== "execution") {
         if (result?.status === "failed") {
@@ -431,7 +565,9 @@ export default Plugin.define({
           // A13 — a wake carries its frame: the builder knows it was woken
           // by the supervisor, fixes, states what changed, and ends the
           // turn without questions to the user or stage-complete claims.
-          const plan = deliveryPlan({ active: activeSessions.has(sessionID), episodeMode: episodes.mode(sessionID) })
+          const active = activeSessions.has(sessionID)
+          const siblingActive = siblingActiveIn(directory, sessionID)
+          const plan = deliveryPlan({ active, episodeMode: episodes.mode(sessionID), siblingActive })
           const text = plan.resume ? wakeMessage(decision.text) : decision.text
           await new SteeringLog(directory).record({
             sessionID,
@@ -457,6 +593,20 @@ export default Plugin.define({
           if (plan.resume) {
             void new IncidentLog(directory)
               .record({ kind: "findings_wake", sessionID, detail: result.checkpointID })
+              .catch(() => {})
+          } else if (siblingActive && !active) {
+            // A16 — an idle builder with an active sibling: the findings
+            // queue with a badge marker, and the wake is held until the
+            // folder is quiet so two sessions never edit one tree at once.
+            waitingFindings.add(sessionID)
+            heldWakes.hold(sessionID, directory)
+            heldWakeTexts.set(sessionID, {
+              text: decision.text,
+              directory,
+              checkpointID: result.checkpointID,
+            })
+            void new IncidentLog(directory)
+              .record({ kind: "findings_held_wake", sessionID, detail: result.checkpointID })
               .catch(() => {})
           }
         } else if (decision.action === "escalate") {
@@ -496,9 +646,43 @@ export default Plugin.define({
             episodeMode: episodes.mode(sessionID),
             reviewing: false,
             findingsWaiting: waitingFindings.has(sessionID),
+            muted: mutes.isMuted(sessionID),
+            blockedOn: settle.deferState(sessionID).blockedOn,
           }),
         )
         .catch(() => {})
+    }
+
+    // A16 — the defer timer. A helper blocked on a user-held permission
+    // decision pauses the deadline (a user-input wait is unbounded and
+    // named on the badge); a genuinely stuck helper is force-run at the
+    // deadline with a defer record naming the missing evidence.
+    const armDeferTimer = (sessionID: string, directory: string): void => {
+      const existing = pendingRuns.get(sessionID)
+      if (existing !== undefined) clearTimeout(existing.timer)
+      const timer = setTimeout(() => {
+        const pending = pendingRuns.get(sessionID)
+        if (pending === undefined) return
+        const state = settle.deferState(sessionID)
+        if (state.blockedOn.length > 0) {
+          pending.paused = true
+          void new IncidentLog(pending.directory)
+            .record({ kind: "defer_paused_user_wait", sessionID, detail: state.blockedOn.join(" | ") })
+            .catch(() => {})
+          return
+        }
+        pendingRuns.delete(sessionID)
+        settle.clear(sessionID)
+        void new IncidentLog(pending.directory)
+          .record({
+            kind: "defer_deadline_forced",
+            sessionID,
+            detail: `inFlight=${state.inFlight}`,
+          })
+          .catch(() => {})
+        void runExecutionCheckpoint(sessionID, pending.directory, deferRecord(state, deferTimeoutMs))
+      }, deferTimeoutMs)
+      pendingRuns.set(sessionID, { directory, timer, paused: false })
     }
 
     const controller = new AbortController()
@@ -517,12 +701,51 @@ export default Plugin.define({
         // Reviewer sessions are parentless and never tracked.
         if (type === "session.execution.started") {
           activeSessions.add(sessionID)
+          sessionDirs.set(sessionID, directory)
           void ctx.session
             .get({ sessionID })
             .then((session: any) => {
               if (typeof session?.parentID === "string") settle.trackChild(session.parentID, sessionID)
             })
             .catch(() => {})
+        } else if (type === "permission.v2.asked") {
+          // A16.1 — the host does not deliver this event to server-plugin
+          // subscriptions (verified 2026-11-23, filament: a minute-long
+          // prompt produced no incident and no event in checkpoint
+          // evidence). The handler stays as a future-proof path: if a
+          // later host delivers it, the wait is named generically and the
+          // deadline pauses. Nothing below claims a command it cannot hear.
+          const resources = (event as any).data?.resources
+          const command =
+            Array.isArray(resources) && typeof resources[0] === "string"
+              ? resources[0]
+              : String((event as any).data?.action ?? "permission prompt")
+          const parent = settle.childBlocked(sessionID, command)
+          if (parent !== undefined) {
+            const pending = pendingRuns.get(parent)
+            if (pending !== undefined && !pending.paused) {
+              clearTimeout(pending.timer)
+              pending.paused = true
+            }
+            void new IncidentLog(directory)
+              .record({ kind: "defer_paused_user_wait", sessionID: parent, detail: command })
+              .catch(() => {})
+            emitBadge(parent)
+          }
+        } else if (type === "permission.v2.replied") {
+          const parent = settle.childUnblocked(sessionID)
+          if (parent !== undefined) {
+            const pending = pendingRuns.get(parent)
+            if (
+              pending !== undefined &&
+              pending.paused &&
+              settle.hasInFlight(parent) &&
+              settle.deferState(parent).blockedOn.length === 0
+            ) {
+              armDeferTimer(parent, pending.directory)
+            }
+            emitBadge(parent)
+          }
         } else if (
           type === "session.execution.succeeded" ||
           type === "session.execution.failed" ||
@@ -538,6 +761,33 @@ export default Plugin.define({
               void runExecutionCheckpoint(settledParent, pending.directory)
             }
           }
+          // A16 — a quiet folder releases held wakes: the findings reach
+          // their builder only when no other session is editing the tree.
+          for (const folder of heldWakes.folders()) {
+            if (siblingActiveIn(folder, "")) continue
+            for (const heldID of heldWakes.release(folder)) {
+              const pending = heldWakeTexts.get(heldID)
+              heldWakeTexts.delete(heldID)
+              if (pending === undefined) continue
+              void ctx.session
+                .synthetic({
+                  sessionID: heldID,
+                  text: wakeMessage(pending.text),
+                  delivery: "queue",
+                  resume: true,
+                  metadata: { workflowSupervisor: true, checkpointID: pending.checkpointID },
+                })
+                .then(() =>
+                  new IncidentLog(pending.directory).record({
+                    kind: "findings_wake",
+                    sessionID: heldID,
+                    detail: `${pending.checkpointID} held-release`,
+                  }),
+                )
+                .catch(() => {})
+              waitingFindings.delete(heldID)
+            }
+          }
         }
 
         if (type === "session.execution.succeeded") {
@@ -548,17 +798,7 @@ export default Plugin.define({
             // parent transcript. The deadline force-run bounds a helper
             // that never settles.
             if (settle.hasInFlight(sessionID)) {
-              const timer = setTimeout(() => {
-                const pending = pendingRuns.get(sessionID)
-                if (pending === undefined) return
-                pendingRuns.delete(sessionID)
-                settle.clear(sessionID)
-                void new IncidentLog(pending.directory)
-                  .record({ kind: "defer_deadline_forced", sessionID })
-                  .catch(() => {})
-                void runExecutionCheckpoint(sessionID, pending.directory)
-              }, deferTimeoutMs)
-              pendingRuns.set(sessionID, { directory, timer })
+              armDeferTimer(sessionID, directory)
               return
             }
             settle.clear(sessionID)

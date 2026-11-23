@@ -132,6 +132,10 @@ describe("workflow supervisor session visibility", () => {
       episodeMode: "delegate",
       reviewing: false,
       findingsWaiting: false,
+      // A16 — badge state now names user-input waits and mute state.
+      blocked: false,
+      blockedOn: [],
+      muted: false,
     })
 
     const collab = supervisionBadgeFromPolicy({
@@ -157,6 +161,9 @@ describe("workflow supervisor session visibility", () => {
       episodeMode: "delegate",
       reviewing: false,
       findingsWaiting: false,
+      blocked: false,
+      blockedOn: [],
+      muted: false,
     })
   })
 

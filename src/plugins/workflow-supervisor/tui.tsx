@@ -38,12 +38,18 @@ interface BadgeState {
   episodeMode?: "collab" | "delegate"
   reviewing?: boolean
   findingsWaiting?: boolean
+  blocked?: boolean
+  blockedOn?: string[]
+  muted?: boolean
 }
 
 interface SupervisionDetail {
   active: boolean
   mode?: string
   episodeMode?: "collab" | "delegate"
+  blocked?: boolean
+  blockedOn?: string[]
+  muted?: boolean
   contractPath?: string
   hasUnresolved?: boolean
   attempts?: number
@@ -310,6 +316,27 @@ export default Plugin.define({
           },
         },
         {
+          id: "local.workflow-supervisor.mute",
+          title: "Toggle workflow supervisor mute for this session",
+          group: "Workflow",
+          palette: true,
+          slash: { name: "ws-mute" },
+          run: () => {
+            const sessionID = context.ui.router.current()?.sessionID
+            if (!sessionID) return
+            // A16 — user-held lever for utility sessions that were not
+            // declared in policy. In-memory; the footer shows ·muted.
+            const muted = badges[sessionID]?.muted !== true
+            void rpc
+              .supervisionMute({ sessionID, muted })
+              .then((result: any) => {
+                debug(`mute ${sessionID}: ${result?.muted ?? muted}`)
+                void refreshBadge(sessionID)
+              })
+              .catch((error) => debug(`mute ${sessionID} failed: ${String(error)}`))
+          },
+        },
+        {
           id: "local.workflow-supervisor.review-now",
           title: "Request workflow supervisor review now",
           group: "Workflow",
@@ -344,6 +371,8 @@ export default Plugin.define({
         const parts = [`ws:${badge.mode}`]
         if (badge.hasUnresolved) parts.push(`${badge.attempts}/${badge.limit}`)
         if (badge.episodeMode === "collab") parts.push("collab")
+        if (badge.muted) parts.push("muted")
+        if (badge.blocked) parts.push("waiting-on-you")
         if (badge.reviewing) parts.push("reviewing")
         if (badge.findingsWaiting) parts.push("findings")
         const label = parts.join(" ")

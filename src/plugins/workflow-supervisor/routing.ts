@@ -48,22 +48,123 @@ export function routeReport(input: {
 }
 
 /**
+ * A16 — turn classification for the automatic trigger. The window is
+ * mechanical (the turn's captured step files and tool calls), never a model
+ * judgment:
+ *
+ * - `unknown`: the turn window could not be established (no execution start
+ *   in the buffered events) — never treated as a skip.
+ * - `work`: files changed, or any tool that is not read-only or shell.
+ * - `chore`: no files changed and at least one git-family shell command,
+ *   with every other tool read-only — the out-of-band git/commit turn that
+ *   was never meant to be supervised.
+ * - `no-op`: no files changed and no shell commands at all — the A15 path,
+ *   where the turn's claims are still reviewed.
+ */
+export type TurnClass = "work" | "chore" | "no-op" | "unknown"
+
+const readOnlyTools = new Set(["read", "grep", "glob", "list", "webfetch"])
+
+function isGitFamily(command: string): boolean {
+  return /^git(\s|$)/.test(command.trim())
+}
+
+export function classifyTurn(input: {
+  turnFiles: string[] | undefined
+  tools: Array<{ tool: string; command?: string }>
+}): TurnClass {
+  if (input.turnFiles === undefined) return "unknown"
+  if (input.turnFiles.length > 0) return "work"
+
+  const tools = input.tools ?? []
+  let gitCommands = 0
+  for (const tool of tools) {
+    if (tool.tool === "shell") {
+      if (typeof tool.command !== "string" || !isGitFamily(tool.command)) return "work"
+      gitCommands += 1
+      continue
+    }
+    if (!readOnlyTools.has(tool.tool)) return "work"
+  }
+  return gitCommands > 0 ? "chore" : "no-op"
+}
+
+/**
  * A12 — delivery plan at review completion. An active builder receives
  * findings live (mid-turn). An idle builder in delegate mode is WOKEN to
  * act on them: the agent is the declared driver, so findings are its job,
  * and the repeat-based budget bounds the loop it enters — fix the findings
  * and the next review goes clean (nothing burns); repeat them and the
  * budget burns to escalation. Collab mode never reaches here (its findings
- * route to the user channel upstream).
+ * route to the user channel upstream). A16 — a wake is held while any
+ * other session in the same folder is active: two actors editing one
+ * uncommitted tree is the collision the hold exists to prevent.
  */
 export function deliveryPlan(input: {
   active: boolean
   episodeMode: EpisodeMode
+  siblingActive: boolean
 }): { delivery: "steer" | "queue"; resume: boolean } {
   if (input.active) return { delivery: "steer", resume: false }
   // Collab never wakes: the user is driving, so findings wait for them.
   if (input.episodeMode === "collab") return { delivery: "queue", resume: false }
+  // A16 — an active sibling in the same folder holds the wake until quiet.
+  if (input.siblingActive) return { delivery: "queue", resume: false }
   return { delivery: "queue", resume: true }
+}
+
+/**
+ * A16 — wakes held while a folder is busy, keyed by folder. The runtime
+ * re-offers a held session for waking once the folder has no active turn.
+ */
+export class HeldWakes {
+  private readonly folders = new Map<string, Set<string>>()
+
+  hold(sessionID: string, folder: string): void {
+    let set = this.folders.get(folder)
+    if (set === undefined) {
+      set = new Set<string>()
+      this.folders.set(folder, set)
+    }
+    set.add(sessionID)
+  }
+
+  /** Sessions to wake now that the folder is quiet; empties the folder. */
+  release(folder: string): string[] {
+    const set = this.folders.get(folder)
+    if (set === undefined) return []
+    this.folders.delete(folder)
+    return [...set]
+  }
+
+  folders(): string[] {
+    return [...this.folders.keys()]
+  }
+}
+
+/**
+ * A16 — the user-held per-session mute lever. In-memory only: dies with
+ * the server, like the episode override. Explicit checkpoints ignore it —
+ * they are user-demanded by definition.
+ */
+export class MuteState {
+  private readonly muted = new Set<string>()
+
+  mute(sessionID: string): void {
+    this.muted.add(sessionID)
+  }
+
+  unmute(sessionID: string): void {
+    this.muted.delete(sessionID)
+  }
+
+  isMuted(sessionID: string): boolean {
+    return this.muted.has(sessionID)
+  }
+
+  blocksAutomatic(sessionID: string): boolean {
+    return this.muted.has(sessionID)
+  }
 }
 
 /**
