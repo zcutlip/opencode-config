@@ -1,6 +1,6 @@
 # Workflow supervisor — Phase 3 implementation contract
 
-Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings), is locked by hash below, and was implemented the same day — the locked suite passes 46/46 with no amendment. Amendments A9 (work-settled checkpoints) and A10 (builder read fence) were accepted and implemented 2026-11-22 from live steering evidence; A9 adds its own unlocked suite, `settle.test.ts`, and A10 amends the permission probe's contract as recorded below. Amendment A11 (live-delivery and visibility batch) and A12 (wake on findings) were implemented 2026-11-22 under user-granted auto mode with the lock ceremony waived by the user; their changes to the previously locked `steering.test.ts` and `routing.test.ts` are recorded below.
+Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is accepted: `steer` records `effectiveMode: "steer"`; `enforce` remains `advisory` until Phase 4. Amendment A3 is accepted 2026-11-18: reviewer sessions are archived after use. Session visibility (badge, panel, steering log) was added 2026-11-19 with its own unlocked suite, `supervision.test.ts`. The Phase 3 contract suite passes 24/24 tests. Amendments A4–A8 were independently reviewed and accepted 2026-11-21; the Phase 3.1 routing suite passed gate review (SUPPORTS_TRANSITION, no findings), is locked by hash below, and was implemented the same day — the locked suite passes 46/46 with no amendment. Amendments A9 (work-settled checkpoints) and A10 (builder read fence) were accepted and implemented 2026-11-22 from live steering evidence; A9 adds its own unlocked suite, `settle.test.ts`, and A10 amends the permission probe's contract as recorded below. Amendments A11 (live-delivery and visibility batch), A12 (wake on findings) and A13 (follow-up scoping, wake frame, no-op review) were implemented 2026-11-22 under user-granted auto mode with the lock ceremony waived by the user; their changes to the previously locked `steering.test.ts` and `routing.test.ts` are recorded below.
 
 ## Locked test baseline
 
@@ -266,6 +266,38 @@ channel, because the user is the declared driver. The standing context
 raises the done-bar to match: stage-complete is presented only after the
 reviewer returns clean, or with the remaining findings named and why they
 stand. Wakes are incident-logged for sweeps.
+
+### A13 — follow-up scoping, wake frame, no-op review
+
+Status: accepted and implemented 2026-11-22; same user-granted auto-mode
+batch, lock ceremony waived.
+
+From the first live wake loop (filament, 2026-11-22): seven full-scope
+reviews in fifteen minutes, two of them 224s/244s re-audits minting new
+findings each pass — a correction loop that discovered instead of
+converging — plus two reviews of conversational no-op turns, and a woken
+builder that conversed with the user instead of acting.
+
+- Follow-up reviews: when the request under review is the supervisor's
+  own delivered findings (marker: `Workflow supervisor follow-up`), the
+  envelope pins the assignment — verify each previously delivered finding
+  (resolved / unresolved / worsened), check the response's own changes,
+  stop. No re-audit of unchanged ground; new findings beyond the
+  response's changes belong to the next stage checkpoint, not this one.
+  A genuine-fix re-review should run near the 52s shape observed once,
+  not the 224s audit.
+- Wake frame: the wake message declares who woke the builder and what
+  kind of turn it is — fix, state what changed, end the turn; no
+  questions to the user, no stage-complete claim; the response is
+  re-reviewed automatically.
+- No-op turns: a turn whose captured steps changed no files is judged
+  on its claims alone — done-claims and gate claims — not the working
+  tree.
+- Standing-rule rulings (from the same loop): specified rules apply as
+  written; builder non-compliance is a deviation, never an open rule
+  question; a builder proposing to legalize its own bypass is itself a
+  finding; exceptions originate only from the rule's owner, through
+  config.
 
 ## Evidence changes
 

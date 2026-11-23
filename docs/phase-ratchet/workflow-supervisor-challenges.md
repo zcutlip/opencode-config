@@ -169,6 +169,28 @@ proposing to legalize its own bypass is itself a finding. Exceptions
 originate only from the rule's owner, through config — never
 mid-review, never at the builder's initiative.
 
+**A correction loop must not mint new work.** Each re-review after a
+delivered finding re-audited the entire stage and surfaced fresh
+findings — and new findings cost no budget, so fix-one-get-two ran
+unbounded: seven full-scope reviews in fifteen minutes, the heaviest
+two minting new findings that guaranteed another cycle. The correction
+loop exists to converge, not to discover. *Resolution:* a follow-up
+review is scoped by construction — verify the previously delivered
+findings (resolved, unresolved, worsened), check the response's own
+changes, stop. Findings beyond the response's changes belong to the
+next stage checkpoint. A turn that changed nothing is judged on its
+claims alone.
+
+**A woken builder needs to know who woke it.** Delivered findings
+arrived as an unattributed request, so the builder treated the wake as
+a conversation — asking the user questions, proposing rulings, leaving
+questions the user had to interpret. The user was drafted as interpreter
+between builder and reviewer, the exact job the system exists to delete.
+*Resolution:* the wake message carries its frame: a supervisor-driven
+correction turn — fix, state what changed, end the turn, no questions to
+the user, no stage-complete claim; the response is re-reviewed
+automatically.
+
 **Prose-signal parsers must tolerate the producer's drift.** A CONCERNS
 report with bold section markers evaded findings detection and
 dead-lettered silently — no delivery, no marker, no incident — while the
