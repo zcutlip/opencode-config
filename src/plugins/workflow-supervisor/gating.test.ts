@@ -1,8 +1,10 @@
 // A16 contract tests — settle honesty, chore muting, wake gating, session
 // muting. Written RED against docs/phase-ratchet/workflow-supervisor-phase-3.md
-// (Amendment A16, items 1–8): no implementation exists for the new surfaces
-// at the time of writing; every failing test must fail on a missing export
-// or a missing behavior, never on a broken import path in this file.
+// (Amendment A16): 23 tests — 19 pin new behavior (failing on missing
+// surfaces), 4 are regression guards green on the current tree. The wiring
+// seams (defer timer pause, deferRecord into provenance, badge RPC schema,
+// chore-skip incident, the reviewer withheld-evidence instruction) are
+// inspection-pinned in the contract, not unit-pinned here.
 
 import { describe, expect, test } from "bun:test"
 
@@ -11,11 +13,13 @@ import { describe, expect, test } from "bun:test"
 // ---------------------------------------------------------------------------
 
 describe("A16.1 — blocked-on-user", () => {
-  test("a pending permission ask on a child pauses the defer timer and is exposed", async () => {
+  test("the defer tracker exposes per-child blocked state and answering resumes settlement", async () => {
     const { WorkSettle } = await import("./settle.ts")
     const settle = new WorkSettle()
     settle.trackChild("ses_parent", "ses_child")
-    // A permission ask arrives for the in-flight child.
+    // A permission ask arrives for the in-flight child; the tracker holds
+    // the pending prompt's command for the badge. The defer-timer pause
+    // itself is wiring, inspection-pinned in the contract.
     settle.childBlocked("ses_child", "bun run check")
     const state = settle.deferState("ses_parent")
     expect(state.inFlight).toBe(1)
@@ -84,11 +88,21 @@ describe("A16.2 — deadline-force honesty", () => {
     expect(quiet.includes("Defer note")).toBe(false)
   })
 
-  test("withheld gate evidence is reported as withheld — the instruction pins it", async () => {
-    // The reviewer instruction is prose in src/agents/workflow-reviewer.md;
-    // the contract pins the behavior at the envelope level (above) and the
-    // instruction is verified by inspection at gate review.
-    expect(true).toBe(true)
+  test("withheld gate evidence is inspection-pinned, not unit-pinned", async () => {
+    // The withheld-evidence obligation is a reviewer-instruction clause;
+    // the contract records it under "Wiring pinned by inspection at the
+    // GREEN gate" (src/agents/workflow-reviewer.md). No unit test can pin
+    // prose; the GREEN gate inspects it by name.
+    const { envelope } = await import("./reviewer.ts")
+    const disclosed = envelope({
+      evidencePath: "/state/evidence.json",
+      eventsPath: "/state/events.json",
+      provenance: {
+        completeness: { workingDiff: true },
+        defer: { childrenInFlight: 1, blockedOnPermission: true, heldMs: 600_000 },
+      },
+    })
+    expect(disclosed).toContain("blocked on a pending permission decision")
   })
 })
 
