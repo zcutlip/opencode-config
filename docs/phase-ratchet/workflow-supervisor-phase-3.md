@@ -371,9 +371,14 @@ the events after already paying for the full evidence read.
 
 ### A16 — settle honesty, chore muting, wake gating, session muting
 
-Status: drafted 2026-11-23 from live evidence and user rulings; awaiting
-independent gate review before the RED suite is written. Scope agreed with
-the user 2026-11-22/23.
+Status: RED suite written 2026-11-23 (`gating.test.ts`, 23 tests: 19
+new-behavior RED, 4 regression guards green; fresh run 88 total /
+69 pass / 19 fail across all suites). Independent gate review arc:
+CONCERNS with five findings → corrections applied → follow-up CONCERNS
+(four verified resolved; one minor bookkeeping item with support
+conditioned on its one-line fix) → the fix verified by checkpoint
+review, no findings. Awaiting user acceptance and lock. Scope agreed
+with the user 2026-11-22/23.
 
 From three live incidents: the RED-gate checkpoint held ten minutes on a
 delegated run that was blocked on a user-held permission prompt (the
@@ -386,9 +391,18 @@ another session is mid-turn in it.
 
 **Blocked-on-user is a named state, not an absorbed one.**
 
-- An in-flight child with a pending `permission.asked` is a user-input
+- An in-flight child with a pending permission ask is a user-input
   wait: the defer timer pauses, the badge shows a `blocked` state naming
   the pending prompt, and nothing presents it as reviewer activity.
+- API basis (A4-style, recorded): the SDK event union declares
+  `permission.v2.asked` with `{ id, sessionID, action,
+  resources: string[] }`; for a shell permission `resources[0]` is the
+  command string, so the badge names the prompt from `action` +
+  `resources[0]`. Implementation step 1 verifies live delivery of this
+  event to the server plugin's subscription during one real defer; if
+  the host does not deliver it to server plugins, a recorded amendment
+  scopes the badge to a generic `blocked on permission` marker without
+  the command name.
 - A deadline force is honest about what it did: when the backstop fires
   with children still in flight, the provenance and the review envelope
   record the block (children in flight, blocked-on-permission, minutes
@@ -396,21 +410,24 @@ another session is mid-turn in it.
   user-input block is reported as withheld — never as the builder's
   missing evidence.
 - The ten-minute backstop applies only to mechanical settlement (a
-  hung helper); user-input waits are unbounded but surfaced. Detection
-  ground truth is the permission event stream; a withdrawn or answered
-  prompt resumes normal settlement.
+  hung helper); user-input waits are unbounded but surfaced. A withdrawn
+  or answered prompt resumes normal settlement.
 
 **Chore turns are not work.**
 
-- A turn whose captured steps wrote no files and whose commands are all
-  git-family or read-only is a chore turn: no automatic checkpoint
-  fires. Skips are incident-logged (`chore_turn_skipped`) with the
-  command list, so sweeps see exactly what went unreviewed.
-- Consequence accepted by design: a work session's own commit turns also
-  skip — their changes were reviewed at the gate before the user
+- Classification vocabulary, stated once: `chore` = no file writes AND
+  at least one git-family command AND every other command read-only →
+  no automatic checkpoint fires. `no-op` = no file writes and all
+  commands read-only → the A15 path, claims still reviewed. `work` =
+  any file write or any non-git, non-read command → reviewed. `unknown`
+  = the turn window cannot be established → never treated as chore.
+- Skips are incident-logged (`chore_turn_skipped`) with the command
+  list, so sweeps see exactly what went unreviewed.
+- Consequence accepted by design: a work session's own commit turns
+  also skip — their changes were reviewed at the gate before the user
   committed. A project that wants chore turns reviewed sets
-  `reviewChoreTurns: true` (optional policy field; no version bump;
-  absence means the default muting).
+  `reviewChoreTurns: true` (optional policy field; absence means the
+  default muting).
 - Explicit `/ws-review` always reviews a chore turn on demand.
 - Classification is mechanical — step events and command strings, no
   model call in the routing path.
@@ -433,8 +450,15 @@ another session is mid-turn in it.
   mute produces nothing.
 - Optional per-project `muteTitles` patterns in `workflow.jsonc`:
   title-matched sessions are muted by declaration, set once at
-  activation. Titles are reinforcement only — the chore rule is what
-  mutes the user's commit sessions without any naming discipline.
+  activation. Patterns are trailing-`*` wildcards matched against the
+  session title (prefix match). Titles are reinforcement only — the
+  chore rule is what mutes the user's commit sessions without any
+  naming discipline.
+- Schema note: A16 supersedes the phase-3 non-goal "no change to the
+  workflow policy schema" for exactly the two optional fields
+  `reviewChoreTurns` and `muteTitles`. No version bump: both are
+  optional, v1 policies parse unchanged, and the unknown-field
+  rejection is retained.
 
 **Evidence attribution closes the concurrency gap.**
 
@@ -444,17 +468,40 @@ another session is mid-turn in it.
   session's uncommitted files are out of scope for this turn unless the
   turn's claims depend on them.
 
+**Wiring pinned by inspection at the GREEN gate** (the pure suite pins
+the classifiers and state; these seams cannot be unit-pinned against
+fakes, so the GREEN gate inspects them by name, as A5/A6/A8 recorded
+their wiring):
+
+- `index.ts`: the defer `setTimeout` consults the blocked state before
+  forcing; the force callback writes the `deferRecord` into the
+  checkpoint provenance and logs the defer-force incident with the
+  blocked summary; the automatic trigger consults `classifyTurn` and
+  chore turns are skipped with the `chore_turn_skipped` incident;
+  explicit checkpoints bypass the chore and mute gates.
+- `rpc.ts` + `tui.tsx`: the `supervisionBadge` and `stateUpdated`
+  schemas gain `blocked`, `blockedOn`, and `muted` (the
+  `additionalProperties: false` constraint updated with them); the
+  footer badge renders `blocked`/`muted` markers; a `/ws-mute` command
+  reaches the mute state via RPC.
+- `src/agents/workflow-reviewer.md`: gains the withheld-evidence clause
+  — a gate result withheld by a user-input block is reported as
+  withheld, never as the builder's missing evidence.
+
 **Test list (RED before implementation, gate-reviewed before lock):**
 
-1. Blocked-on-user: a child with a pending permission ask pauses the
-   defer timer and exposes the blocked badge state; answering the prompt
-   resumes settlement.
+1. Blocked-on-user: the defer tracker exposes per-child blocked state
+   (command string per pending ask) and answering the prompt resumes
+   mechanical settlement.
 2. Deadline-force honesty: force with children in flight records the
-   block in provenance and the envelope; the reviewer instruction treats
-   withheld gate evidence as withheld, not missing.
-3. Chore classification: the pure classifier maps no-writes + git/read
-   commands to chore; any edit or non-git command maps to work; chore
-   turns skip the checkpoint and log the skip; work turns review.
+   block in provenance and the envelope discloses it; the
+   withheld-evidence instruction obligation is inspection-pinned above.
+3. Chore classification: the pure classifier maps no-writes + a git
+   command + read-only remainder to chore; no-writes + all read-only to
+   the A15 no-op path; file writes or non-git commands to work; an
+   unknown window to unknown. Chore turns skip the checkpoint and log
+   the skip (wiring inspection-pinned above); the policy default can
+   turn chore review back on.
 4. Wake gating: an active session in the same directory holds the wake;
    the last completion releases it; an idle folder wakes as before.
 5. Mute lever: muted sessions skip automatic checkpoints, keep explicit

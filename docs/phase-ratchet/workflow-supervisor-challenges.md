@@ -54,7 +54,16 @@ depends on; the checkpoint fires at turn end, the evidence freezes there,
 and the helper's output lives where the supervisor deliberately does not
 look. *Resolution:* checkpoints defer while helpers are in flight and run
 when they settle (a deadline bounds a helper that never does), so the
-capture sees the helper's posted result.
+capture sees the helper's posted result. *Correction, from the user's
+account:* a real deferral ran ten minutes with the badge showing
+"reviewing" while the actual state was a helper blocked on a permission
+prompt the user had not answered — a user-input wait presented as reviewer
+activity — and when the deadline forced the checkpoint anyway, the review
+ran without the gate's central evidence and filed the builder's honest
+claim as "no captured run." Two defects, not one: an input wait must be
+named to the user who can end it, never absorbed by a timer; and a forced
+capture must record why its evidence is absent rather than review a hollow
+gate. The corrected design lands in the A16 contract.
 
 **Supervisor records are about the builder, not for the builder.** Asked
 about its own review status, the builder rummaged through the supervisor's
@@ -235,6 +244,34 @@ the full delivery decision, not just the parser. Deeper lesson
 unchanged: the more the supervisor depends on reading reviewer prose, the
 more the report needs a machine-readable header.
 
+**Supervision must fit how the user actually works, including concurrent
+sessions in one project.** The user deliberately keeps multiple sessions
+in one working folder — a work session plus utility sessions such as an
+out-of-band commit agent — and every one of them consumed full reviews
+per turn, including the utility sessions that were never meant to be
+supervised. Worse, a wake could put an idle session to work on the
+shared tree while another session was mid-turn in it: two actors, one
+set of uncommitted files. The user's own workaround — flipping the
+"collab" override on utility sessions each time — was exactly the
+babysitting this system exists to remove. *Resolution (A16 contract):*
+utility turns are recognized mechanically — a turn that wrote no files
+and ran only git-family commands is a chore and skips review; wakes
+respect an active folder; a user-held per-session mute lever and
+optional per-project title patterns cover the remainder. The unit of
+supervision stays the session; the unit of courtesy is what the turn
+actually did.
+
+**Claims submitted to a gate review must be reconciled against the
+tree.** Twice in one day the reconciliation failed in opposite
+directions: a sweep summary called the reviewer model free when the
+config pins a paid one (caught by the user), and a test-count breakdown
+was asserted as corrected while the file's header still carried the old
+numbers (caught by the gate review). The review mechanism working as
+designed is the point: a gate verifies against declared interfaces and
+captured evidence, never against the narrative accompanying it. The
+cost of a sloppy claim is an extra review round; the cost of no review
+is a lock on a fiction.
+
 ## Open
 
 **One agreement slot, two layers.** Projects carry standing rules plus a
@@ -254,10 +291,13 @@ dies with the piece of work; the default is the simplest local, never-shared
 note; richer wiring is a per-project choice.
 
 **Verification evidence is the supervisor's job, never the user's errand.**
-Passive capture is not enough: gates need active collection. *Direction:* at
-a gate that depends on command results, the supervisor runs the command the
-policy pins and attaches the raw output to the checkpoint itself; the user
-judges from the verdict, never from an errand. Blocked on the
+Passive capture is not enough: gates need active collection. The A16
+contract lands the honesty half — a capture forced while a helper is
+still blocked records why its evidence is absent, and the user-input
+wait is named rather than absorbed. The collection half remains: at a
+gate that depends on command results, the supervisor runs the command
+the policy pins and attaches the raw output to the checkpoint itself;
+the user judges from the verdict, never from an errand. Blocked on the
 workflow-definition format's command bindings.
 
 **A stage's verdict must precede its exit — structurally.** The interim is
