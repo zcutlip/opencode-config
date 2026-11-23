@@ -478,6 +478,12 @@ export default Plugin.define({
           void new IncidentLog(directory)
             .record({ kind: "steering_escalated", sessionID, detail: `${result.checkpointID} attempts=${decision.attempts}` })
             .catch(() => {})
+        } else if (decision.action === "report") {
+          // A14 — minor-only findings: recorded in the checkpoint ledger,
+          // surfaced at the gate, never delivered. The loop ends here.
+          void new IncidentLog(directory)
+            .record({ kind: "minor_report_only", sessionID, detail: result.checkpointID })
+            .catch(() => {})
         }
       }
       await rpc.events

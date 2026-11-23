@@ -1,13 +1,30 @@
 import { createHash } from "node:crypto"
 
+/**
+ * The reviewer's report format drifts across sessions — plain, bold, and
+ * markdown-heading forms have all been observed. Two dead-letters proved
+ * the cost (sweep 2026-11-22): a bold Findings header evaded detection, and
+ * a `## Findings` heading dead-lettered a MAJOR while re-arming the budget.
+ * All prose-signal parsing runs on a copy with heading markers and bold
+ * stripped, so signals match regardless of the decoration chosen.
+ */
+function normalizedProse(report: string): string {
+  return report
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]*/gm, "")
+    .replace(/\*\*/g, "")
+}
+
 export type SteeringDecision =
   | { action: "none"; reason: "mode" | "no-findings" }
   | { action: "steer"; text: string; fingerprint: string; attempts: number }
   | { action: "duplicate"; fingerprint: string; attempts: number }
   | { action: "escalate"; reason: "limit"; fingerprint: string; attempts: number }
+  | { action: "report"; attempts: number }
 
 export function verdictOf(report: string): string {
-  const match = report.match(/^\s*(?:\*\*)?Verdict:(?:\*\*)?\s*([A-Z_]+)/m)
+  const match = normalizedProse(report).match(
+    /^\s*Verdict\b[\s:]*(SUPPORTS_TRANSITION|CONCERNS|INSUFFICIENT_EVIDENCE|NOT_REQUESTED)/m,
+  )
   return match?.[1] ?? "UNKNOWN"
 }
 
@@ -34,14 +51,15 @@ export function isFollowUpRequest(text: unknown): boolean {
 }
 
 export function hasFindings(report: string): boolean {
-  // The reviewer's section markers drift between plain and bold forms
-  // (sweep finding 2026-11-22: a CONCERNS report with **Findings:** evaded
-  // detection and dead-lettered). Accept both.
-  const match = report.match(/(?:\*\*)?Findings:(?:\*\*)?\s*\n([\s\S]*?)(?=\n\n(?:\*\*)?Not assessed(?:\*\*)?|$)/i)
+  // Format drift is normalized (plain, bold, and ## heading forms have all
+  // dead-lettered reports — see normalizedProse). The section may carry a
+  // colon or not; the terminator and the no-findings line tolerate trailing
+  // punctuation.
+  const match = normalizedProse(report).match(/Findings\b[\s:]*\n([\s\S]*?)(?=\n\nNot assessed|\n\nPreviously delivered|$)/i)
   if (!match) return false
   const body = match[1].trim()
   if (body === "") return false
-  return !/^-\s*(?:\*\*)?No findings(?:\*\*)?$/im.test(body)
+  return !/^(?:-\s*)?No findings[.!]*\s*$/im.test(body)
 }
 /**
  * A11 — true when the report itself marks findings as repeats of previously
@@ -51,6 +69,18 @@ export function hasFindings(report: string): boolean {
  */
 export function hasRepeats(report: string): boolean {
   return /\bpreviously steered\b/i.test(report)
+}
+
+/**
+ * A14 — severity gates delivery. Blocking and major findings steer and
+ * wake; minor-only reports are recorded and surface at the gate, but they
+ * never interrupt the builder — the gate must settle (sweep finding
+ * 2026-11-22: a wake loop over a missing prose paragraph kept the RED gate
+ * moving under the user's feet). Severity markers drift between plain and
+ * bold forms, so the test tolerates both, same lesson as hasFindings.
+ */
+export function hasBlockingOrMajor(report: string): boolean {
+  return /\bseverity\b[\s:]*(blocking|major)\b/i.test(normalizedProse(report))
 }
 
 function fingerprintOf(report: string): string {
@@ -127,6 +157,14 @@ export class SteeringCoordinator {
       state.attempts = 0
       state.fingerprints.clear()
       return { action: "none", reason: "no-findings" }
+    }
+
+    // A14 — severity gates delivery. Minor-only findings never steer, wake,
+    // burn the budget, or hold unresolved state: they are recorded in the
+    // checkpoint ledger for the gate decision and nothing else. The gate
+    // must settle.
+    if (!hasBlockingOrMajor(input.report)) {
+      return { action: "report", attempts: state.attempts }
     }
 
     const fingerprint = fingerprintOf(input.report)

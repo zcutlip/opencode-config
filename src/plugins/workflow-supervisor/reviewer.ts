@@ -1,4 +1,5 @@
 import { isFollowUpRequest } from "./steering.ts"
+import { IncidentLog } from "./incidents.ts"
 
 export class ReviewerTimeoutError extends Error {
   constructor(message = "Reviewer timed out") {
@@ -31,6 +32,8 @@ export function envelope(input: {
   provenance: Record<string, any>
   explicit?: boolean
   latestUserRequest?: string
+  latestAssistantText?: string
+  turnNoop?: boolean
   changedFiles?: string[]
   steeringHistory?: { count: number; latest?: string }
 }): string {
@@ -46,6 +49,18 @@ export function envelope(input: {
   const assignment = followUp
     ? "Assignment: follow-up review. Verify each previously delivered finding against the current tree — resolved, unresolved, or worsened — and check the response's own changes for new defects. Do not re-audit unchanged ground; new findings beyond the response's changes belong to the next stage checkpoint, not this one."
     : undefined
+  // A15 — a turn that positively changed no files is marked here, with its
+  // claims inlined, so the review is judged on the claims without
+  // re-reading the whole evidence. A follow-up marker takes precedence
+  // when both apply.
+  const noop = input.turnNoop === true && !followUp
+  const noopAssignment = noop
+    ? "Assignment: no-op turn — the turn's captured steps changed no files. Judge only the claims made in the turn's messages, inlined below; spot-check specific claims against the tree as needed. Do not re-audit unchanged ground and raise no findings beyond the turn's claims."
+    : undefined
+  const claims =
+    noop && typeof input.latestAssistantText === "string" && input.latestAssistantText.trim() !== ""
+      ? input.latestAssistantText.trim()
+      : undefined
   const changedFiles = Array.isArray(input.changedFiles) && input.changedFiles.length > 0
     ? `Changed files: ${Array.from(new Set(input.changedFiles.filter((file) => typeof file === "string"))).join(", ")}`
     : undefined
@@ -58,6 +73,13 @@ export function envelope(input: {
     "",
     "Mode: checkpoint",
     ...(assignment === undefined ? [] : ["", assignment]),
+    ...(noopAssignment === undefined
+      ? []
+      : [
+          "",
+          noopAssignment,
+          ...(claims === undefined ? [] : ["", "Turn claims (assistant, verbatim):", claims]),
+        ]),
     "",
     `Evidence: ${input.evidencePath}`,
     `Chronological events: ${input.eventsPath}`,
@@ -78,6 +100,8 @@ export async function runReviewer(input: {
   timeoutMs: number
   explicit?: boolean
   latestUserRequest?: string
+  latestAssistantText?: string
+  turnNoop?: boolean
   changedFiles?: string[]
   steeringHistory?: { count: number; latest?: string }
 }): Promise<{ sessionID: string; report: string; usage: any }> {
@@ -128,9 +152,46 @@ export async function runReviewer(input: {
       },
     }
   } finally {
-    await input.client.session.update({
+    await archiveReviewerSession(input.client, sessionID, input.location)
+  }
+}
+
+/**
+ * A14 hygiene — archive the reviewer session, verified against the host's
+ * observable state. Both known call forms have dead-lettered through the
+ * plugin's session wrapper: the typed `time.archived` body no-ops
+ * server-side, and a flat `archived` key never survives the wrapper. The
+ * raw SDK client, when the context exposes one (`ctx.client`), sends bodies
+ * verbatim — try that channel first, fall back to the typed form, then GET
+ * the record and log whether the host actually archived. A silently
+ * no-opping cleanup is how /sessions got polluted; an unverified archive is
+ * recorded as an incident so sweeps catch it from the log, not from the
+ * user's session list.
+ */
+async function archiveReviewerSession(client: any, sessionID: string, location: string): Promise<void> {
+  const channel = typeof client?.client?.session?.update === "function" ? "sdk" : "wrapper"
+  try {
+    if (channel === "sdk") {
+      await client.client.session.update({ path: { sessionID }, body: { archived: true } })
+    } else {
+      await client.session.update({ sessionID, time: { archived: Date.now() } })
+    }
+    const record = await client.session.get({ sessionID }).catch(() => null)
+    const archived = record != null && (record.archived === true || record?.time?.archived != null)
+    console.log(`[workflow-supervisor] reviewer session ${sessionID} archive via ${channel}: ${archived ? "verified" : "NOT archived"}`)
+    if (!archived) {
+      void new IncidentLog(location)
+        .record({ kind: "archive_unverified", sessionID, detail: channel })
+        .catch(() => {})
+    }
+  } catch (error) {
+    console.warn("[workflow-supervisor] reviewer session archive failed", {
       sessionID,
-      time: { archived: Date.now() },
-    }).catch(() => {})
+      channel,
+      error: String(error),
+    })
+    void new IncidentLog(location)
+      .record({ kind: "archive_failed", sessionID, detail: channel })
+      .catch(() => {})
   }
 }

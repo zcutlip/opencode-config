@@ -36,6 +36,35 @@ function truncated(items: any[] | undefined): boolean {
   return (items ?? []).some((item) => item?.more === true)
 }
 
+/**
+ * A15 — mechanically establish whether the turn under review changed files.
+ * The turn window starts at the session's last execution.started event;
+ * step.ended events carry the files each step wrote. Returns the union of
+ * those files, [] for a positively-established no-op turn, or undefined
+ * when the window cannot be established (unknown, never silently no-op).
+ */
+export function turnChangedFiles(events: any[] | undefined): string[] | undefined {
+  const list = events ?? []
+  let start = -1
+  for (let index = list.length - 1; index >= 0; index -= 1) {
+    const event = list[index]
+    if (event?.type === "session.execution.started" && typeof event?.data?.sessionID === "string") {
+      start = index
+      break
+    }
+  }
+  if (start === -1) return undefined
+  const files = new Set<string>()
+  for (const event of list.slice(start)) {
+    const stepFiles = event?.data?.files
+    if (!Array.isArray(stepFiles)) continue
+    for (const file of stepFiles) {
+      if (typeof file === "string" && file.trim() !== "") files.add(file)
+    }
+  }
+  return [...files]
+}
+
 function eventsComplete(events: any[] | undefined): boolean {
   const list = events ?? []
   return list.every((event, index) => event?.durable?.seq === index + 1)

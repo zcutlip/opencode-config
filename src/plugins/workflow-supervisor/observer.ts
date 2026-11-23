@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { join, resolve } from "node:path"
 import { EvidenceTruncatedError } from "./evidence.ts"
+import { turnChangedFiles } from "./evidence.ts"
 import type { WorkflowLedger } from "./ledger.ts"
 import { PolicyError } from "./policy.ts"
 
@@ -218,6 +219,16 @@ export class WorkflowObserver {
         timeoutMs: this.timeoutMs,
         explicit: trigger === "explicit",
         latestUserRequest: evidence.latestUserRequest,
+        // A15 — a turn that positively changed no files is marked in the
+        // envelope with its claims inlined, so the review judges the claims
+        // without re-reading the whole evidence load. Unknown is not no-op.
+        turnNoop:
+          trigger === "execution" &&
+          (() => {
+            const files = turnChangedFiles(evidence.events)
+            return files !== undefined && files.length === 0
+          })(),
+        latestAssistantText: evidence.latestAssistantText,
         changedFiles: evidence.workingDiff
           .map((item: any) => (typeof item?.file === "string" ? item.file : undefined))
           .filter((file: any): file is string => typeof file === "string"),

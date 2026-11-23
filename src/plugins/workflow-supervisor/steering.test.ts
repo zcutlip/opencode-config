@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { hasFindings, SteeringCoordinator, verdictOf } from "./steering.ts"
+import { hasBlockingOrMajor, hasFindings, SteeringCoordinator, verdictOf } from "./steering.ts"
 
 const report = `Mode: checkpoint
 
@@ -117,6 +117,68 @@ describe("workflow supervisor steering", () => {
     expect(hasFindings(boldFindings)).toBe(true)
     expect(hasFindings(boldClean)).toBe(false)
   })
+
+  test("A14 — minor-only findings never steer, wake, or hold state", () => {
+    const minorReport = report.replace("- Severity: major", "- Severity: minor")
+    const steering = new SteeringCoordinator()
+    const decision = steering.consider(input({ report: minorReport, checkpointID: "cp-minor-1" }))
+    expect(decision.action).toBe("report")
+    // No unresolved state and no ride: the gate settles.
+    expect(steering.context("ses_observed")).toContain("No unresolved findings")
+  })
+
+  test("A14 — minor-only reports burn no budget and a later major steers freely", () => {
+    const minorReport = report.replace("- Severity: major", "- Severity: minor")
+    const steering = new SteeringCoordinator()
+    steering.consider(input({ report: minorReport, checkpointID: "cp-minor-1" }))
+    const second = steering.consider(input({ report: minorReport, checkpointID: "cp-minor-2" }))
+    expect(second.action).toBe("report")
+    expect(second.attempts).toBe(0)
+    expect(steering.consider(input({ checkpointID: "cp-major" })).action).toBe("steer")
+  })
+
+  test("A14 — bold severity markers are recognized", () => {
+    expect(hasBlockingOrMajor("- **Severity: major**")).toBe(true)
+    expect(hasBlockingOrMajor("- **Severity:** blocking")).toBe(true)
+    expect(hasBlockingOrMajor("- Severity: minor")).toBe(false)
+    expect(hasBlockingOrMajor("- **Severity: minor**")).toBe(false)
+  })
+
+  test("heading-form reports parse — the second dead-letter class", () => {
+    // Mirrors cp-100c2c882 (sweep 2026-11-22): a CONCERNS report with a
+    // markdown-heading Findings section dead-lettered a MAJOR and re-armed
+    // the budget. Normalization must carry it through the full decision.
+    const headingReport = [
+      "Mode: checkpoint",
+      "## Verdict: CONCERNS",
+      "## Findings",
+      "",
+      "- Severity: major",
+      "  Requirement: evidence provenance.",
+      "  Deviation: the gate result exists only as pasted text.",
+      "",
+      "Not assessed or missing evidence:",
+      "- Turn diff was unavailable.",
+    ].join("\n")
+    expect(verdictOf(headingReport)).toBe("CONCERNS")
+    expect(hasFindings(headingReport)).toBe(true)
+    expect(hasBlockingOrMajor(headingReport)).toBe(true)
+    const steering = new SteeringCoordinator()
+    expect(steering.consider(input({ report: headingReport, checkpointID: "cp-heading" })).action).toBe("steer")
+  })
+
+  test("clean variants across formats stay clean", () => {
+    // "## Findings" heading + undashed "No findings." (cp-ea58e596 form).
+    const headingClean = ["## Verdict", "", "Verdict: NOT_REQUESTED", "", "## Findings", "", "No findings."].join("\n")
+    expect(verdictOf(headingClean)).toBe("NOT_REQUESTED")
+    expect(hasFindings(headingClean)).toBe(false)
+    // The original fixtures must keep parsing under normalization.
+    expect(verdictOf(report)).toBe("CONCERNS")
+    expect(hasFindings(report)).toBe(true)
+    expect(hasFindings(cleanReport)).toBe(false)
+    expect(hasBlockingOrMajor(report)).toBe(true)
+    expect(hasBlockingOrMajor(cleanReport)).toBe(false)
+  })
 })
 
 describe("A13 — wake frame and follow-up scoping", () => {
@@ -154,5 +216,45 @@ describe("A13 — wake frame and follow-up scoping", () => {
     expect(normal.includes("Assignment: follow-up review")).toBe(false)
     const explicit = envelope({ ...base, explicit: true, latestUserRequest: wakeMessage("report") })
     expect(explicit.includes("Assignment: follow-up review")).toBe(false)
+  })
+
+  test("A15 — a no-op turn is marked in the envelope with its claims inlined", async () => {
+    const { envelope } = await import("./reviewer.ts")
+    const { turnChangedFiles } = await import("./evidence.ts")
+    const base = {
+      evidencePath: "/state/evidence.json",
+      eventsPath: "/state/events.json",
+      provenance: { completeness: { workingDiff: true } },
+      latestUserRequest: "Give me your RED gate report.",
+    }
+    const noopEvents = [
+      { type: "session.execution.started", data: { sessionID: "ses_observed" }, durable: { seq: 1 } },
+      { type: "session.step.ended", data: { sessionID: "ses_observed", files: [] }, durable: { seq: 2 } },
+      { type: "session.step.ended", data: { sessionID: "ses_observed", files: [] }, durable: { seq: 3 } },
+    ]
+    expect(turnChangedFiles(noopEvents)).toEqual([])
+    const text = envelope({ ...base, turnNoop: true, latestAssistantText: "RED is locked: 31 tests failing." })
+    expect(text).toContain("Assignment: no-op turn")
+    expect(text).toContain("Turn claims (assistant, verbatim):")
+    expect(text).toContain("31 tests failing")
+    // A turn that changed files, or whose window is unknown, is not marked.
+    const normal = envelope({ ...base, turnNoop: false, latestAssistantText: "x" })
+    expect(normal.includes("Assignment: no-op turn")).toBe(false)
+    const workEvents = [
+      { type: "session.execution.started", data: { sessionID: "ses_observed" }, durable: { seq: 1 } },
+      { type: "session.step.ended", data: { sessionID: "ses_observed", files: ["src/core/state.ts"] }, durable: { seq: 2 } },
+    ]
+    expect(turnChangedFiles(workEvents)).toEqual(["src/core/state.ts"])
+    expect(turnChangedFiles([{ type: "session.step.ended", data: { files: [] } }])).toBeUndefined()
+    // A follow-up marker takes precedence over the no-op marker.
+    const { wakeMessage } = await import("./steering.ts")
+    const both = envelope({
+      ...base,
+      latestUserRequest: wakeMessage("report"),
+      turnNoop: true,
+      latestAssistantText: "fixed it",
+    })
+    expect(both).toContain("Assignment: follow-up review")
+    expect(both.includes("Assignment: no-op turn")).toBe(false)
   })
 })

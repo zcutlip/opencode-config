@@ -57,6 +57,19 @@ function reviewerClient(overrides: Record<string, any> = {}) {
         calls.update.push(input)
       },
     },
+    // A14 hygiene — the raw SDK client channel. The plugin's session
+    // wrapper drops non-whitelisted body keys, so the flat `archived` form
+    // the host actually honors rides this channel when the context exposes
+    // a client. Mock assumption (A1 discipline): `ctx.client` exists on the
+    // server plugin context; the live probe logs the channel taken and
+    // records an incident when the host's archive state stays unverified.
+    client: {
+      session: {
+        update: async (data: any) => {
+          calls.update.push({ sessionID: data?.path?.sessionID, archived: data?.body?.archived })
+        },
+      },
+    },
   }
   return { client, calls }
 }
@@ -239,7 +252,9 @@ describe("Phase 2 ownership, claims, and explicit checkpoints", () => {
     expect(calls.interrupt).toHaveLength(0)
     expect(calls.synthetic).toHaveLength(0)
     expect(calls.update).toEqual([
-      { sessionID: "ses_reviewer", time: { archived: expect.any(Number) } },
+      // A14 hygiene amendment: the flat `archived: true` form the host
+      // honors; the nested time.archived body silently no-ops.
+      { sessionID: "ses_reviewer", archived: true },
     ])
 
     const harness = await observerHarness()
@@ -418,7 +433,9 @@ describe("Phase 2 evidence and reviewer lifecycle", () => {
     expect(calls.interrupt).toEqual([{ sessionID: "ses_reviewer", resume: false }])
     expect(calls.synthetic).toHaveLength(0)
     expect(calls.update).toEqual([
-      { sessionID: "ses_reviewer", time: { archived: expect.any(Number) } },
+      // A14 hygiene amendment: the flat `archived: true` form the host
+      // honors; the nested time.archived body silently no-ops.
+      { sessionID: "ses_reviewer", archived: true },
     ])
   })
 
