@@ -380,9 +380,15 @@ conditioned on its one-line fix) → the fix verified by checkpoint
 review, no findings. Locked 2026-11-23 following the user's commits
 (96b82af RED suite, b5c7b3f docs): `gating.test.ts`
 sha256 504c26949cb9b4c7fce0833dab830fc0d52c7c159a69aecc9ec377b415c0dc3d.
-Scope agreed with the user 2026-11-22/23; implementation follows
-against the locked suite, with the wiring seams inspected at the GREEN
-gate as recorded below.
+Scope agreed with the user 2026-11-22/23; implementation completed
+2026-11-23 against the locked suite. GREEN: suite 88/88 pass (355
+`expect()` calls), plugin hot-loaded with server/tui/rpc active; the
+five inspection-pinned seams verified in code. A16.1 fallback recorded
+2026-11-23 after the filament live check proved the host silent on
+`permission.v2.asked`: command-naming dropped, waits shown generically,
+forced captures honest about unstated reasons. Post-host-update the
+same one-minute check re-runs — if the event arrives, naming returns
+with no redesign.
 
 From three live incidents: the RED-gate checkpoint held ten minutes on a
 delegated run that was blocked on a user-held permission prompt (the
@@ -407,6 +413,17 @@ another session is mid-turn in it.
   the host does not deliver it to server plugins, a recorded amendment
   scopes the badge to a generic `blocked on permission` marker without
   the command name.
+- A16.1 fallback (verified 2026-11-23, filament): the live check failed
+  — a minute-long `bun run test` permission hang produced no
+  `defer_paused_user_wait` incident and the follow-up checkpoint's
+  `events.json` carries no `permission` event, so the host does not
+  deliver the ask to server-plugin subscriptions. The command-naming is
+  dropped: the handler stays in code as a future-proof path, but the
+  badge never claims a named prompt it cannot hear. A defer wait shows
+  as a wait (never as reviewer activity), and a forced capture records
+  helpers-in-flight with the reason unstated rather than asserting a
+  permission block. The reviewer's minor on `action` + `resources[0]`
+  form is moot on this host.
 - A deadline force is honest about what it did: when the backstop fires
   with children still in flight, the provenance and the review envelope
   record the block (children in flight, blocked-on-permission, minutes
