@@ -322,3 +322,13 @@ rule "never grant while pending" is mechanically checkable. The structural
 fix remains: the transition request consumes the verdict — the next stage
 does not begin until the reviewer has spoken on the last one. *Direction:*
 the planned transition-request design.
+
+**The gate needs a readable door.** The user holding the grant has no
+surface saying what the latest review concluded: the badge is transient,
+the panel is beta and disqualified as a channel, clean reviews are
+silent by design, and reports on disk make the user a file reader. What
+reaches the user today is escalation toast (refusals only) and watching
+the builder work corrections unprompted. *Direction:* a durable,
+one-line verdict signal per stage — verdict plus pointer, never the
+novel — that does not depend on the panel and does not require opening
+files.
