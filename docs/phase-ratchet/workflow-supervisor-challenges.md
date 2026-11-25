@@ -272,6 +272,22 @@ captured evidence, never against the narrative accompanying it. The
 cost of a sloppy claim is an extra review round; the cost of no review
 is a lock on a fiction.
 
+**The observer can die on its first event while everything looks alive.**
+The dispatch path threw on every turn-end event, killing the
+subscription — but on-demand check-ins take a different path, so they
+kept working and nothing looked wrong. The green suite never called
+what the runtime path calls, so it stayed green over a dead system.
+*Resolution:* the throw was a state object whose internal store and
+public listing shared one name, resolved to the store in the
+implementation language — renamed, and the listing the dispatcher
+calls is now called by the suite. *Lessons that transfer:* guard the
+dispatch path so one bad turn can never silence all future turns, and
+verify health by the full loop firing — an automatic checkpoint
+landing — never by inspection or unit tests alone. (Same outage
+confirmed a second silent drop: a host may ignore event subscriptions
+it does not declare — never assume delivery, check the host's own
+warning channel.)
+
 ## Open
 
 **One agreement slot, two layers.** Projects carry standing rules plus a

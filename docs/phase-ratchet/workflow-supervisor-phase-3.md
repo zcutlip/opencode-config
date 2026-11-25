@@ -5,7 +5,7 @@ Status: implemented 2026-11-17. Amendment A2 to the Phase 2 locked tests is acce
 ## Locked test baseline
 
 - `steering.test.ts` — SHA-256 `65b26072ba69c4dc3e7de289a783341ee0462275c335794727ecf1eee17f43a5`
-- `routing.test.ts` — SHA-256 `9aaca2b543b023721a391dfb5704259ccb485f5dc140cafc77c1549b0f117795` — locked 2026-11-21 after the Phase 3.1 gate review returned SUPPORTS_TRANSITION with no findings; any change requires a recorded amendment.
+- `routing.test.ts` — SHA-256 `438fe8e21b0886ac3fc0476cb8a1878a5780207ce9682a74861706756e89b1f6` — re-locked 2026-11-25 by amendment A17 (folders() regression test); supersedes the 2026-11-21 hash `9aaca2b5…` per the amendment record. Any further change requires a recorded amendment.
 
 ## Scope
 
@@ -533,6 +533,29 @@ their wiring):
    shared working diff.
 8. Settle regression: plain in-flight children still defer with the
    backstop intact.
+
+### A17 — wake-gate shape regression (field/method collision)
+
+Status: accepted (user's "proceed" 2026-11-25) and implemented the same
+day; amends the locked `routing.test.ts` (A4–A8 suite).
+
+The A16 wake-gating state declared a private collection and a public
+listing under one name; at runtime the field shadows the method, so the
+first turn-end event after load threw inside event dispatch and the
+subscription died silently. Automatic observation stopped while explicit
+check-ins (a different path) kept working. Parse-only checks and unit
+tests that never called the listing both missed it. Fix: rename the
+field to `byFolder`; a sweep of the plugin found no other collision of
+the class.
+
+- Original: no `folders()` coverage — hold/release behavior tested
+  without ever calling the listing the dispatcher calls.
+- New: hold two sessions in different folders → `folders()` lists both;
+  release one → lists the remainder; empty state → `[]`. The call
+  itself is the regression — pre-fix it throws `TypeError`.
+- Reason: the collision killed production dispatch while the suite
+  stayed green; the listing the host path calls must be called by the
+  suite.
 
 ## Evidence changes
 
