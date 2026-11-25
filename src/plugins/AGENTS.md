@@ -40,6 +40,9 @@ plugin derives one from the provider's per-request token accounting.
 
 - Footer badge via `prompt.footer.status`: `CACHE 96%` (green), low ratios in
   red, `CACHE MISS` when the latest request read nothing from cache
+- Sidebar block via `sidebar.content`: latest ratio, a sparkline of the last
+  24 steps (one eighth-block column per step, coloured by bucket), and a miss
+  count; no width is passed to sidebar slots, so the column count is capped
 - Hit ratio is `cache.read / (read + write + input)` from `TokenUsage.Info`
 - Fed by `session.step.ended` (one model call's tokens), keyed per session in
   memory storage (dies with the TUI); sessions already running at load seed
@@ -49,7 +52,7 @@ plugin derives one from the provider's per-request token accounting.
 - `session.usage.recorded` (title, compaction, generate) is ignored on purpose:
   those requests use different prompts and are not the main loop's cache
 - No per-message annotation exists — the plugin API has no message-attached
-  slot, so the footer badge is the surface
+  slot, so the footer badge and sidebar sparkline are the surfaces
 
 ## nono-sandbox.ts
 
