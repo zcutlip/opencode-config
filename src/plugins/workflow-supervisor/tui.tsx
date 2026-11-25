@@ -12,6 +12,8 @@ import { WorkflowSupervisorRpc } from "./rpc.ts"
 //   events keep it live. While a review is in flight the badge pulses
 //   base <-> amber on a ~1.2s toggle; the pulse store is a second store read
 //   in the same render and proved reactive too (verified live 2026-11-22).
+//   The latest completed verdict and checkpoint ID remain on the badge after
+//   the review settles, loaded from disk so a clean result is checkable.
 // - session.panel contribution "workflow-supervisor.state": mode, contract,
 //   steering texts delivered verbatim, the context-hook reassertion, recent
 //   checkpoints with verdicts, and the latest report.
@@ -41,6 +43,7 @@ interface BadgeState {
   blocked?: boolean
   blockedOn?: string[]
   muted?: boolean
+  review?: { checkpointID: string; verdict: string; hasFindings: boolean } | null
 }
 
 interface SupervisionDetail {
@@ -91,6 +94,16 @@ function directoryOf(value: any): string | undefined {
 
 function timeLabel(time: number | null | undefined): string {
   return typeof time === "number" ? new Date(time).toLocaleTimeString() : "—"
+}
+
+function reviewOutcome(review: NonNullable<BadgeState["review"]>): string {
+  if (review.verdict === "REVIEW_FAILED") return "failed"
+  if (review.verdict === "UNKNOWN") return "unknown"
+  if (review.verdict === "INSUFFICIENT_EVIDENCE") return "insufficient"
+  if (review.verdict === "CONCERNS" || review.hasFindings) return "concerns"
+  if (review.verdict === "SUPPORTS_TRANSITION") return "supports"
+  if (review.verdict === "NOT_REQUESTED") return "clean"
+  return "unknown"
 }
 
 export default Plugin.define({
@@ -375,6 +388,10 @@ export default Plugin.define({
         if (badge.blocked) parts.push("waiting-on-you")
         if (badge.reviewing) parts.push("reviewing")
         if (badge.findingsWaiting) parts.push("findings")
+        if (badge.review) {
+          parts.push(`review:${reviewOutcome(badge.review)}`)
+          parts.push(badge.review.checkpointID.slice(0, 12))
+        }
         const label = parts.join(" ")
         const glow = badge.reviewing && pulse.on ? PULSE_COLOR : base
         return (

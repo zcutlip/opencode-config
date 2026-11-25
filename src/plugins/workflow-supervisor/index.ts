@@ -19,6 +19,7 @@ import {
 import { deferRecord, WorkSettle } from "./settle.ts"
 import {
   buildSupervisionState,
+  latestSessionReview,
   listCheckpoints,
   readReportText,
   SteeringLog,
@@ -82,16 +83,7 @@ export default Plugin.define({
         if (sessionID === "") return supervisionBadgeFromPolicy({ sessionID, policy: null })
         try {
           const policy = await resolveForSession(sessionID)
-          return supervisionBadgeFromPolicy({
-            sessionID,
-            policy,
-            view: steering.view(sessionID),
-            episodeMode: episodes.mode(sessionID),
-            reviewing: reviewing.has(sessionID),
-            findingsWaiting: waitingFindings.has(sessionID),
-            muted: mutedFor(sessionID, policy),
-            blockedOn: settle.deferState(sessionID).blockedOn,
-          })
+          return await badgeForSession(sessionID, policy)
         } catch {
           return supervisionBadgeFromPolicy({
             sessionID,
@@ -157,7 +149,7 @@ export default Plugin.define({
         let badge: any
         try {
           const policy = sessionID === "" ? null : await resolveForSession(sessionID)
-          badge = supervisionBadgeFromPolicy({ sessionID, policy, view: steering.view(sessionID), episodeMode: episodes.mode(sessionID) })
+          badge = await badgeForSession(sessionID, policy)
         } catch {
           badge = supervisionBadgeFromPolicy({ sessionID, policy: null, episodeMode: episodes.mode(sessionID) })
         }
@@ -175,16 +167,7 @@ export default Plugin.define({
         let badge: any
         try {
           const policy = sessionID === "" ? null : await resolveForSession(sessionID)
-          badge = supervisionBadgeFromPolicy({
-            sessionID,
-            policy,
-            view: steering.view(sessionID),
-            episodeMode: episodes.mode(sessionID),
-            reviewing: reviewing.has(sessionID),
-            findingsWaiting: waitingFindings.has(sessionID),
-            muted: sessionID === "" ? muted : mutedFor(sessionID, policy),
-            blockedOn: sessionID === "" ? [] : settle.deferState(sessionID).blockedOn,
-          })
+          badge = await badgeForSession(sessionID, policy)
         } catch {
           badge = supervisionBadgeFromPolicy({ sessionID, policy: null, episodeMode: episodes.mode(sessionID), muted })
         }
@@ -211,21 +194,7 @@ export default Plugin.define({
           .catch(() => {})
           .finally(() => {
             reviewing.delete(sessionID)
-            void resolveForSession(sessionID)
-              .then((policy: any) =>
-                rpc.events.emit(
-                  "stateUpdated",
-                  supervisionBadgeFromPolicy({
-                    sessionID,
-                    policy,
-                    view: steering.view(sessionID),
-                    episodeMode: episodes.mode(sessionID),
-                    reviewing: false,
-                    findingsWaiting: waitingFindings.has(sessionID),
-                  }),
-                ),
-              )
-              .catch(() => {})
+            emitBadge(sessionID)
           })
         return { sessionID, accepted: true }
       },
@@ -271,23 +240,26 @@ export default Plugin.define({
       return false
     }
 
+    const badgeForSession = async (sessionID: string, policy: any): Promise<any> => {
+      const review = policy?.active && typeof policy.worktree === "string"
+        ? await latestSessionReview(policy.worktree, sessionID)
+        : null
+      return supervisionBadgeFromPolicy({
+        sessionID,
+        policy,
+        view: steering.view(sessionID),
+        episodeMode: episodes.mode(sessionID),
+        reviewing: reviewing.has(sessionID),
+        findingsWaiting: waitingFindings.has(sessionID),
+        muted: mutedFor(sessionID, policy),
+        blockedOn: settle.deferState(sessionID).blockedOn,
+        review,
+      })
+    }
+
     const emitBadge = (sessionID: string): void => {
       void resolveForSession(sessionID)
-        .then((policy: any) =>
-          rpc.events.emit(
-            "stateUpdated",
-            supervisionBadgeFromPolicy({
-              sessionID,
-              policy,
-              view: steering.view(sessionID),
-              episodeMode: episodes.mode(sessionID),
-              reviewing: reviewing.has(sessionID),
-              findingsWaiting: waitingFindings.has(sessionID),
-              muted: mutedFor(sessionID, policy),
-              blockedOn: settle.deferState(sessionID).blockedOn,
-            }),
-          ),
-        )
+        .then(async (policy: any) => rpc.events.emit("stateUpdated", await badgeForSession(sessionID, policy)))
         .catch(() => {})
     }
 
@@ -412,19 +384,7 @@ export default Plugin.define({
           if (result.status === "disabled") return { content: "disabled" }
           if (result.status === "error") return { content: "configuration_error" }
           if (result.status === "completed") {
-            const resolved = await resolveForSession(context.sessionID).catch(() => null)
-            if (resolved) {
-              await rpc.events
-                .emit(
-                  "stateUpdated",
-                  supervisionBadgeFromPolicy({
-                    sessionID: context.sessionID,
-                    policy: resolved,
-                    view: steering.view(context.sessionID),
-                  }),
-                )
-                .catch(() => {})
-            }
+            emitBadge(context.sessionID)
           }
           if (result.checkpointID) {
             return {
@@ -465,21 +425,7 @@ export default Plugin.define({
       // A11-batch — the user's prompt consumes queued findings; the badge
       // drops the waiting marker.
       if (waitingFindings.delete(sessionID)) {
-        void resolveForSession(sessionID)
-          .then((policy: any) =>
-            rpc.events.emit(
-              "stateUpdated",
-              supervisionBadgeFromPolicy({
-                sessionID,
-                policy,
-                view: steering.view(sessionID),
-                episodeMode: episodes.mode(sessionID),
-                reviewing: reviewing.has(sessionID),
-                findingsWaiting: false,
-              }),
-            ),
-          )
-          .catch(() => {})
+        emitBadge(sessionID)
       }
     })
 
@@ -521,6 +467,7 @@ export default Plugin.define({
         )
       } finally {
         reviewing.delete(sessionID)
+        emitBadge(sessionID)
       }
       // A16 — chore turns (no writes, git-family commands only) are not
       // work; the observer skips them before any reviewer is created. The
@@ -636,21 +583,7 @@ export default Plugin.define({
             .catch(() => {})
         }
       }
-      await rpc.events
-        .emit(
-          "stateUpdated",
-          supervisionBadgeFromPolicy({
-            sessionID,
-            policy: { active: true, effectiveMode: result.effectiveMode },
-            view: steering.view(sessionID),
-            episodeMode: episodes.mode(sessionID),
-            reviewing: false,
-            findingsWaiting: waitingFindings.has(sessionID),
-            muted: mutes.isMuted(sessionID),
-            blockedOn: settle.deferState(sessionID).blockedOn,
-          }),
-        )
-        .catch(() => {})
+      emitBadge(sessionID)
     }
 
     // A16 — the defer timer. A helper blocked on a user-held permission

@@ -109,6 +109,23 @@ describe("workflow supervisor session visibility", () => {
     expect(await readReportText(join(directory, "report", "missing.md"), 10)).toBeNull()
   })
 
+  test("latest review stays visible per session, including failures", async () => {
+    const { latestSessionReview } = await import("./supervision.ts")
+    const directory = await temporaryDirectory()
+    const cleanReport = "Mode: checkpoint\n\nVerdict: NOT_REQUESTED\n\nFindings:\n- No findings\n"
+    await writeCheckpoint(directory, "cp-a-old", { status: "completed", observedSessionID: "ses_a" }, cleanReport)
+    await writeCheckpoint(directory, "cp-b", { status: "completed", observedSessionID: "ses_b" }, findingsReport)
+    expect(await latestSessionReview(directory, "ses_a")).toEqual({ checkpointID: "cp-a-old", verdict: "NOT_REQUESTED", hasFindings: false })
+    await writeCheckpoint(directory, "cp-a-new", { status: "completed", observedSessionID: "ses_a" }, findingsReport)
+
+    expect(await latestSessionReview(directory, "ses_a")).toEqual({ checkpointID: "cp-a-new", verdict: "CONCERNS", hasFindings: true })
+    expect(await latestSessionReview(directory, "ses_b")).toEqual({ checkpointID: "cp-b", verdict: "CONCERNS", hasFindings: true })
+    expect(await latestSessionReview(directory, "ses_missing")).toBeNull()
+
+    await writeCheckpoint(directory, "cp-a-failed", { status: "failed", observedSessionID: "ses_a" })
+    expect(await latestSessionReview(directory, "ses_a")).toEqual({ checkpointID: "cp-a-failed", verdict: "REVIEW_FAILED", hasFindings: false })
+  })
+
   test("badge state derives from the resolved policy and coordinator view", async () => {
     const { supervisionBadgeFromPolicy } = await import("./supervision.ts")
     const policy = {
@@ -121,6 +138,7 @@ describe("workflow supervisor session visibility", () => {
       sessionID: "ses_observed",
       policy,
       view: { attempts: 2, limit: 3, hasUnresolved: true },
+      review: { checkpointID: "cp-latest", verdict: "CONCERNS", hasFindings: true },
     })
     expect(steered).toEqual({
       sessionID: "ses_observed",
@@ -136,6 +154,7 @@ describe("workflow supervisor session visibility", () => {
       blocked: false,
       blockedOn: [],
       muted: false,
+      review: { checkpointID: "cp-latest", verdict: "CONCERNS", hasFindings: true },
     })
 
     const collab = supervisionBadgeFromPolicy({
@@ -164,6 +183,7 @@ describe("workflow supervisor session visibility", () => {
       blocked: false,
       blockedOn: [],
       muted: false,
+      review: null,
     })
   })
 

@@ -25,6 +25,16 @@ export const WorkflowSupervisorRpc = Rpc.define({
           blocked: { type: "boolean" },
           blockedOn: { type: "array", items: { type: "string" } },
           muted: { type: "boolean" },
+          review: {
+            type: ["object", "null"],
+            properties: {
+              checkpointID: { type: "string" },
+              verdict: { type: "string" },
+              hasFindings: { type: "boolean" },
+            },
+            required: ["checkpointID", "verdict", "hasFindings"],
+            additionalProperties: false,
+          },
         },
         required: [
           "sessionID",
@@ -38,6 +48,7 @@ export const WorkflowSupervisorRpc = Rpc.define({
           "blocked",
           "blockedOn",
           "muted",
+          "review",
         ],
         additionalProperties: false,
       },
@@ -200,6 +211,16 @@ export const WorkflowSupervisorRpc = Rpc.define({
           blocked: { type: "boolean" },
           blockedOn: { type: "array", items: { type: "string" } },
           muted: { type: "boolean" },
+          review: {
+            type: ["object", "null"],
+            properties: {
+              checkpointID: { type: "string" },
+              verdict: { type: "string" },
+              hasFindings: { type: "boolean" },
+            },
+            required: ["checkpointID", "verdict", "hasFindings"],
+            additionalProperties: false,
+          },
         },
         required: [
           "sessionID",
@@ -213,6 +234,7 @@ export const WorkflowSupervisorRpc = Rpc.define({
           "blocked",
           "blockedOn",
           "muted",
+          "review",
         ],
         additionalProperties: false,
       },

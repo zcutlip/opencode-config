@@ -1,6 +1,6 @@
 import { appendFile, mkdir, readFile, stat } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import { verdictOf } from "./steering.ts"
+import { SteeringCoordinator, hasFindings, verdictOf } from "./steering.ts"
 
 // Session visibility for the workflow supervisor: the server part records
 // steering deliveries and assembles per-session supervision state; the TUI
@@ -118,6 +118,63 @@ export async function listCheckpoints(worktree: string, limit = 10): Promise<Che
   return summaries
 }
 
+export interface SessionReview {
+  checkpointID: string
+  verdict: string
+  hasFindings: boolean
+}
+
+/**
+ * Latest completed or failed review for this observed session, read from the
+ * durable ledger. Other sessions in the same folder never overwrite it.
+ */
+export async function latestSessionReview(
+  worktree: string,
+  sessionID: string,
+): Promise<SessionReview | null> {
+  const root = join(worktree, ".opencode", "workflow-state", "checkpoints")
+  let raw: string
+  try {
+    raw = await readFile(join(worktree, ".opencode", "workflow-state", "index.jsonl"), "utf8")
+  } catch {
+    return null
+  }
+  const ids = raw
+    .split("\n")
+    .flatMap((line) => {
+      if (line.trim() === "") return []
+      try {
+        const entry = JSON.parse(line)
+        return typeof entry?.id === "string" ? [entry.id] : []
+      } catch {
+        return []
+      }
+    })
+  for (let index = ids.length - 1; index >= 0; index -= 1) {
+    const id = ids[index]
+    const directory = join(root, id)
+    let record: any
+    try {
+      record = JSON.parse(await readFile(join(directory, "checkpoint.json"), "utf8"))
+    } catch {
+      continue
+    }
+    if (record?.observedSessionID !== sessionID) continue
+    if (record?.status === "failed") {
+      return { checkpointID: id, verdict: "REVIEW_FAILED", hasFindings: false }
+    }
+    if (record?.status !== "completed") continue
+    let report: string
+    try {
+      report = await readFile(join(directory, "report.md"), "utf8")
+    } catch {
+      return { checkpointID: id, verdict: "UNKNOWN", hasFindings: false }
+    }
+    return { checkpointID: id, verdict: verdictOf(report), hasFindings: hasFindings(report) }
+  }
+  return null
+}
+
 /** Read a report for display, capped to keep the RPC payload bounded. */
 export async function readReportText(
   path: string,
@@ -148,6 +205,7 @@ export interface BadgeState {
   blocked: boolean
   blockedOn: string[]
   muted: boolean
+  review: SessionReview | null
 }
 
 /** Badge data for one session: policy-derived mode plus coordinator view. */
@@ -160,6 +218,7 @@ export function supervisionBadgeFromPolicy(input: {
   findingsWaiting?: boolean
   blockedOn?: string[]
   muted?: boolean
+  review?: SessionReview | null
 }): BadgeState {
   const view = input.view
   const episodeMode = input.episodeMode ?? "delegate"
@@ -175,6 +234,7 @@ export function supervisionBadgeFromPolicy(input: {
     blocked: blockedOn.length > 0,
     blockedOn,
     muted: input.muted === true,
+    review: input.review ?? null,
   }
   if (!input.policy?.active) return { ...common, active: false }
   return {
