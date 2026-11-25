@@ -29,7 +29,6 @@
     // config's build layer. Listed by exact name, no dev/ wildcard that
     // could swallow a fifth script added later without eyes on it.
     "build": {
-      "model": "opencode-go/glm-5.3",
       "permissions": [
         { "action": "shell", "resource": "./scripts/ts-parse.ts *", "effect": "allow" },
         { "action": "shell", "resource": "./scripts/ts-parse.ts", "effect": "allow" },
@@ -51,7 +50,6 @@
     // opencode-go/deepseek-v4.1-flash — glm-5.3 stays on these agents in
     // this repo only.
     "plan": {
-      "model": "opencode-go/glm-5.3"
     }
   },
   "permissions": [
