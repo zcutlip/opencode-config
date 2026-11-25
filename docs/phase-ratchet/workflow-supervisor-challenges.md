@@ -288,6 +288,16 @@ confirmed a second silent drop: a host may ignore event subscriptions
 it does not declare — never assume delivery, check the host's own
 warning channel.)
 
+**The gate has a readable door.** The user holding the grant had no
+surface saying what the latest review concluded — transient badge, beta
+panel, silence by design, reports on disk. *Resolution (A18):* the
+footer badge retains the latest completed or failed review for that
+session as `review:<outcome> <checkpoint-id>` — clean, concerns,
+insufficient, supports, failed, or unknown — read from the durable
+checkpoint, surviving restarts, other sessions filtered out. It reports
+the verdict; it never grants a transition. Verified by suite plus a live
+host read, with the user confirming the footer line.
+
 ## Open
 
 **One agreement slot, two layers.** Projects carry standing rules plus a
@@ -322,13 +332,3 @@ rule "never grant while pending" is mechanically checkable. The structural
 fix remains: the transition request consumes the verdict — the next stage
 does not begin until the reviewer has spoken on the last one. *Direction:*
 the planned transition-request design.
-
-**The gate needs a readable door.** The user holding the grant has no
-surface saying what the latest review concluded: the badge is transient,
-the panel is beta and disqualified as a channel, clean reviews are
-silent by design, and reports on disk make the user a file reader. What
-reaches the user today is escalation toast (refusals only) and watching
-the builder work corrections unprompted. *Direction:* a durable,
-one-line verdict signal per stage — verdict plus pointer, never the
-novel — that does not depend on the panel and does not require opening
-files.
