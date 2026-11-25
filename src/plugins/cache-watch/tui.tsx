@@ -90,6 +90,12 @@ export default Plugin.define({
       initial: {} as Record<string, Sample[]>,
     })
 
+    // Sidebar disclosure. Global across tabs: the block is a reading aid, not
+    // per-session state. Memory storage keeps it across plugin reloads.
+    const [ui, setUi] = context.storage.memory("local.cache-watch.ui", {
+      initial: { open: true },
+    })
+
     function record(sessionID: string | undefined, tokens: TokenUsage | undefined): void {
       const sample = fromTokens(tokens)
       if (!sessionID || !sample) return
@@ -163,7 +169,15 @@ export default Plugin.define({
         const misses = samples.filter((sample) => sample.read === 0).length
         return (
           <box flexDirection="column">
-            <box flexDirection="row">
+            <box
+              flexDirection="row"
+              onMouseDown={() =>
+                setUi((draft) => {
+                  draft.open = !draft.open
+                })
+              }
+            >
+              <text fg={tokenColor(theme(), "muted")}>{ui.open ? "▼ " : "▶ "}</text>
               <text fg={tokenColor(theme(), kind(latest))}>
                 {latest.read === 0 ? "CACHE MISS" : `CACHE ${percent(latest)}%`}
               </text>
@@ -171,11 +185,13 @@ export default Plugin.define({
                 <text fg={tokenColor(theme(), "error")}>{`  ${misses} miss${misses === 1 ? "" : "es"}`}</text>
               )}
             </box>
-            <box flexDirection="row">
-              {samples.map((sample) => (
-                <text fg={tokenColor(theme(), kind(sample))}>{GLYPHS[level(sample)]}</text>
-              ))}
-            </box>
+            {ui.open && (
+              <box flexDirection="row">
+                {samples.map((sample) => (
+                  <text fg={tokenColor(theme(), kind(sample))}>{GLYPHS[level(sample)]}</text>
+                ))}
+              </box>
+            )}
           </box>
         )
       },
