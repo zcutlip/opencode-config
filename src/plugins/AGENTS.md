@@ -33,6 +33,24 @@ wins after restart.
 - Mode resolution lives in `mode.ts` (pure, no SDK imports);
   `bun test src/plugins/auto-approve` covers it (delegate to the test agent)
 
+## cache-watch/
+
+Prompt-cache visibility — nothing in OpenCode labels a cache miss, so the
+plugin derives one from the provider's per-request token accounting.
+
+- Footer badge via `prompt.footer.status`: `CACHE 96%` (green), low ratios in
+  red, `CACHE MISS` when the latest request read nothing from cache
+- Hit ratio is `cache.read / (read + write + input)` from `TokenUsage.Info`
+- Fed by `session.step.ended` (one model call's tokens), keyed per session in
+  memory storage (dies with the TUI); sessions already running at load seed
+  from the last assistant message's `tokens`
+- `session.usage.updated` is ignored — probe-verified on 2.4.1 that it carries
+  cumulative session totals, not the latest step's numbers
+- `session.usage.recorded` (title, compaction, generate) is ignored on purpose:
+  those requests use different prompts and are not the main loop's cache
+- No per-message annotation exists — the plugin API has no message-attached
+  slot, so the footer badge is the surface
+
 ## nono-sandbox.ts
 
 - Untouched by this repo's change flow: installed and updated by the nono
