@@ -7,7 +7,8 @@ Prompt-cache visibility for the current session.
   nothing from cache
 - Sidebar block (`sidebar.content`): the same ratio plus a sparkline of the
   last 24 steps, one eighth-block column per step, coloured by bucket, and a
-  miss count when any step read nothing
+  miss count when any step read nothing; click the header to collapse or
+  expand (state is global and memory-only)
 - Ratio is `read / (read + write + input)` from `TokenUsage.Info`; OpenCode
   does not label misses itself, so this is the plugin's own definition
 - Source: `session.step.ended`, one model call's `tokens`, kept per session in

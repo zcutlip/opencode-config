@@ -43,6 +43,9 @@ plugin derives one from the provider's per-request token accounting.
 - Sidebar block via `sidebar.content`: latest ratio, a sparkline of the last
   24 steps (one eighth-block column per step, coloured by bucket), and a miss
   count; no width is passed to sidebar slots, so the column count is capped
+- Clicking the sidebar header collapses/expands the sparkline (`▼`/`▶`), like
+  matrix-rain's disclosure; the collapsed header keeps the ratio and misses.
+  Disclosure state is global, not per session, and memory-only
 - Hit ratio is `cache.read / (read + write + input)` from `TokenUsage.Info`
 - Fed by `session.step.ended` (one model call's tokens), keyed per session in
   memory storage (dies with the TUI); sessions already running at load seed
