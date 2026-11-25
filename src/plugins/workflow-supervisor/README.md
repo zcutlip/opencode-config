@@ -32,10 +32,14 @@ tool in the `workflow` namespace; the tool returns a checkpoint ID and state
 path, not the report itself.
 
 In the TUI, supervised sessions show a `ws:<mode>` footer badge (with
-steering attempts when unresolved findings exist). Click the badge or run
-`/ws` to open the supervisor panel: the reasserted context, the steering
-texts delivered to the builder verbatim, recent checkpoints with verdicts,
-and the latest report.
+steering attempts when unresolved findings exist). The latest review remains
+visible as `review:<outcome> <checkpoint-id>` after the badge stops pulsing:
+`clean`, `concerns`, `insufficient`, `supports`, `failed`, or `unknown`. The
+marker is read from the durable checkpoint for that session and therefore
+survives restarts; it reports the review, never grants a transition. Click the
+badge or run `/ws` to open the supervisor panel: the reasserted context, the
+steering texts delivered to the builder verbatim, recent checkpoints with
+verdicts, and the latest report.
 
 ## Semantics
 

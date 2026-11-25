@@ -557,6 +557,28 @@ the class.
   stayed green; the listing the host path calls must be called by the
   suite.
 
+### A18 — persistent review verdict on the badge
+
+Status: accepted by the user's "proceed" on 2026-11-25 and implemented the
+same day; the separately unlocked `supervision.test.ts` visibility suite
+pins the new behavior (90/90 pass, 364 assertions). The live host RPC was
+verified against filament's current session and returned
+`review: { checkpointID: "cp-0a6c7fd3…", verdict: "NOT_REQUESTED",
+hasFindings: false }`; visual footer confirmation remains for the next
+supervised TUI view.
+
+A settled automatic review used to leave only silence unless it escalated,
+so the user holding the stage grant could not see its verdict without the
+beta panel or opening report files. The footer badge now retains the latest
+completed or failed review for that session as
+`review:<outcome> <checkpoint-id>` until another review replaces it. The
+RPC state is derived from the durable checkpoint records, so it survives
+restarts and another session's checkpoints do not overwrite it. Outcomes
+are `clean`, `concerns`, `insufficient`, `supports`, `failed`, or `unknown`;
+a new review still shows `reviewing` alongside the previous checkpoint's
+marker. The marker reports a verdict — it never approves a transition.
+Failed and skipped reviews also emit the cleared `reviewing` state.
+
 ## Evidence changes
 
 - Automatic evidence now records the latest assistant text from the observed session.
