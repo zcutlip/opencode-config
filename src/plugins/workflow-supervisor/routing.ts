@@ -118,27 +118,27 @@ export function deliveryPlan(input: {
  * re-offers a held session for waking once the folder has no active turn.
  */
 export class HeldWakes {
-  private readonly folders = new Map<string, Set<string>>()
+  private readonly byFolder = new Map<string, Set<string>>()
 
   hold(sessionID: string, folder: string): void {
-    let set = this.folders.get(folder)
+    let set = this.byFolder.get(folder)
     if (set === undefined) {
       set = new Set<string>()
-      this.folders.set(folder, set)
+      this.byFolder.set(folder, set)
     }
     set.add(sessionID)
   }
 
   /** Sessions to wake now that the folder is quiet; empties the folder. */
   release(folder: string): string[] {
-    const set = this.folders.get(folder)
+    const set = this.byFolder.get(folder)
     if (set === undefined) return []
-    this.folders.delete(folder)
+    this.byFolder.delete(folder)
     return [...set]
   }
 
   folders(): string[] {
-    return [...this.folders.keys()]
+    return [...this.byFolder.keys()]
   }
 }
 

@@ -304,4 +304,19 @@ describe("A8 — collab/delegate episode override", () => {
     expect(routeReport({ episodeMode: "delegate", workingDiff: contractDiff, contractPath: "/project/A/docs/contract.md", worktree: "/project/A" }).channel).toBe("user")
     expect(routeReport({ episodeMode: "delegate", workingDiff: mixedDiff, contractPath: "/project/A/docs/contract.md", worktree: "/project/A" }).channel).toBe("builder")
   })
+
+  test("held wakes list their folders — the listing is callable", async () => {
+    // A17 regression: the state once declared a private collection and a
+    // public listing under one name, so the field shadowed the method and
+    // every turn-end event threw inside dispatch. Calling folders() is the
+    // regression — pre-fix it throws TypeError.
+    const { HeldWakes } = await import("./routing.ts")
+    const held = new HeldWakes()
+    expect(held.folders()).toEqual([])
+    held.hold("ses_a", "/project/A")
+    held.hold("ses_b", "/project/B")
+    expect(held.folders()).toEqual(["/project/A", "/project/B"])
+    expect(held.release("/project/A")).toEqual(["ses_a"])
+    expect(held.folders()).toEqual(["/project/B"])
+  })
 })
