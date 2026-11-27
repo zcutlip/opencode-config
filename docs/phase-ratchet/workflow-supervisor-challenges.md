@@ -324,7 +324,13 @@ wait is named rather than absorbed. The collection half remains: at a
 gate that depends on command results, the supervisor runs the command
 the policy pins and attaches the raw output to the checkpoint itself;
 the user judges from the verdict, never from an errand. Blocked on the
-workflow-definition format's command bindings.
+workflow-definition format's command bindings. *(Live proof, 2026-11-25: a
+gate loop in a supervised project dispatched four delegated runs and
+captured zero results — every review demanded the output, every correction
+dispatched another uncapturable run, until the user interrupted. The loop
+is unwinnable by construction until the collection half lands: a finding
+whose minimum correction the machinery cannot deliver must be named as a
+machinery gap, not a builder failure.)*
 
 **A stage's verdict must precede its exit — structurally.** The interim is
 landed: the review-in-flight state is visible on the badge, so the grant
@@ -332,3 +338,67 @@ rule "never grant while pending" is mechanically checkable. The structural
 fix remains: the transition request consumes the verdict — the next stage
 does not begin until the reviewer has spoken on the last one. *Direction:*
 the planned transition-request design.
+
+**A transition question must not travel through the builder.** The only
+way to pose a transition question to the reviewer was a message typed to
+the builder — and a builder reads a stage request as authorization to
+start it (observed 2026-11-25: the builder began the next stage on
+receipt). The reviewer can judge a transition without any machinery; what
+was missing was a channel that asks the reviewer without instructing the
+builder. *Direction:* a judgment-only request surface — the question rides
+in the review envelope, the verdict lands with the user, the builder is
+never told — with full transition machinery arriving separately in the
+gate design.
+
+**Shell writes are invisible to the supervisor.** Any write through a
+shell or subprocess bypasses the tool-observation path: no write event,
+no timestamp, no actor. State rules (what changed) still hold — the
+version-control diff sees every change unconditionally — but chronology
+rules (what came first) lose their ground, and actor attribution for
+delivery loses its address. *Lessons that transfer:* run state rules on
+the tree, chronology only on the observed log, and nothing on the actor;
+an unobserved path records `unknown`, never a guessed verdict. A
+guarantee that degrades to honesty is weakened at the edge; one that
+guesses is rotten at the core.
+
+**Detection without containment is a wall, not autopilot.** A gate that
+compares the tree at transition time catches out-of-scope work after it
+is done but cannot prevent it: the work is wasted, the transition is
+refused, and the user returns to clean up. This is the cooperative-agent
+limit — without OS-level containment or a fenced shell, enforcement can
+deny the grant but never stop the write. *Direction:* contain writes only
+where the ordering guarantee matters (the supervisor runs pinned commands
+itself; file writes come through observed tools), and leave the shell
+alone everywhere else; an audit of real builder transcripts showed most
+shell use is read-only or test runs with tool equivalents, with setup and
+exploratory probes the only true loss. Name the posture honestly:
+detection-only enforcement is safer than nothing, but it is not
+autopilot.
+
+**One builder, switching rules — not one agent per stage.** Per-stage
+agents multiply configuration and invite drift between who the builder is
+and what it may do. *Direction:* a single builder identity with the
+engine enforcing the current stage's allowed set on every file write; the
+definition describes all stages, the engine switches the rules as stages
+change. No dedicated agents, no user-managed permission juggling.
+
+**Advisory must not recreate the manual diff walk.** If checking
+scope-crossing still means the user re-reading trees, supervision added
+cost without removing any. *Direction:* the supervisor does the
+diff-vs-scope check every checkpoint and the user reads one durable
+verdict (clean/concerns plus checkpoint, with attempts while unresolved
+and a toast on escalation); with stage rubrics present, streams-crossed
+arrives as a finding with files named. The grant comes from the verdict,
+never from a personal diff walk.
+
+**A required definition prices out casual work.** Failing closed on an
+unresolvable workflow name in every mode makes even the lightest review
+cost a definition file written, validated, and pinned before anything
+runs — effort without function for work with no repeating shape. Most
+projects live at that end. *Direction:* below enforcement, a missing
+definition is not an error: contract-only review with no transitions, the
+user as the whole gate, scope-guard as the default resting state with off
+optional. A provided definition upgrades the mode (stage rubrics,
+recorded non-enforcing results, requestable transitions) but never gates
+the floor. Reserve the hard error for the mode where transitions are
+mechanized.
