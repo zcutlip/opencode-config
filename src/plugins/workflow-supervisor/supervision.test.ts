@@ -246,3 +246,77 @@ describe("workflow supervisor session visibility", () => {
     expect(steering.view("ses_clean")).toEqual({ attempts: 0, limit: 2, hasUnresolved: false })
   })
 })
+
+describe("workflow supervisor review question channel (/ws-review <question>)", () => {
+  test("checkpoint input accepts a question and still rejects unknown fields", async () => {
+    const { checkpointInputSchema, parseCheckpointInput } = await import("./observer.ts")
+    expect(checkpointInputSchema.properties.question).toEqual({ type: "string" })
+    expect(parseCheckpointInput({ question: "okay to transition?" })).toEqual({ question: "okay to transition?" })
+    expect(parseCheckpointInput({ phase: "green", question: "ready?" })).toEqual({ phase: "green", question: "ready?" })
+    expect(parseCheckpointInput({ phase: "green" })).toEqual({ phase: "green" })
+    expect(() => parseCheckpointInput({ banana: 1 })).toThrow()
+    expect(() => parseCheckpointInput({ question: 3 })).toThrow()
+    expect(() => parseCheckpointInput({ sessionID: "ses_other" })).toThrow()
+  })
+
+  test("envelope carries the question as the assignment, marked user-typed and report-only", async () => {
+    const { envelope } = await import("./reviewer.ts")
+    const base = {
+      evidencePath: "/project/A/.opencode/workflow-state/checkpoints/cp-1/evidence.json",
+      eventsPath: "/project/A/.opencode/workflow-state/checkpoints/cp-1/events.json",
+      provenance: { trigger: "explicit", sessionID: "ses_observed" },
+    }
+    const text = envelope({ ...base, explicit: true, question: "okay to transition?" })
+    expect(text).toContain("User request (typed by the user at the review trigger): okay to transition?")
+    expect(text).toContain("Assignment: answer the user's question directly")
+    expect(text.toLowerCase()).toContain("report-only")
+    expect(text).not.toContain("explicit checkpoint requested by the calling session")
+  })
+
+  test("without a question the explicit request line is unchanged", async () => {
+    const { envelope } = await import("./reviewer.ts")
+    const base = {
+      evidencePath: "/project/A/.opencode/workflow-state/checkpoints/cp-1/evidence.json",
+      eventsPath: "/project/A/.opencode/workflow-state/checkpoints/cp-1/events.json",
+      provenance: { trigger: "explicit", sessionID: "ses_observed" },
+    }
+    const plain = envelope({ ...base, explicit: true })
+    expect(plain).toContain("User request: explicit checkpoint requested by the calling session; no automatic trigger.")
+    expect(plain).not.toContain("typed by the user at the review trigger")
+    expect(plain).not.toContain("Assignment: answer the user's question directly")
+  })
+
+  test("the question is evidence identity: different questions differ, none leaves the hash stable", async () => {
+    const { buildExplicitEvidence, evidenceHash } = await import("./evidence.ts")
+    const common = {
+      session: {},
+      policy: { contractPath: "/project/A/docs/contract.md", contractContent: "contract", requestedMode: "advisory", effectiveMode: "advisory" },
+      latestUserRequest: "request",
+      provenance: { trigger: "explicit", sessionID: "ses_observed" },
+    }
+    const a = buildExplicitEvidence({ ...common, question: "okay to transition?" })
+    const b = buildExplicitEvidence({ ...common, question: "is RED complete?" })
+    const sameAgain = buildExplicitEvidence({ ...common, question: "okay to transition?" })
+    expect(a.question).toBe("okay to transition?")
+    expect(a.hash).not.toBe(b.hash)
+    expect(sameAgain.hash).toBe(a.hash)
+
+    const without = buildExplicitEvidence({ ...common })
+    expect(without.question).toBeUndefined()
+
+    // Hash stability for existing evidence: a question set to undefined
+    // serializes identically to the key being absent.
+    const stableFields = {
+      latestUserRequest: "request",
+      latestAssistantText: undefined,
+      turnDiff: undefined,
+      workingDiff: [],
+      status: [],
+      contractPath: "/project/A/docs/contract.md",
+      contractContent: "contract",
+      requestedMode: "advisory",
+      effectiveMode: "advisory",
+    }
+    expect(evidenceHash({ ...stableFields, question: undefined } as any)).toBe(evidenceHash(stableFields as any))
+  })
+})

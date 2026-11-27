@@ -354,15 +354,20 @@ export default Plugin.define({
           title: "Request workflow supervisor review now",
           group: "Workflow",
           palette: true,
-          slash: { name: "ws-review" },
-          run: () => {
+          slash: { name: "ws-review", arguments: true },
+          run: (input?: string) => {
             const sessionID = context.ui.router.current()?.sessionID
             if (!sessionID) return
             // User-held review trigger: same checkpoint machinery, no prompt
             // spent, no agent in the loop. Fire-and-forget — the badge shows
             // the reviewing state and the verdict lands on disk.
+            // Trailing text is a question for the reviewer only
+            // (/ws-review okay to transition?): it rides the envelope as
+            // the assignment and the builder never sees it.
+            const question =
+              typeof input === "string" && input.trim() !== "" ? input.trim() : undefined
             void rpc
-              .supervisionCheckpoint({ sessionID })
+              .supervisionCheckpoint({ sessionID, ...(question === undefined ? {} : { question }) })
               .then((result: any) => debug(`checkpoint requested ${sessionID}: accepted=${result?.accepted}`))
               .catch((error) => debug(`checkpoint request ${sessionID} failed: ${String(error)}`))
           },

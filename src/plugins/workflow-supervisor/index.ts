@@ -177,6 +177,11 @@ export default Plugin.define({
       supervisionCheckpoint: async (input: any) => {
         const sessionID = typeof input?.sessionID === "string" ? input.sessionID : ""
         if (sessionID === "") return { sessionID, accepted: false }
+        // /ws-review <question> — the trailing text typed at the TUI
+        // command rides through as the review's assignment; blank means
+        // the plain explicit checkpoint of today.
+        const question =
+          typeof input?.question === "string" && input.question.trim() !== "" ? input.question.trim() : undefined
         let directory = ctx.location.directory
         try {
           const session = await ctx.session.get({ sessionID })
@@ -190,7 +195,7 @@ export default Plugin.define({
         reviewing.add(sessionID)
         supervisedSessions.add(sessionID)
         void observerFor(directory)
-          .explicitCheckpoint(sessionID, {})
+          .explicitCheckpoint(sessionID, question === undefined ? {} : { question })
           .catch(() => {})
           .finally(() => {
             reviewing.delete(sessionID)
@@ -330,7 +335,13 @@ export default Plugin.define({
           }
           if (trigger === "explicit") {
             return {
-              ...buildExplicitEvidence({ ...common, input, turnDiff, events: undefined }),
+              ...buildExplicitEvidence({
+                ...common,
+                input,
+                question: typeof input?.question === "string" ? input.question : undefined,
+                turnDiff,
+                events: undefined,
+              }),
               turnFiles,
               turnClass,
               turnTools: tools,

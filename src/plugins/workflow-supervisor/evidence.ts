@@ -23,6 +23,7 @@ export interface WorkflowEvidence {
   status: any[]
   events?: any[]
   steeringLog?: any[]
+  question?: string
   completeness: EvidenceCompleteness
   chronologyAllowed: boolean
   contractPath: string
@@ -131,6 +132,11 @@ export function evidenceHash(value: Omit<WorkflowEvidence, "hash">): string {
     contractContent: value.contractContent,
     requestedMode: value.requestedMode,
     effectiveMode: value.effectiveMode,
+    // /ws-review <question> — the question is evidence identity, so two
+    // different questions on the same tree claim different checkpoints
+    // instead of deduplicating into silence. Undefined serializes away
+    // and leaves existing evidence hashes unchanged.
+    question: value.question,
   }
   return createHash("sha256").update(JSON.stringify(stable)).digest("hex")
 }
@@ -197,6 +203,7 @@ export function buildExplicitEvidence(input: {
   turnDiff?: any[]
   events?: any[]
   input?: any
+  question?: string
   provenance: Record<string, any>
 }): WorkflowEvidence {
   const workingDiff = input.workingDiff ?? []
@@ -209,6 +216,8 @@ export function buildExplicitEvidence(input: {
     latestAssistantText: input.latestAssistantText,
     workingDiff,
     status: input.status ?? [],
+    // /ws-review <question> — hashed evidence identity, not provenance.
+    question: input.question,
     completeness: {
       workingDiff: true,
       turnDiff: false,

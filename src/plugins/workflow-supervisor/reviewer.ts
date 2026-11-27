@@ -37,16 +37,30 @@ export function envelope(input: {
   changedFiles?: string[]
   turnFiles?: string[]
   steeringHistory?: { count: number; latest?: string }
+  question?: string
 }): string {
-  const request = input.explicit
-    ? "User request: explicit checkpoint requested by the calling session; no automatic trigger."
-    : typeof input.latestUserRequest === "string" && input.latestUserRequest.trim() !== ""
-      ? `User request: ${input.latestUserRequest.trim()}`
-      : "User request: none — automatic execution-completion checkpoint; no transition requested."
+  // /ws-review <question> — the typed question is the assignment: it
+  // replaces the generic explicit-trigger request line, and the review
+  // answers it directly. It takes precedence over the follow-up and
+  // no-op markers, which describe automatic turns.
+  const question =
+    typeof input.question === "string" && input.question.trim() !== ""
+      ? input.question.trim()
+      : undefined
+  const request = question !== undefined
+    ? `User request (typed by the user at the review trigger): ${question}`
+    : input.explicit
+      ? "User request: explicit checkpoint requested by the calling session; no automatic trigger."
+      : typeof input.latestUserRequest === "string" && input.latestUserRequest.trim() !== ""
+        ? `User request: ${input.latestUserRequest.trim()}`
+        : "User request: none — automatic execution-completion checkpoint; no transition requested."
+  const questionAssignment = question !== undefined
+    ? "Assignment: answer the user's question directly. Judge the work as it stands against the contract; the verdict states the answer — SUPPORTS_TRANSITION if the question asks about proceeding and the evidence supports it, otherwise CONCERNS or INSUFFICIENT_EVIDENCE with the findings that block it. This is a report-only review: nothing from it is delivered to the builder; the user reads the verdict on the badge and in the report."
+    : undefined
   // A13 — the request under review is the supervisor's own delivered
   // findings: this is a follow-up review, scoped to resolution and the
   // response's own changes, never a fresh audit of the stage.
-  const followUp = !input.explicit && isFollowUpRequest(input.latestUserRequest)
+  const followUp = question === undefined && !input.explicit && isFollowUpRequest(input.latestUserRequest)
   const assignment = followUp
     ? "Assignment: follow-up review. Verify each previously delivered finding against the current tree — resolved, unresolved, or worsened — and check the response's own changes for new defects. Do not re-audit unchanged ground; new findings beyond the response's changes belong to the next stage checkpoint, not this one."
     : undefined
@@ -54,7 +68,7 @@ export function envelope(input: {
   // claims inlined, so the review is judged on the claims without
   // re-reading the whole evidence. A follow-up marker takes precedence
   // when both apply.
-  const noop = input.turnNoop === true && !followUp
+  const noop = input.turnNoop === true && !followUp && question === undefined
   const noopAssignment = noop
     ? "Assignment: no-op turn — the turn's captured steps changed no files. Judge only the claims made in the turn's messages, inlined below; spot-check specific claims against the tree as needed. Do not re-audit unchanged ground and raise no findings beyond the turn's claims."
     : undefined
@@ -96,13 +110,17 @@ export function envelope(input: {
     ...(deferNote === undefined ? [] : ["", deferNote]),
     "",
     "Mode: checkpoint",
-    ...(assignment === undefined ? [] : ["", assignment]),
-    ...(noopAssignment === undefined
-      ? []
+    ...(questionAssignment !== undefined
+      ? ["", questionAssignment]
       : [
-          "",
-          noopAssignment,
-          ...(claims === undefined ? [] : ["", "Turn claims (assistant, verbatim):", claims]),
+          ...(assignment === undefined ? [] : ["", assignment]),
+          ...(noopAssignment === undefined
+            ? []
+            : [
+                "",
+                noopAssignment,
+                ...(claims === undefined ? [] : ["", "Turn claims (assistant, verbatim):", claims]),
+              ]),
         ]),
     "",
     `Evidence: ${input.evidencePath}`,
@@ -129,6 +147,7 @@ export async function runReviewer(input: {
   changedFiles?: string[]
   turnFiles?: string[]
   steeringHistory?: { count: number; latest?: string }
+  question?: string
 }): Promise<{ sessionID: string; report: string; usage: any }> {
   const session = await input.client.session.create({
     agent: "workflow-reviewer",

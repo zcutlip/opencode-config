@@ -11,18 +11,21 @@ export const checkpointInputSchema = {
   properties: {
     phase: { type: "string" },
     transition: { type: "string" },
+    question: { type: "string" },
   },
 } as const
 
-export function parseCheckpointInput(input: unknown): { phase?: string; transition?: string } {
+export function parseCheckpointInput(input: unknown): { phase?: string; transition?: string; question?: string } {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw new Error("Checkpoint input must be an object")
   }
   for (const key of Object.keys(input)) {
-    if (key !== "phase" && key !== "transition") throw new Error(`Unsupported checkpoint input field: ${key}`)
+    if (key !== "phase" && key !== "transition" && key !== "question") {
+      throw new Error(`Unsupported checkpoint input field: ${key}`)
+    }
   }
   const value = input as Record<string, unknown>
-  for (const key of ["phase", "transition"] as const) {
+  for (const key of ["phase", "transition", "question"] as const) {
     if (value[key] !== undefined && typeof value[key] !== "string") {
       throw new Error(`Checkpoint input field ${key} must be a string`)
     }
@@ -30,6 +33,7 @@ export function parseCheckpointInput(input: unknown): { phase?: string; transiti
   return {
     ...(typeof value.phase === "string" ? { phase: value.phase } : {}),
     ...(typeof value.transition === "string" ? { transition: value.transition } : {}),
+    ...(typeof value.question === "string" ? { question: value.question } : {}),
   }
 }
 
@@ -264,6 +268,9 @@ export class WorkflowObserver {
         // A16 — the observed turn's own changes, distinct from the shared
         // working tree the reviewer also sees.
         turnFiles: evidence.turnFiles,
+        // /ws-review <question> — the typed question is the review's
+        // assignment; it rides the envelope and nothing else.
+        question: typeof input?.question === "string" ? input.question : undefined,
         changedFiles: evidence.workingDiff
           .map((item: any) => (typeof item?.file === "string" ? item.file : undefined))
           .filter((file: any): file is string => typeof file === "string"),
@@ -302,7 +309,7 @@ export class WorkflowObserver {
   }
 
   async explicitCheckpoint(sessionID: string, input: unknown = {}): Promise<any> {
-    let parsed: { phase?: string; transition?: string }
+    let parsed: { phase?: string; transition?: string; question?: string }
     parsed = parseCheckpointInput(input)
     return this.enqueue(
       sessionID,

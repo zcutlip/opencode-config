@@ -147,6 +147,7 @@ export const WorkflowSupervisorRpc = Rpc.define({
         type: "object",
         properties: {
           sessionID: { type: "string" },
+          question: { type: "string" },
         },
         required: ["sessionID"],
         additionalProperties: false,
