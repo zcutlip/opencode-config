@@ -579,10 +579,41 @@ a new review still shows `reviewing` alongside the previous checkpoint's
 marker. The marker reports a verdict — it never approves a transition.
 Failed and skipped reviews also emit the cleared `reviewing` state.
 
+### A19 — judgment-only ask channel on the explicit trigger
+
+Status: accepted by the user's "build it now" on 2026-11-26 and implemented
+the same day, deliberately not deferred into Phase 4; the unlocked
+`supervision.test.ts` suite pins the new behavior (94/94 pass, 383
+assertions across six files). Live field validation — a typed question on
+a supervised session — remains outstanding.
+
+The only way to pose a transition question to the reviewer had been a
+message typed to the builder, which a builder reads as authorization to
+start the next stage (observed 2026-11-25). `/ws-review <question>` now
+carries trailing text as the review's assignment instead: the question is
+marked user-typed in the envelope, replaces the generic explicit-trigger
+request line, and takes precedence over the follow-up and no-op markers.
+The reviewer answers it directly — `SUPPORTS_TRANSITION` if the question
+asks about proceeding and the evidence supports it, otherwise `CONCERNS`
+or `INSUFFICIENT_EVIDENCE` with the blocking findings — and the review
+stays report-only: the verdict lands on the badge (A18) and in
+`report.md`; nothing reaches the builder. A bare `/ws-review` is
+unchanged.
+
+Mechanics: the question is hashed evidence identity, not provenance, so
+two different questions on the same tree claim different checkpoints
+instead of deduplicating into silence, while an absent question leaves
+existing evidence hashes byte-identical. `parseCheckpointInput` and the
+`supervisionCheckpoint` RPC schema accept the new optional `question`
+field; unknown-field rejection is retained. No locked test was touched:
+the locked `parseCheckpointInput` pins reject only `sessionID` and
+`checklist`, and envelope assertions on no-question input are unchanged.
+
 ## Evidence changes
 
 - Automatic evidence now records the latest assistant text from the observed session.
 - Amendment A6: automatic evidence also carries the observed session's delivered steering log (`steering.jsonl`).
+- Amendment A19: explicit evidence carries the typed review question (`/ws-review <question>`) as hashed evidence identity; provenance is untouched.
 - Automatic reviewer envelopes surface the observed session’s latest user request verbatim and a one-line changed-files summary, so the reviewer receives the same scope cue as a manual checkpoint instead of an open-ended audit brief.
 - The session-turn diff remains unavailable because the installed plugin context exposes no `session.diff`; provenance records that limitation.
 - The working-tree diff and status remain the authoritative change-set evidence.
