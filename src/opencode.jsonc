@@ -293,7 +293,8 @@
   "plugins": [
     "@cortexkit/opencode-magic-context@latest",
     "opencode-cmd-provider",
-    "open-codebase-index"
+    "open-codebase-index",
+    "/Users/zach/Sync/Projects/src/workflow-supervisor/src/plugins/workflow-supervisor"
   ],
 
   // Its required setup: the host's compaction would interfere, so it is off.
