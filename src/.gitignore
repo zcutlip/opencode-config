@@ -10,3 +10,6 @@ service.json
 plugins/nono-sandbox.ts
 skills/nono-sandbox
 skills/nono-troubleshoot
+
+# workflow-reviewer is a symlink
+agents/workflow-reviewer.md
